@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026071000" COMMENT="XMLDB file for mod_idetestfeedback"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
+
+    <TABLES>
+        <TABLE NAME="idetestfeedback" COMMENT="Activity instances">
+            <FIELDS>
+                <FIELD NAME="id"           TYPE="int"  LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+                <FIELD NAME="course"       TYPE="int"  LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="name"         TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="intro"        TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="introformat"  TYPE="int"  LENGTH="4"  NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="assignmentkey" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="timeopen"     TYPE="int"  LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="timeclose"    TYPE="int"  LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="timecreated"  TYPE="int"  LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="timemodified" TYPE="int"  LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="course_fk" TYPE="foreign" FIELDS="course" REFTABLE="course" REFFIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="assignmentkey_idx" UNIQUE="true" FIELDS="assignmentkey"/>
+            </INDEXES>
+        </TABLE>
+
+        <TABLE NAME="idetestfeedback_run" COMMENT="One record per API submission">
+            <FIELDS>
+                <FIELD NAME="id"                TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="true"/>
+                <FIELD NAME="idetestfeedbackid" TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="userid"            TYPE="int"  LENGTH="10"  NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="ide"               TYPE="char" LENGTH="50"  NOTNULL="true" SEQUENCE="false"/>
+                <FIELD NAME="projectname"       TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="commithash"        TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="startedat"         TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="finishedat"        TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="status"            TYPE="char" LENGTH="30"  NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="passedcount"       TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="failedcount"       TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="skippedcount"      TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="errorcount"        TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="timecreated"       TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary"              TYPE="primary"  FIELDS="id"/>
+                <KEY NAME="idetestfeedbackid_fk" TYPE="foreign" FIELDS="idetestfeedbackid" REFTABLE="idetestfeedback" REFFIELDS="id"/>
+                <KEY NAME="userid_fk"            TYPE="foreign"  FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="idetestfeedbackid_userid_idx" UNIQUE="false" FIELDS="idetestfeedbackid, userid"/>
+            </INDEXES>
+        </TABLE>
+
+        <TABLE NAME="idetestfeedback_result" COMMENT="Individual test case results within a run">
+            <FIELDS>
+                <FIELD NAME="id"             TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="true"/>
+                <FIELD NAME="runid"          TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="testsuite"      TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="testname"       TYPE="char" LENGTH="255" NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="status"         TYPE="char" LENGTH="30"  NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="durationms"     TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="message"        TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="stacktracehash" TYPE="char" LENGTH="64"  NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="timecreated"    TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary"  TYPE="primary"  FIELDS="id"/>
+                <KEY NAME="runid_fk" TYPE="foreign"  FIELDS="runid" REFTABLE="idetestfeedback_run" REFFIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="runid_idx" UNIQUE="false" FIELDS="runid"/>
+            </INDEXES>
+        </TABLE>
+    </TABLES>
+</XMLDB>
