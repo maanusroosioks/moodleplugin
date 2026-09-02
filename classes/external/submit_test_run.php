@@ -187,7 +187,9 @@ class submit_test_run extends external_api {
     private static function resolve_run_status(array $results): string {
         if (self::count_status($results, 'ERROR') > 0)  return 'ERROR';
         if (self::count_status($results, 'FAILED') > 0) return 'FAILED';
-        return 'PASSED';
+        if (self::count_status($results, 'PASSED') > 0) return 'PASSED';
+
+        return 'SKIPPED';
     }
 
     private static function count_status(array $results, string $status): int {

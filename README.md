@@ -84,7 +84,9 @@ The submission is rejected (with a localised message) when:
 - `results` is empty.
 
 The stored run's overall `status` is derived from its results: `ERROR` if any
-result errored, otherwise `FAILED` if any failed, otherwise `PASSED`.
+result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least
+one result passed, otherwise `SKIPPED` (every test was skipped). Only a `PASSED`
+run satisfies the `completionpassrun` rule.
 
 ## Capabilities
 

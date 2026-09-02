@@ -5,16 +5,7 @@ namespace mod_idetestfeedback\event;
 
 defined('MOODLE_INTERNAL') || die();
 
-/**
- * A test run was submitted through the web service.
- *
- * The acting user (`userid`) is the web service account that presented the
- * token; `relateduserid` is the student the run was attributed to.
- *
- * @property-read array $other {
- *     - string status: overall run status (PASSED, FAILED, ERROR).
- * }
- */
+
 class test_run_submitted extends \core\event\base {
 
     protected function init() {
