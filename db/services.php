@@ -18,7 +18,7 @@ $services = [
     'IDE Test Results Service' => [
         'functions'       => ['mod_idetestfeedback_submit_test_run'],
         'restrictedusers' => 1,
-        'enabled'         => 1,
+        'enabled'         => 0,
         'shortname'       => 'ide_test_results',
     ],
 ];

@@ -26,14 +26,11 @@ $capabilities = [
         ],
     ],
 
-    // Granted only to the Java service account via restricted web service.
     'mod/idetestfeedback:submit' => [
         'riskbitmask'  => RISK_PERSONAL,
         'captype'      => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes'   => [
-            'manager' => CAP_ALLOW,
-        ],
+        'archetypes'   => [],
     ],
 
     'mod/idetestfeedback:addinstance' => [
