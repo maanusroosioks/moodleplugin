@@ -31,25 +31,93 @@ class repository {
         return $this->db->get_record('user', ['id' => $userid], "id{$namefields}");
     }
 
-    public function get_runs_for_instance(int $instanceid): array {
+    /**
+     * A page of runs for the whole activity, newest first.
+     *
+     * @param array $filters optional 'userid' and/or 'status' to narrow the list
+     */
+    public function get_runs_for_instance(int $instanceid, array $filters = [],
+                                          int $limitfrom = 0, int $limitnum = 0): array {
         $namefields = \core_user\fields::for_name()->get_sql('u')->selects;
+        [$where, $params] = $this->run_filter_sql($instanceid, $filters);
 
         return $this->db->get_records_sql(
             "SELECT r.*{$namefields}
                FROM {idetestfeedback_run} r
                JOIN {user} u ON u.id = r.userid
+              WHERE {$where}
+              ORDER BY r.timecreated DESC, r.id DESC",
+            $params, $limitfrom, $limitnum
+        );
+    }
+
+    public function count_runs_for_instance(int $instanceid, array $filters = []): int {
+        [$where, $params] = $this->run_filter_sql($instanceid, $filters);
+
+        return $this->db->count_records_select('idetestfeedback_run', $where, $params);
+    }
+
+    /**
+     * Distinct users who have at least one run in this activity, for the filter menu.
+     */
+    public function get_students_with_runs(int $instanceid): array {
+        $namefields = \core_user\fields::for_name()->get_sql('u')->selects;
+
+        return $this->db->get_records_sql(
+            "SELECT DISTINCT u.id{$namefields}
+               FROM {idetestfeedback_run} r
+               JOIN {user} u ON u.id = r.userid
               WHERE r.idetestfeedbackid = :instanceid
-              ORDER BY r.timecreated DESC",
+              ORDER BY u.lastname, u.firstname",
             ['instanceid' => $instanceid]
         );
     }
 
-    public function get_runs_for_user(int $instanceid, int $userid): array {
+    public function get_runs_for_user(int $instanceid, int $userid,
+                                      int $limitfrom = 0, int $limitnum = 0): array {
         return $this->db->get_records(
             'idetestfeedback_run',
             ['idetestfeedbackid' => $instanceid, 'userid' => $userid],
-            'timecreated DESC'
+            'timecreated DESC, id DESC',
+            '*', $limitfrom, $limitnum
         );
+    }
+
+    public function count_runs_for_user(int $instanceid, int $userid): int {
+        return $this->db->count_records('idetestfeedback_run',
+            ['idetestfeedbackid' => $instanceid, 'userid' => $userid]);
+    }
+
+    /**
+     * @return array [total runs, passing runs] for the user, computed in the DB
+     */
+    public function get_pass_stats(int $instanceid, int $userid): array {
+        $total  = $this->count_runs_for_user($instanceid, $userid);
+        $passed = $this->db->count_records('idetestfeedback_run',
+            ['idetestfeedbackid' => $instanceid, 'userid' => $userid, 'status' => 'PASSED']);
+
+        return [$total, $passed];
+    }
+
+    /**
+     * Builds the shared WHERE clause (no table alias) for the run list/count.
+     *
+     * @return array [string $where, array $params]
+     */
+    private function run_filter_sql(int $instanceid, array $filters): array {
+        $where = 'idetestfeedbackid = :instanceid';
+        $params = ['instanceid' => $instanceid];
+
+        if (!empty($filters['userid'])) {
+            $where .= ' AND userid = :fuserid';
+            $params['fuserid'] = $filters['userid'];
+        }
+        if (!empty($filters['status'])) {
+            $where .= ' AND status = :fstatus';
+            $params['fstatus'] = $filters['status'];
+        }
+
+        return [$where, $params];
     }
 
     public function get_active_user_by_email(string $email): object|false {

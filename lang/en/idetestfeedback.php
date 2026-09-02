@@ -53,10 +53,15 @@ $string['duration']    = 'Duration';
 $string['message']     = 'Failure message';
 $string['viewdetail']  = 'View';
 
+// Filters
+$string['allstudents']   = 'All students';
+$string['allstatuses']   = 'All statuses';
+
 // Dynamic messages
-$string['noresults']   = 'No test results found.';
-$string['runnotfound'] = 'Test run not found.';
-$string['totalruns']   = 'Total: {$a} run(s)';
+$string['noresults']      = 'No test results found.';
+$string['nomatchingruns'] = 'No test runs match the selected filters.';
+$string['runnotfound']    = 'Test run not found.';
+$string['totalruns']      = 'Total: {$a} run(s)';
 $string['summarytext'] = 'You have {$a->total} run(s) for this assignment. Pass rate: {$a->rate}%.';
 
 // Completion

@@ -8,6 +8,8 @@ use mod_idetestfeedback\local\repository;
 defined('MOODLE_INTERNAL') || die();
 
 class view {
+    protected const PER_PAGE = 50;
+
     protected int $id;
     protected int $runid;
     protected $cm;
@@ -195,16 +197,42 @@ class view {
     }
 
     protected function render_teacher_view(): void {
+        $page         = optional_param('page', 0, PARAM_INT);
+        $filteruserid = optional_param('filteruserid', 0, PARAM_INT);
+        $filterstatus = optional_param('filterstatus', '', PARAM_ALPHA);
+
         echo $this->output->heading(get_string('viewresults', 'mod_idetestfeedback'), 2);
 
-        $runs = $this->repository->get_runs_for_instance($this->instance->id);
-
-        if (empty($runs)) {
+        $grandtotal = $this->repository->count_runs_for_instance($this->instance->id);
+        if ($grandtotal === 0) {
             echo $this->output->notification(get_string('noresults', 'mod_idetestfeedback'), 'info');
             return;
         }
 
-        echo \html_writer::tag('p', get_string('totalruns', 'mod_idetestfeedback', count($runs)), ['class' => 'text-muted']);
+        $filters = [];
+        if ($filteruserid) {
+            $filters['userid'] = $filteruserid;
+        }
+        if ($filterstatus) {
+            $filters['status'] = $filterstatus;
+        }
+
+        $this->render_run_filters($filteruserid, $filterstatus);
+
+        $total = $filters
+            ? $this->repository->count_runs_for_instance($this->instance->id, $filters)
+            : $grandtotal;
+
+        if ($total === 0) {
+            echo $this->output->notification(get_string('nomatchingruns', 'mod_idetestfeedback'), 'info');
+            return;
+        }
+
+        $page = $this->clamp_page($page, $total);
+        $runs = $this->repository->get_runs_for_instance(
+            $this->instance->id, $filters, $page * self::PER_PAGE, self::PER_PAGE);
+
+        echo \html_writer::tag('p', get_string('totalruns', 'mod_idetestfeedback', $total), ['class' => 'text-muted']);
 
         $table = new \html_table();
         $table->attributes['class'] = 'table table-striped table-bordered table-sm';
@@ -237,20 +265,73 @@ class view {
         }
 
         echo \html_writer::table($table);
+
+        echo $this->output->paging_bar($total, $page, self::PER_PAGE, $this->list_url($filters));
+    }
+
+    protected function render_run_filters(int $filteruserid, string $filterstatus): void {
+        $students = $this->repository->get_students_with_runs($this->instance->id);
+        $studentoptions = [];
+        foreach ($students as $student) {
+            $studentoptions[$student->id] = fullname($student);
+        }
+
+        $studenturl = new \moodle_url('/mod/idetestfeedback/view.php',
+            ['id' => $this->id] + ($filterstatus ? ['filterstatus' => $filterstatus] : []));
+        $studentselect = new \single_select(
+            $studenturl, 'filteruserid', $studentoptions, $filteruserid,
+            ['' => get_string('allstudents', 'mod_idetestfeedback')]
+        );
+        $studentselect->label = get_string('student', 'mod_idetestfeedback');
+
+        $statusurl = new \moodle_url('/mod/idetestfeedback/view.php',
+            ['id' => $this->id] + ($filteruserid ? ['filteruserid' => $filteruserid] : []));
+        $statusselect = new \single_select(
+            $statusurl, 'filterstatus',
+            ['PASSED' => 'PASSED', 'FAILED' => 'FAILED', 'ERROR' => 'ERROR', 'SKIPPED' => 'SKIPPED'],
+            $filterstatus,
+            ['' => get_string('allstatuses', 'mod_idetestfeedback')]
+        );
+        $statusselect->label = get_string('status', 'mod_idetestfeedback');
+
+        echo \html_writer::div(
+            $this->output->render($studentselect) . $this->output->render($statusselect),
+            'd-flex flex-wrap gap-3 mb-3'
+        );
+    }
+
+    protected function clamp_page(int $page, int $total): int {
+        $maxpage = $total > 0 ? (int) floor(($total - 1) / self::PER_PAGE) : 0;
+        return max(0, min($page, $maxpage));
+    }
+
+    protected function list_url(array $filters): \moodle_url {
+        $params = ['id' => $this->id];
+        if (!empty($filters['userid'])) {
+            $params['filteruserid'] = $filters['userid'];
+        }
+        if (!empty($filters['status'])) {
+            $params['filterstatus'] = $filters['status'];
+        }
+        return new \moodle_url('/mod/idetestfeedback/view.php', $params);
     }
 
     protected function render_student_view(): void {
+        $page = optional_param('page', 0, PARAM_INT);
+
         echo $this->output->heading(get_string('myresults', 'mod_idetestfeedback'), 2);
 
-        $runs = $this->repository->get_runs_for_user($this->instance->id, $this->user->id);
+        [$total, $passedrunscount] = $this->repository->get_pass_stats($this->instance->id, $this->user->id);
 
-        if (empty($runs)) {
+        if ($total === 0) {
             echo $this->output->notification(get_string('noresults', 'mod_idetestfeedback'), 'info');
             return;
         }
 
-        $total = count($runs);
-        $passedrunscount = count(array_filter($runs, fn($r) => $r->status === 'PASSED'));
+        $page = $this->clamp_page($page, $total);
+        $runs = $this->repository->get_runs_for_user(
+            $this->instance->id, $this->user->id, $page * self::PER_PAGE, self::PER_PAGE);
+
         $rate = $total > 0 ? round($passedrunscount / $total * 100) : 0;
 
         echo \html_writer::div(
@@ -294,6 +375,11 @@ class view {
         }
 
         echo \html_writer::table($table);
+
+        echo $this->output->paging_bar(
+            $total, $page, self::PER_PAGE,
+            new \moodle_url('/mod/idetestfeedback/view.php', ['id' => $this->id])
+        );
     }
 
     protected function status_badge(string $status): string {

@@ -53,10 +53,15 @@ $string['duration']    = 'Kestus';
 $string['message']     = 'Veateade';
 $string['viewdetail']  = 'Vaata';
 
+// Filters
+$string['allstudents']   = 'Kõik õppijad';
+$string['allstatuses']   = 'Kõik staatused';
+
 // Dynamic messages
-$string['noresults']   = 'Testitulemusi ei leitud.';
-$string['runnotfound'] = 'Testijooksu ei leitud.';
-$string['totalruns']   = 'Kokku: {$a} testijooksu';
+$string['noresults']      = 'Testitulemusi ei leitud.';
+$string['nomatchingruns'] = 'Valitud filtritele ei vasta ükski testijooks.';
+$string['runnotfound']    = 'Testijooksu ei leitud.';
+$string['totalruns']      = 'Kokku: {$a} testijooksu';
 $string['summarytext'] = 'Sul on selle ülesande jaoks {$a->total} testijooksu. Läbimise määr: {$a->rate}%.';
 
 // Completion
