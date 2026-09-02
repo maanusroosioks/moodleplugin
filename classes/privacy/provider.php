@@ -7,24 +7,33 @@ defined('MOODLE_INTERNAL') || die();
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\contextlist;
 use core_privacy\local\request\transform;
+use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 
 class provider implements
     \core_privacy\local\metadata\provider,
-    \core_privacy\local\request\plugin\provider {
+    \core_privacy\local\request\plugin\provider,
+    \core_privacy\local\request\core_userlist_provider {
 
     public static function get_metadata(collection $collection): collection {
         $collection->add_database_table(
             'idetestfeedback_run',
             [
-                'userid'      => 'privacy:metadata:run:userid',
-                'ide'         => 'privacy:metadata:run:ide',
-                'projectname' => 'privacy:metadata:run:projectname',
-                'commithash'  => 'privacy:metadata:run:commithash',
-                'status'      => 'privacy:metadata:run:status',
-                'timecreated' => 'privacy:metadata:run:timecreated',
+                'userid'       => 'privacy:metadata:run:userid',
+                'ide'          => 'privacy:metadata:run:ide',
+                'projectname'  => 'privacy:metadata:run:projectname',
+                'commithash'   => 'privacy:metadata:run:commithash',
+                'startedat'    => 'privacy:metadata:run:startedat',
+                'finishedat'   => 'privacy:metadata:run:finishedat',
+                'status'       => 'privacy:metadata:run:status',
+                'passedcount'  => 'privacy:metadata:run:passedcount',
+                'failedcount'  => 'privacy:metadata:run:failedcount',
+                'skippedcount' => 'privacy:metadata:run:skippedcount',
+                'errorcount'   => 'privacy:metadata:run:errorcount',
+                'timecreated'  => 'privacy:metadata:run:timecreated',
             ],
             'privacy:metadata:run'
         );
@@ -32,9 +41,13 @@ class provider implements
         $collection->add_database_table(
             'idetestfeedback_result',
             [
-                'testname' => 'privacy:metadata:result:testname',
-                'status'   => 'privacy:metadata:result:status',
-                'message'  => 'privacy:metadata:result:message',
+                'testsuite'      => 'privacy:metadata:result:testsuite',
+                'testname'       => 'privacy:metadata:result:testname',
+                'status'         => 'privacy:metadata:result:status',
+                'durationms'     => 'privacy:metadata:result:durationms',
+                'message'        => 'privacy:metadata:result:message',
+                'stacktracehash' => 'privacy:metadata:result:stacktracehash',
+                'timecreated'    => 'privacy:metadata:result:timecreated',
             ],
             'privacy:metadata:result'
         );
@@ -58,13 +71,31 @@ class provider implements
         return $contextlist;
     }
 
+    public static function get_users_in_context(userlist $userlist): void {
+        $context = $userlist->get_context();
+        if (!$context instanceof \context_module) {
+            return;
+        }
+
+        $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
+        if (!$cm) {
+            return;
+        }
+
+        $userlist->add_from_sql(
+            'userid',
+            "SELECT userid FROM {idetestfeedback_run} WHERE idetestfeedbackid = :instanceid",
+            ['instanceid' => $cm->instance]
+        );
+    }
+
     public static function export_user_data(approved_contextlist $contextlist): void {
         global $DB;
 
         $userid = $contextlist->get_user()->id;
 
         foreach ($contextlist->get_contexts() as $context) {
-            if ($context->contextlevel !== CONTEXT_MODULE) {
+            if (!$context instanceof \context_module) {
                 continue;
             }
             $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
@@ -84,6 +115,8 @@ class provider implements
                     'ide'          => $run->ide,
                     'projectname'  => $run->projectname,
                     'commithash'   => $run->commithash,
+                    'startedat'    => $run->startedat ? transform::datetime($run->startedat) : null,
+                    'finishedat'   => $run->finishedat ? transform::datetime($run->finishedat) : null,
                     'status'       => $run->status,
                     'passedcount'  => $run->passedcount,
                     'failedcount'  => $run->failedcount,
@@ -91,7 +124,15 @@ class provider implements
                     'errorcount'   => $run->errorcount,
                     'timecreated'  => transform::datetime($run->timecreated),
                     'results'      => array_values(array_map(
-                        fn($r) => ['testname' => $r->testname, 'status' => $r->status, 'message' => $r->message],
+                        fn($r) => [
+                            'testsuite'      => $r->testsuite,
+                            'testname'       => $r->testname,
+                            'status'         => $r->status,
+                            'durationms'     => $r->durationms,
+                            'message'        => $r->message,
+                            'stacktracehash' => $r->stacktracehash,
+                            'timecreated'    => transform::datetime($r->timecreated),
+                        ],
                         $results
                     )),
                 ];
@@ -101,9 +142,7 @@ class provider implements
     }
 
     public static function delete_data_for_all_users_in_context(\context $context): void {
-        global $DB;
-
-        if ($context->contextlevel !== CONTEXT_MODULE) {
+        if (!$context instanceof \context_module) {
             return;
         }
         $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
@@ -111,21 +150,14 @@ class provider implements
             return;
         }
 
-        $runids = $DB->get_fieldset_select('idetestfeedback_run', 'id', 'idetestfeedbackid = ?', [$cm->instance]);
-        if ($runids) {
-            [$insql, $inparams] = $DB->get_in_or_equal($runids);
-            $DB->delete_records_select('idetestfeedback_result', "runid $insql", $inparams);
-        }
-        $DB->delete_records('idetestfeedback_run', ['idetestfeedbackid' => $cm->instance]);
+        self::delete_runs($cm->instance);
     }
 
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
-        global $DB;
-
         $userid = $contextlist->get_user()->id;
 
         foreach ($contextlist->get_contexts() as $context) {
-            if ($context->contextlevel !== CONTEXT_MODULE) {
+            if (!$context instanceof \context_module) {
                 continue;
             }
             $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
@@ -133,16 +165,49 @@ class provider implements
                 continue;
             }
 
-            $runids = $DB->get_fieldset_select(
-                'idetestfeedback_run', 'id',
-                'idetestfeedbackid = ? AND userid = ?',
-                [$cm->instance, $userid]
-            );
-            if ($runids) {
-                [$insql, $inparams] = $DB->get_in_or_equal($runids);
-                $DB->delete_records_select('idetestfeedback_result', "runid $insql", $inparams);
-                $DB->delete_records('idetestfeedback_run', ['idetestfeedbackid' => $cm->instance, 'userid' => $userid]);
-            }
+            self::delete_runs($cm->instance, [$userid]);
         }
+    }
+
+    public static function delete_data_for_users(approved_userlist $userlist): void {
+        $context = $userlist->get_context();
+        if (!$context instanceof \context_module) {
+            return;
+        }
+        $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
+        if (!$cm) {
+            return;
+        }
+
+        self::delete_runs($cm->instance, $userlist->get_userids());
+    }
+
+    /**
+     * Deletes runs (and their results) for an instance, optionally limited to specific users.
+     *
+     * @param int $instanceid the idetestfeedback instance id
+     * @param int[]|null $userids null = every user; otherwise only these users
+     */
+    private static function delete_runs(int $instanceid, ?array $userids = null): void {
+        global $DB;
+
+        $runselect = 'idetestfeedbackid = :instanceid';
+        $runparams = ['instanceid' => $instanceid];
+
+        if ($userids !== null) {
+            if (empty($userids)) {
+                return;
+            }
+            [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
+            $runselect .= " AND userid $insql";
+            $runparams += $inparams;
+        }
+
+        $runids = $DB->get_fieldset_select('idetestfeedback_run', 'id', $runselect, $runparams);
+        if ($runids) {
+            [$insql, $inparams] = $DB->get_in_or_equal($runids);
+            $DB->delete_records_select('idetestfeedback_result', "runid $insql", $inparams);
+        }
+        $DB->delete_records_select('idetestfeedback_run', $runselect, $runparams);
     }
 }
