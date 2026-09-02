@@ -68,4 +68,21 @@ class mod_idetestfeedback_mod_form extends moodleform_mod {
 
         return $errors;
     }
+
+    public function add_completion_rules(): array {
+        $mform = $this->_form;
+
+        $mform->addElement(
+            'checkbox',
+            'completionpassrun',
+            '',
+            get_string('completionpassrun', 'mod_idetestfeedback')
+        );
+
+        return ['completionpassrun'];
+    }
+
+    public function completion_rule_enabled($data): bool {
+        return !empty($data['completionpassrun']);
+    }
 }

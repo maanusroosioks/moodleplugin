@@ -53,6 +53,8 @@ class view {
     }
 
     public function render(): void {
+        $this->mark_viewed();
+
         echo $this->output->header();
         echo $this->output->heading(format_string($this->instance->name));
 
@@ -67,6 +69,14 @@ class view {
         }
 
         echo $this->output->footer();
+    }
+
+    protected function mark_viewed(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/completionlib.php');
+
+        $completion = new \completion_info($this->course);
+        $completion->set_module_viewed($this->cm);
     }
 
     protected function render_submission_window_notice(): void {

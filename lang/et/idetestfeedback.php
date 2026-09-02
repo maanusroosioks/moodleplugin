@@ -59,6 +59,10 @@ $string['runnotfound'] = 'Testijooksu ei leitud.';
 $string['totalruns']   = 'Kokku: {$a} testijooksu';
 $string['summarytext'] = 'Sul on selle ülesande jaoks {$a->total} testijooksu. Läbimise määr: {$a->rate}%.';
 
+// Completion
+$string['completionpassrun']      = 'Õpilane peab esitama testijooksu, kus kõik testid läbivad';
+$string['completionpassrun_desc'] = 'Esita testijooks, kus ei ole ühtegi ebaõnnestunud ega vigast testi';
+
 // Capabilities
 $string['idetestfeedback:view']          = 'Vaata enda IDE testitulemusi';
 $string['idetestfeedback:viewall']       = 'Vaata kõigi õpilaste IDE testitulemusi';

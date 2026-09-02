@@ -72,7 +72,26 @@ class submit_test_run extends external_api {
         $instance = $repository->get_instance_by_assignmentkey($params['assignmentkey']);
         $runid = self::store_run($repository, $instance->id, $userid, $params);
 
+        self::update_completion($instance, $userid);
+
         return ['runid' => $runid];
+    }
+
+    private static function update_completion(\stdClass $instance, int $userid): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/lib/completionlib.php');
+
+        if (empty($instance->completionpassrun)) {
+            return;
+        }
+
+        $course = get_course($instance->course);
+        $cm = get_coursemodule_from_instance('idetestfeedback', $instance->id, $course->id, false, MUST_EXIST);
+
+        $completion = new \completion_info($course);
+        if ($completion->is_enabled($cm)) {
+            $completion->update_state($cm, COMPLETION_UNKNOWN, $userid);
+        }
     }
 
     public static function execute_returns(): external_single_structure {
