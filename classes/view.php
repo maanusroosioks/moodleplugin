@@ -56,6 +56,7 @@ class view {
 
     public function render(): void {
         $this->mark_viewed();
+        $this->log_viewed();
 
         echo $this->output->header();
         echo $this->output->heading(format_string($this->instance->name));
@@ -79,6 +80,16 @@ class view {
 
         $completion = new \completion_info($this->course);
         $completion->set_module_viewed($this->cm);
+    }
+
+    protected function log_viewed(): void {
+        $event = \mod_idetestfeedback\event\course_module_viewed::create([
+            'objectid' => $this->instance->id,
+            'context'  => $this->context,
+        ]);
+        $event->add_record_snapshot('course', $this->course);
+        $event->add_record_snapshot('idetestfeedback', $this->instance);
+        $event->trigger();
     }
 
     protected function render_submission_window_notice(): void {

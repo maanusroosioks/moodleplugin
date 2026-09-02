@@ -64,6 +64,9 @@ $string['runnotfound']    = 'Test run not found.';
 $string['totalruns']      = 'Total: {$a} run(s)';
 $string['summarytext'] = 'You have {$a->total} run(s) for this assignment. Pass rate: {$a->rate}%.';
 
+// Events
+$string['event_test_run_submitted'] = 'Test run submitted';
+
 // Completion
 $string['completionpassrun']      = 'Student must submit a test run in which every test passes';
 $string['completionpassrun_desc'] = 'Submit a test run with no failed or errored tests';

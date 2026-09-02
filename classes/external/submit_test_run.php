@@ -12,6 +12,8 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use context_system;
 use context_course;
+use context_module;
+use mod_idetestfeedback\event\test_run_submitted;
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\validation_exception;
 
@@ -70,14 +72,17 @@ class submit_test_run extends external_api {
         $userid = self::validate_submission($repository, $params);
 
         $instance = $repository->get_instance_by_assignmentkey($params['assignmentkey']);
-        $runid = self::store_run($repository, $instance->id, $userid, $params);
+        $cm = get_coursemodule_from_instance('idetestfeedback', $instance->id, $instance->course, false, MUST_EXIST);
 
-        self::update_completion($instance, $userid);
+        $run = self::store_run($repository, $instance->id, $userid, $params);
 
-        return ['runid' => $runid];
+        self::update_completion($instance, $cm, $userid);
+        self::log_submission($cm, $run, $userid);
+
+        return ['runid' => $run->id];
     }
 
-    private static function update_completion(\stdClass $instance, int $userid): void {
+    private static function update_completion(\stdClass $instance, \stdClass $cm, int $userid): void {
         global $CFG;
         require_once($CFG->dirroot . '/lib/completionlib.php');
 
@@ -85,13 +90,19 @@ class submit_test_run extends external_api {
             return;
         }
 
-        $course = get_course($instance->course);
-        $cm = get_coursemodule_from_instance('idetestfeedback', $instance->id, $course->id, false, MUST_EXIST);
-
-        $completion = new \completion_info($course);
+        $completion = new \completion_info(get_course($instance->course));
         if ($completion->is_enabled($cm)) {
             $completion->update_state($cm, COMPLETION_UNKNOWN, $userid);
         }
+    }
+
+    private static function log_submission(\stdClass $cm, \stdClass $run, int $userid): void {
+        test_run_submitted::create([
+            'objectid'      => $run->id,
+            'context'       => context_module::instance($cm->id),
+            'relateduserid' => $userid,
+            'other'         => ['status' => $run->status],
+        ])->trigger();
     }
 
     public static function execute_returns(): external_single_structure {
@@ -137,7 +148,7 @@ class submit_test_run extends external_api {
         return $user->id;
     }
 
-    private static function store_run(repository $repository, int $instanceid, int $userid, array $params): int {
+    private static function store_run(repository $repository, int $instanceid, int $userid, array $params): \stdClass {
         $now = time();
 
         $run                 = new \stdClass();
@@ -155,11 +166,11 @@ class submit_test_run extends external_api {
         $run->errorcount     = self::count_status($params['results'], 'ERROR');
         $run->timecreated    = $now;
 
-        $runid = $repository->insert_run($run);
+        $run->id = $repository->insert_run($run);
 
         foreach ($params['results'] as $r) {
             $result                 = new \stdClass();
-            $result->runid          = $runid;
+            $result->runid          = $run->id;
             $result->testsuite      = $r['testsuite']      ?? null;
             $result->testname       = $r['testname'];
             $result->status         = $r['status'];
@@ -170,7 +181,7 @@ class submit_test_run extends external_api {
             $repository->insert_result($result);
         }
 
-        return $runid;
+        return $run;
     }
 
     private static function resolve_run_status(array $results): string {

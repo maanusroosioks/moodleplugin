@@ -64,6 +64,9 @@ $string['runnotfound']    = 'Testijooksu ei leitud.';
 $string['totalruns']      = 'Kokku: {$a} testijooksu';
 $string['summarytext'] = 'Sul on selle ülesande jaoks {$a->total} testijooksu. Läbimise määr: {$a->rate}%.';
 
+// Events
+$string['event_test_run_submitted'] = 'Testijooks esitatud';
+
 // Completion
 $string['completionpassrun']      = 'Õpilane peab esitama testijooksu, kus kõik testid läbivad';
 $string['completionpassrun_desc'] = 'Esita testijooks, kus ei ole ühtegi ebaõnnestunud ega vigast testi';
