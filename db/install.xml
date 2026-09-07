@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026090250" COMMENT="XMLDB file for mod_idetestfeedback"
+<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026090253" COMMENT="XMLDB file for mod_idetestfeedback"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
 
@@ -43,11 +43,6 @@
                 <FIELD NAME="failedcount"       TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="skippedcount"      TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="errorcount"        TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="requiredtotal"     TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false" COMMENT="Teacher-defined test cases in effect for this run (0 = no list defined)"/>
-                <FIELD NAME="requiredpassed"    TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="requiredfailed"    TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="requiredskipped"   TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="requiredmissing"   TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="timecreated"       TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
             </FIELDS>
             <KEYS>

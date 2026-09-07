@@ -33,11 +33,6 @@ class provider implements
                 'failedcount'  => 'privacy:metadata:run:failedcount',
                 'skippedcount' => 'privacy:metadata:run:skippedcount',
                 'errorcount'   => 'privacy:metadata:run:errorcount',
-                'requiredtotal'   => 'privacy:metadata:run:requiredtotal',
-                'requiredpassed'  => 'privacy:metadata:run:requiredpassed',
-                'requiredfailed'  => 'privacy:metadata:run:requiredfailed',
-                'requiredskipped' => 'privacy:metadata:run:requiredskipped',
-                'requiredmissing' => 'privacy:metadata:run:requiredmissing',
                 'timecreated'  => 'privacy:metadata:run:timecreated',
             ],
             'privacy:metadata:run'
@@ -127,11 +122,6 @@ class provider implements
                     'failedcount'  => $run->failedcount,
                     'skippedcount' => $run->skippedcount,
                     'errorcount'   => $run->errorcount,
-                    'requiredtotal'   => $run->requiredtotal,
-                    'requiredpassed'  => $run->requiredpassed,
-                    'requiredfailed'  => $run->requiredfailed,
-                    'requiredskipped' => $run->requiredskipped,
-                    'requiredmissing' => $run->requiredmissing,
                     'timecreated'  => transform::datetime($run->timecreated),
                     'results'      => array_values(array_map(
                         fn($r) => [

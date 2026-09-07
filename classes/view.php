@@ -128,6 +128,12 @@ class view {
 
         echo $this->output->heading(get_string('rundetail', 'mod_idetestfeedback'), 2);
 
+        $results = $this->repository->get_results($this->runid);
+
+        $requiredentries = required_tests::parse($this->instance->requiredtests ?? null);
+        $showrequired = $requiredentries !== [];
+        $required = $showrequired ? required_tests::evaluate($requiredentries, $results) : null;
+
         $meta = new \html_table();
         $meta->attributes['class'] = 'table table-bordered w-auto mb-4';
 
@@ -157,23 +163,23 @@ class view {
             $meta->data[] = [get_string('skipped', 'mod_idetestfeedback'), (int) $run->skippedcount];
         }
 
-        if ((int) $run->requiredtotal > 0) {
+        if ($required && $required['total'] > 0) {
             $meta->data[] = [
                 get_string('requiredprogress', 'mod_idetestfeedback'),
                 \html_writer::tag('span',
-                    (int) $run->requiredpassed . ' / ' . (int) $run->requiredtotal,
+                    $required['passed'] . ' / ' . $required['total'],
                     ['style' => 'font-weight:bold;']),
             ];
 
             $outstanding = [];
-            if ((int) $run->requiredfailed > 0) {
-                $outstanding[] = get_string('requiredfailedn', 'mod_idetestfeedback', (int) $run->requiredfailed);
+            if ($required['failed'] > 0) {
+                $outstanding[] = get_string('requiredfailedn', 'mod_idetestfeedback', $required['failed']);
             }
-            if ((int) $run->requiredskipped > 0) {
-                $outstanding[] = get_string('requiredskippedn', 'mod_idetestfeedback', (int) $run->requiredskipped);
+            if ($required['skipped'] > 0) {
+                $outstanding[] = get_string('requiredskippedn', 'mod_idetestfeedback', $required['skipped']);
             }
-            if ((int) $run->requiredmissing > 0) {
-                $outstanding[] = get_string('requiredmissingn', 'mod_idetestfeedback', (int) $run->requiredmissing);
+            if ($required['missing'] > 0) {
+                $outstanding[] = get_string('requiredmissingn', 'mod_idetestfeedback', $required['missing']);
             }
             if ($outstanding) {
                 $meta->data[] = [
@@ -189,15 +195,10 @@ class view {
 
         echo $this->output->heading(get_string('testresults', 'mod_idetestfeedback'), 3);
 
-        $results = $this->repository->get_results($this->runid);
-
         if (empty($results)) {
             echo $this->output->notification(get_string('noresults', 'mod_idetestfeedback'), 'info');
             return;
         }
-
-        $requiredentries = required_tests::parse($this->instance->requiredtests ?? null);
-        $showrequired = $requiredentries !== [];
 
         $table = new \html_table();
         $table->attributes['class'] = 'table table-sm table-bordered';

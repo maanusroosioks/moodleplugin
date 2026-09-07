@@ -4,5 +4,5 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'mod_idetestfeedback';
-$plugin->version   = 2026090252;
+$plugin->version   = 2026090253;
 $plugin->requires  = 2024042200;

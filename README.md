@@ -93,23 +93,26 @@ one result passed, otherwise `SKIPPED` (every test was skipped).
 
 A teacher can list the test cases that count for the activity in the
 **Defined test cases** field, one per line, as either `testName` or
-`testSuite#testName`. The list is stored on the instance as `requiredtests` and
-**snapshotted onto each run** at submission time:
+`testSuite#testName`. The list is stored on the instance as `requiredtests`;
+blank lines, entries with no name part (`#`, `Suite#`) and case-insensitive
+duplicates are dropped on save. Each run is scored **live** against the list as
+it currently stands (nothing is copied onto the run):
 
 | `requiredtests` on the activity | How a run is scored | `completionpassrun` is met by |
 | --- | --- | --- |
 | empty (default) | overall `status` only | any run whose `status` is `PASSED` |
-| non-empty | each listed entry is `required{passed,failed,skipped,missing}` on the run (`failed` also covers errored; `missing` = not reported) | a run with `requiredtotal > 0` and `requiredpassed = requiredtotal` |
+| non-empty | every listed entry lands in exactly one bucket per run: passed, failed (also covers errored), skipped, or missing (not reported) | a run in which every listed entry passed |
 
 Matching is case-insensitive (after trimming) against the `testname` /
 `testsuite` the IDE reports. A bare `testName` matches regardless of suite; a
-`testSuite#testName` entry also requires the suite to match.
+`testSuite#testName` entry also requires the suite to match (everything after
+the last `#` is the name).
 
-Completion reflects the **current** list: if a teacher adds a list after runs
-exist, those older runs have `requiredtotal = 0` and no longer complete the
-activity until the student submits again; clearing the list reverts to the
-status-only rule. Results remain self-reported from the student's environment
-and are not independently verified.
+Scoring always reflects the **current** list: the run-details page and the
+`completionpassrun` rule re-evaluate past runs whenever the list changes.
+Adding a list makes earlier runs incomplete until one passes every listed
+entry; clearing the list reverts to the status-only rule. Results remain
+self-reported from the student's environment and are not independently verified.
 
 ## Capabilities
 

@@ -15,7 +15,6 @@ use context_course;
 use context_module;
 use mod_idetestfeedback\event\test_run_submitted;
 use mod_idetestfeedback\local\repository;
-use mod_idetestfeedback\local\required_tests;
 use mod_idetestfeedback\local\validation_exception;
 
 class submit_test_run extends external_api {
@@ -165,17 +164,6 @@ class submit_test_run extends external_api {
         $run->failedcount    = self::count_status($params['results'], 'FAILED');
         $run->skippedcount   = self::count_status($params['results'], 'SKIPPED');
         $run->errorcount     = self::count_status($params['results'], 'ERROR');
-
-        $required = required_tests::evaluate(
-            required_tests::parse($instance->requiredtests ?? null),
-            $params['results']
-        );
-        $run->requiredtotal   = $required['total'];
-        $run->requiredpassed  = $required['passed'];
-        $run->requiredfailed  = $required['failed'];
-        $run->requiredskipped = $required['skipped'];
-        $run->requiredmissing = $required['missing'];
-
         $run->timecreated    = $now;
 
         $run->id = $repository->insert_run($run);

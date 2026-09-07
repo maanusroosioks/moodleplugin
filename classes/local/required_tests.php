@@ -14,7 +14,9 @@ class required_tests {
     }
 
     /**
-     * @return string[] the distinct, trimmed entries from $raw, in input order
+     * Parses the teacher's list into canonical `name` / `suite#name` entries.
+     *
+     * @return string[] the distinct canonical entries, in input order
      */
     public static function parse(?string $raw): array {
         if ($raw === null || trim($raw) === '') {
@@ -28,10 +30,17 @@ class required_tests {
             if ($line === '') {
                 continue;
             }
-            $key = \core_text::strtolower($line);
+
+            [$suite, $name] = self::split_entry($line);
+            if ($name === '') {
+                continue;
+            }
+            $canonical = $suite === null ? $name : $suite . self::QUALIFIER . $name;
+
+            $key = \core_text::strtolower($canonical);
             if (!isset($seen[$key])) {
                 $seen[$key] = true;
-                $entries[] = $line;
+                $entries[] = $canonical;
             }
         }
 
@@ -49,8 +58,8 @@ class required_tests {
      *  - missing: no reported result matches the entry.
      *
      * @param string[] $entries from {@see parse()}
-     * @param array $results the run's result rows, each with 'testname', an
-     *        optional 'testsuite', and 'status'
+     * @param array $results the run's result rows (associative arrays or objects),
+     *        each with 'testname', an optional 'testsuite', and 'status'
      * @return array{total:int,passed:int,failed:int,skipped:int,missing:int}
      */
     public static function evaluate(array $entries, array $results): array {
@@ -58,6 +67,7 @@ class required_tests {
 
         $reported = [];
         foreach ($results as $r) {
+            $r = (array) $r;
             $reported[] = [
                 'name'   => \core_text::strtolower(trim((string) ($r['testname'] ?? ''))),
                 'suite'  => \core_text::strtolower(trim((string) ($r['testsuite'] ?? ''))),
