@@ -96,6 +96,31 @@ class required_tests {
     }
 
     /**
+     * Whether a single reported test is covered by one of the defined entries.
+     *
+     * Uses the same case-insensitive rule as {@see evaluate()}: a bare entry
+     * matches on name alone, a `suite#name` entry also requires the suite.
+     *
+     * @param string[] $entries from {@see parse()}
+     */
+    public static function is_required(array $entries, ?string $testsuite, string $testname): bool {
+        $name  = \core_text::strtolower(trim($testname));
+        $suite = \core_text::strtolower(trim((string) $testsuite));
+
+        foreach ($entries as $entry) {
+            [$esuite, $ename] = self::split_entry($entry);
+            if (\core_text::strtolower($ename) !== $name) {
+                continue;
+            }
+            if ($esuite === null || \core_text::strtolower($esuite) === $suite) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return array{0:?string,1:string} [suite|null, name] for an entry
      */
     private static function split_entry(string $entry): array {

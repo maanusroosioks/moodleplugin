@@ -65,6 +65,7 @@ $string['skipped']     = 'Skipped';
 $string['timecreated'] = 'Date';
 $string['testsuite']   = 'Test suite';
 $string['testname']    = 'Test name';
+$string['required']    = 'Required';
 $string['duration']    = 'Duration';
 $string['message']     = 'Failure message';
 $string['viewdetail']  = 'View';

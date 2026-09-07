@@ -65,6 +65,7 @@ $string['skipped']     = 'Vahele jäetud';
 $string['timecreated'] = 'Kuupäev';
 $string['testsuite']   = 'Testikomplekt';
 $string['testname']    = 'Testi nimi';
+$string['required']    = 'Nõutud';
 $string['duration']    = 'Kestus';
 $string['message']     = 'Veateade';
 $string['viewdetail']  = 'Vaata';

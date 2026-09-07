@@ -4,6 +4,7 @@
 namespace mod_idetestfeedback;
 
 use mod_idetestfeedback\local\repository;
+use mod_idetestfeedback\local\required_tests;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -195,20 +196,31 @@ class view {
             return;
         }
 
+        $requiredentries = required_tests::parse($this->instance->requiredtests ?? null);
+        $showrequired = $requiredentries !== [];
+
         $table = new \html_table();
         $table->attributes['class'] = 'table table-sm table-bordered';
         $table->head = [
             get_string('testsuite', 'mod_idetestfeedback'),
             get_string('testname', 'mod_idetestfeedback'),
-            get_string('status', 'mod_idetestfeedback'),
-            get_string('duration', 'mod_idetestfeedback'),
-            get_string('message', 'mod_idetestfeedback'),
         ];
+        if ($showrequired) {
+            $table->head[] = get_string('required', 'mod_idetestfeedback');
+        }
+        $table->head[] = get_string('status', 'mod_idetestfeedback');
+        $table->head[] = get_string('duration', 'mod_idetestfeedback');
+        $table->head[] = get_string('message', 'mod_idetestfeedback');
 
         foreach ($results as $result) {
             $row = new \html_table_row();
             $row->cells[] = s($result->testsuite ?? '');
             $row->cells[] = s($result->testname);
+            if ($showrequired) {
+                $row->cells[] = required_tests::is_required(
+                    $requiredentries, $result->testsuite ?? null, $result->testname
+                ) ? $this->required_badge() : \html_writer::tag('span', '&#8212;', ['style' => 'color:#adb5bd;']);
+            }
             $row->cells[] = $this->status_badge($result->status);
             $row->cells[] = $result->durationms !== null ? (int) $result->durationms . ' ms' : '';
 
@@ -430,6 +442,13 @@ class view {
 
         return \html_writer::tag('span', s($status), [
             'style' => "display:inline-block;background:{$color};color:#fff;padding:2px 10px;" .
+                'border-radius:3px;font-size:0.82em;font-weight:bold;letter-spacing:0.02em;',
+        ]);
+    }
+
+    protected function required_badge(): string {
+        return \html_writer::tag('span', s(get_string('yes')), [
+            'style' => 'display:inline-block;background:#0f6cbf;color:#fff;padding:2px 10px;' .
                 'border-radius:3px;font-size:0.82em;font-weight:bold;letter-spacing:0.02em;',
         ]);
     }
