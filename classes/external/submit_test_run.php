@@ -15,6 +15,7 @@ use context_course;
 use context_module;
 use mod_idetestfeedback\event\test_run_submitted;
 use mod_idetestfeedback\local\repository;
+use mod_idetestfeedback\local\required_tests;
 use mod_idetestfeedback\local\validation_exception;
 
 class submit_test_run extends external_api {
@@ -74,7 +75,7 @@ class submit_test_run extends external_api {
         $instance = $repository->get_instance_by_assignmentkey($params['assignmentkey']);
         $cm = get_coursemodule_from_instance('idetestfeedback', $instance->id, $instance->course, false, MUST_EXIST);
 
-        $run = self::store_run($repository, $instance->id, $userid, $params);
+        $run = self::store_run($repository, $instance, $userid, $params);
 
         self::update_completion($instance, $cm, $userid);
         self::log_submission($cm, $run, $userid);
@@ -148,11 +149,11 @@ class submit_test_run extends external_api {
         return $user->id;
     }
 
-    private static function store_run(repository $repository, int $instanceid, int $userid, array $params): \stdClass {
+    private static function store_run(repository $repository, \stdClass $instance, int $userid, array $params): \stdClass {
         $now = time();
 
         $run                 = new \stdClass();
-        $run->idetestfeedbackid = $instanceid;
+        $run->idetestfeedbackid = $instance->id;
         $run->userid         = $userid;
         $run->ide            = $params['ide'];
         $run->projectname    = $params['projectname'] ?? null;
@@ -164,6 +165,17 @@ class submit_test_run extends external_api {
         $run->failedcount    = self::count_status($params['results'], 'FAILED');
         $run->skippedcount   = self::count_status($params['results'], 'SKIPPED');
         $run->errorcount     = self::count_status($params['results'], 'ERROR');
+
+        $required = required_tests::evaluate(
+            required_tests::parse($instance->requiredtests ?? null),
+            $params['results']
+        );
+        $run->requiredtotal   = $required['total'];
+        $run->requiredpassed  = $required['passed'];
+        $run->requiredfailed  = $required['failed'];
+        $run->requiredskipped = $required['skipped'];
+        $run->requiredmissing = $required['missing'];
+
         $run->timecreated    = $now;
 
         $run->id = $repository->insert_run($run);

@@ -35,6 +35,17 @@ class mod_idetestfeedback_mod_form extends moodleform_mod {
 
         $this->standard_intro_elements();
 
+        $mform->addElement('header', 'definedtestshdr', get_string('requiredtestsheading', 'mod_idetestfeedback'));
+
+        $mform->addElement(
+            'textarea',
+            'requiredtests',
+            get_string('requiredtests', 'mod_idetestfeedback'),
+            ['rows' => 8, 'cols' => 60, 'style' => 'font-family:monospace;']
+        );
+        $mform->setType('requiredtests', PARAM_RAW);
+        $mform->addHelpButton('requiredtests', 'requiredtests', 'mod_idetestfeedback');
+
         $mform->addElement('header', 'submissionwindow', get_string('submissionwindow', 'mod_idetestfeedback'));
 
         $mform->addElement(

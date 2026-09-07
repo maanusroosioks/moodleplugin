@@ -13,6 +13,22 @@ $string['assignmentkey']           = 'Ülesande võti';
 $string['assignmentkey_help']      = 'Kopeeri see võti oma IDE plugina seadetesse, et linkida esitused selle tegevusega.';
 $string['assignmentkey_generated'] = 'Salvestamisel genereeritakse automaatselt unikaalne võti.';
 
+// Defined test cases
+$string['requiredtestsheading'] = 'Määratud testijuhtumid';
+$string['requiredtests']        = 'Arvesse minevad testijuhtumid';
+$string['requiredtests_help']   = 'Loetle soovi korral testijuhtumid, mis selle tegevuse jaoks arvesse lähevad, üks real, kujul `testName` või `testSuite#testName`.
+
+Kui see on täidetud, hinnatakse iga jooksu selle loendi alusel: jooksust puuduvad, ebaõnnestunud või vahele jäetud määratud testid näidatakse jooksu üksikasjades ning "läbiv testijooks" lõpetamisreegel nõuab jooksu, mis läbib kõik määratud testid.
+
+Jäta tühjaks, et arvesse võtta kõik IDE poolt saadetud testid (siis lõpetab tegevuse iga jooks, mille üldine staatus on PASSED).
+
+Sobitamine ei arvesta tähesuurust; sisesta nimed nii, nagu need on jooksu üksikasjade lehel. Tulemused on endiselt õpilase keskkonnast esitatud ega ole sõltumatult kontrollitud.';
+$string['requiredprogress']    = 'Läbitud määratud testid';
+$string['requiredoutstanding'] = 'Lahendamata määratud testid';
+$string['requiredfailedn']     = '{$a} ebaõnnestunud';
+$string['requiredskippedn']    = '{$a} vahele jäetud';
+$string['requiredmissingn']    = '{$a} esitamata';
+
 // Submission window
 $string['submissionwindow']      = 'Esitamise ajavaken';
 $string['timeopen']              = 'Avatud alates';
@@ -68,8 +84,8 @@ $string['summarytext'] = 'Sul on selle ülesande jaoks {$a->total} testijooksu. 
 $string['event_test_run_submitted'] = 'Testijooks esitatud';
 
 // Completion
-$string['completionpassrun']      = 'Õpilane peab esitama testijooksu, kus kõik testid läbivad';
-$string['completionpassrun_desc'] = 'Esita testijooks, kus ei ole ühtegi ebaõnnestunud ega vigast testi';
+$string['completionpassrun']      = 'Õpilane peab esitama läbiva testijooksu';
+$string['completionpassrun_desc'] = 'Esita testijooks, kus ei ole ühtegi ebaõnnestunud ega vigast testi. Kui tegevusele on määratud testijuhtumid, peab jooks läbima kõik määratud testid.';
 
 // Capabilities
 $string['idetestfeedback:view']          = 'Vaata enda IDE testitulemusi';
@@ -90,6 +106,11 @@ $string['privacy:metadata:run:passedcount']  = 'Jooksus läbitud testijuhtumite 
 $string['privacy:metadata:run:failedcount']  = 'Jooksus ebaõnnestunud testijuhtumite arv.';
 $string['privacy:metadata:run:skippedcount'] = 'Jooksus vahele jäetud testijuhtumite arv.';
 $string['privacy:metadata:run:errorcount']   = 'Jooksus vigadega testijuhtumite arv.';
+$string['privacy:metadata:run:requiredtotal']   = 'Jooksu jaoks hinnatud õpetaja määratud testijuhtumite arv.';
+$string['privacy:metadata:run:requiredpassed']  = 'Mitu määratud testijuhtumit jooks läbis.';
+$string['privacy:metadata:run:requiredfailed']  = 'Mitu määratud testijuhtumit jooksus ebaõnnestus või andis vea.';
+$string['privacy:metadata:run:requiredskipped'] = 'Mitu määratud testijuhtumit jooksus vahele jäeti.';
+$string['privacy:metadata:run:requiredmissing'] = 'Mitut määratud testijuhtumit jooks ei esitanud.';
 $string['privacy:metadata:run:timecreated'] = 'Millal jooks esitati.';
 $string['privacy:metadata:result']          = 'Salvestab üksikud testijuhtumi tulemused jooksu sees.';
 $string['privacy:metadata:result:testsuite']      = 'Testikomplekt, kuhu testijuhtum kuulub.';

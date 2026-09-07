@@ -14,11 +14,23 @@ class custom_completion extends activity_custom_completion {
 
         $this->validate_rule($rule);
 
-        $passed = $DB->record_exists('idetestfeedback_run', [
-            'idetestfeedbackid' => $this->cm->instance,
-            'userid'            => $this->userid,
-            'status'            => 'PASSED',
-        ]);
+        $instanceid    = $this->cm->instance;
+        $requiredtests = $DB->get_field('idetestfeedback', 'requiredtests', ['id' => $instanceid]);
+
+        if (is_string($requiredtests) && trim($requiredtests) !== '') {
+            $passed = $DB->record_exists_select(
+                'idetestfeedback_run',
+                'idetestfeedbackid = :id AND userid = :userid
+                     AND requiredtotal > 0 AND requiredpassed = requiredtotal',
+                ['id' => $instanceid, 'userid' => $this->userid]
+            );
+        } else {
+            $passed = $DB->record_exists('idetestfeedback_run', [
+                'idetestfeedbackid' => $instanceid,
+                'userid'            => $this->userid,
+                'status'            => 'PASSED',
+            ]);
+        }
 
         return $passed ? COMPLETION_COMPLETE : COMPLETION_INCOMPLETE;
     }

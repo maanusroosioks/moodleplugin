@@ -156,6 +156,32 @@ class view {
             $meta->data[] = [get_string('skipped', 'mod_idetestfeedback'), (int) $run->skippedcount];
         }
 
+        if ((int) $run->requiredtotal > 0) {
+            $meta->data[] = [
+                get_string('requiredprogress', 'mod_idetestfeedback'),
+                \html_writer::tag('span',
+                    (int) $run->requiredpassed . ' / ' . (int) $run->requiredtotal,
+                    ['style' => 'font-weight:bold;']),
+            ];
+
+            $outstanding = [];
+            if ((int) $run->requiredfailed > 0) {
+                $outstanding[] = get_string('requiredfailedn', 'mod_idetestfeedback', (int) $run->requiredfailed);
+            }
+            if ((int) $run->requiredskipped > 0) {
+                $outstanding[] = get_string('requiredskippedn', 'mod_idetestfeedback', (int) $run->requiredskipped);
+            }
+            if ((int) $run->requiredmissing > 0) {
+                $outstanding[] = get_string('requiredmissingn', 'mod_idetestfeedback', (int) $run->requiredmissing);
+            }
+            if ($outstanding) {
+                $meta->data[] = [
+                    get_string('requiredoutstanding', 'mod_idetestfeedback'),
+                    implode('; ', $outstanding),
+                ];
+            }
+        }
+
         $meta->data[] = [get_string('timecreated', 'mod_idetestfeedback'), userdate((int) $run->timecreated)];
 
         echo \html_writer::table($meta);

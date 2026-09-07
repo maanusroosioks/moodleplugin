@@ -9,6 +9,7 @@ function idetestfeedback_add_instance(stdClass $data): int {
     $data->assignmentkey = bin2hex(random_bytes(16));
     $data->timeopen      = $data->timeopen  ?? 0;
     $data->timeclose     = $data->timeclose ?? 0;
+    $data->requiredtests = \mod_idetestfeedback\local\required_tests::normalize($data->requiredtests ?? null);
     $data->timecreated   = time();
     $data->timemodified  = time();
 
@@ -21,6 +22,7 @@ function idetestfeedback_update_instance(stdClass $data): bool {
     $data->id           = $data->instance;
     $data->timeopen     = $data->timeopen  ?? 0;
     $data->timeclose    = $data->timeclose ?? 0;
+    $data->requiredtests = \mod_idetestfeedback\local\required_tests::normalize($data->requiredtests ?? null);
     $data->timemodified = time();
 
     return $DB->update_record('idetestfeedback', $data);

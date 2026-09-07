@@ -13,6 +13,22 @@ $string['assignmentkey']           = 'Assignment key';
 $string['assignmentkey_help']      = 'Copy this key into your IDE plugin settings to link submissions to this activity.';
 $string['assignmentkey_generated'] = 'A unique key will be generated automatically when you save.';
 
+// Defined test cases
+$string['requiredtestsheading'] = 'Defined test cases';
+$string['requiredtests']        = 'Test cases that count';
+$string['requiredtests_help']   = 'Optionally list the test cases that count for this activity, one per line, as either `testName` or `testSuite#testName`.
+
+When set, each run is scored against this list: defined tests that are missing, failing or skipped in a run are shown on the run details, and the "passing test run" completion rule requires a run that passes every defined test.
+
+Leave this empty to accept every test the IDE reports (a run then completes the activity whenever its overall status is PASSED).
+
+Matching ignores case; enter names as they appear on the run details page. Results are still self-reported from the student\'s environment and are not independently verified.';
+$string['requiredprogress']    = 'Defined tests passed';
+$string['requiredoutstanding'] = 'Defined tests outstanding';
+$string['requiredfailedn']     = '{$a} failing';
+$string['requiredskippedn']    = '{$a} skipped';
+$string['requiredmissingn']    = '{$a} not reported';
+
 // Submission window
 $string['submissionwindow']  = 'Submission window';
 $string['timeopen']          = 'Open from';
@@ -68,8 +84,8 @@ $string['summarytext'] = 'You have {$a->total} run(s) for this assignment. Pass 
 $string['event_test_run_submitted'] = 'Test run submitted';
 
 // Completion
-$string['completionpassrun']      = 'Student must submit a test run in which every test passes';
-$string['completionpassrun_desc'] = 'Submit a test run with no failed or errored tests';
+$string['completionpassrun']      = 'Student must submit a passing test run';
+$string['completionpassrun_desc'] = 'Submit a test run with no failed or errored tests. When test cases are defined for the activity, the run must pass every defined test.';
 
 // Capabilities
 $string['idetestfeedback:view']          = 'View own IDE test results';
@@ -90,6 +106,11 @@ $string['privacy:metadata:run:passedcount']  = 'Number of test cases that passed
 $string['privacy:metadata:run:failedcount']  = 'Number of test cases that failed in the run.';
 $string['privacy:metadata:run:skippedcount'] = 'Number of test cases that were skipped in the run.';
 $string['privacy:metadata:run:errorcount']   = 'Number of test cases that errored in the run.';
+$string['privacy:metadata:run:requiredtotal']   = 'Number of teacher-defined test cases scored for the run.';
+$string['privacy:metadata:run:requiredpassed']  = 'How many defined test cases the run passed.';
+$string['privacy:metadata:run:requiredfailed']  = 'How many defined test cases the run failed or errored.';
+$string['privacy:metadata:run:requiredskipped'] = 'How many defined test cases the run skipped.';
+$string['privacy:metadata:run:requiredmissing'] = 'How many defined test cases the run did not report.';
 $string['privacy:metadata:run:timecreated']  = 'When the run was submitted.';
 $string['privacy:metadata:result']           = 'Stores individual test case results within a run.';
 $string['privacy:metadata:result:testsuite']      = 'The test suite the test case belongs to.';

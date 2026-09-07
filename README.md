@@ -25,9 +25,11 @@ middleware that authenticates the student via OAuth and forwards the test run.
 Three tables (see [db/install.xml](db/install.xml) for the full schema):
 
 - **`idetestfeedback`** — the activity instance, including the unique
-  `assignmentkey` and the optional `timeopen` / `timeclose` submission window.
+  `assignmentkey`, the optional `timeopen` / `timeclose` submission window, and
+  the optional `requiredtests` list (see below).
 - **`idetestfeedback_run`** — one row per API submission (the student, IDE,
-  commit, overall status, and per-status counts).
+  commit, overall status, per-status counts, and — when a `requiredtests` list
+  was in effect — the `required*` breakdown scored against it).
 - **`idetestfeedback_result`** — one row per test case within a run.
 
 Deleting an activity instance cascades to its runs and results. The plugin
@@ -85,8 +87,29 @@ The submission is rejected (with a localised message) when:
 
 The stored run's overall `status` is derived from its results: `ERROR` if any
 result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least
-one result passed, otherwise `SKIPPED` (every test was skipped). Only a `PASSED`
-run satisfies the `completionpassrun` rule.
+one result passed, otherwise `SKIPPED` (every test was skipped).
+
+### Defined test cases (optional)
+
+A teacher can list the test cases that count for the activity in the
+**Defined test cases** field, one per line, as either `testName` or
+`testSuite#testName`. The list is stored on the instance as `requiredtests` and
+**snapshotted onto each run** at submission time:
+
+| `requiredtests` on the activity | How a run is scored | `completionpassrun` is met by |
+| --- | --- | --- |
+| empty (default) | overall `status` only | any run whose `status` is `PASSED` |
+| non-empty | each listed entry is `required{passed,failed,skipped,missing}` on the run (`failed` also covers errored; `missing` = not reported) | a run with `requiredtotal > 0` and `requiredpassed = requiredtotal` |
+
+Matching is case-insensitive (after trimming) against the `testname` /
+`testsuite` the IDE reports. A bare `testName` matches regardless of suite; a
+`testSuite#testName` entry also requires the suite to match.
+
+Completion reflects the **current** list: if a teacher adds a list after runs
+exist, those older runs have `requiredtotal = 0` and no longer complete the
+activity until the student submits again; clearing the list reverts to the
+status-only rule. Results remain self-reported from the student's environment
+and are not independently verified.
 
 ## Capabilities
 
