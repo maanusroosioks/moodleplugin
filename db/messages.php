@@ -13,5 +13,9 @@ $messageproviders = [
     // A teacher left feedback on a student's individual test results.
     'feedback' => [
         'capability' => 'mod/idetestfeedback:view',
+        'defaults'   => [
+            'popup' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+            'email' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+        ],
     ],
 ];
