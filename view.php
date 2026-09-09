@@ -8,4 +8,5 @@ $id    = required_param('id',    PARAM_INT);
 $runid = optional_param('runid', 0, PARAM_INT);
 
 $view = new \mod_idetestfeedback\view($id, $runid);
+$view->handle_post();
 $view->render();

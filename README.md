@@ -30,7 +30,9 @@ Three tables (see [db/install.xml](db/install.xml) for the full schema):
 - **`idetestfeedback_run`** — one row per API submission (the student, IDE,
   commit, overall status, per-status counts, and — when a `requiredtests` list
   was in effect — the `required*` breakdown scored against it).
-- **`idetestfeedback_result`** — one row per test case within a run.
+- **`idetestfeedback_result`** — one row per test case within a run. Also holds
+  the optional per-test teacher feedback (`feedback`, `feedbackformat`,
+  `feedbackby`, `feedbackmodified`; see *Teacher feedback* below).
 
 Deleting an activity instance cascades to its runs and results. The plugin
 implements the Moodle Privacy API for export and deletion of a user's data.
@@ -114,12 +116,27 @@ Adding a list makes earlier runs incomplete until one passes every listed
 entry; clearing the list reverts to the status-only rule. Results remain
 self-reported from the student's environment and are not independently verified.
 
+## Teacher feedback
+
+On a student's run-details page a user with `mod/idetestfeedback:comment` sees a
+**Teacher feedback** column with a text box on every test row. Saving stores the
+text against that `idetestfeedback_result` row; clearing a box removes it. The
+student sees the same column read-only, and only when at least one row has
+feedback.
+
+Ticking **Notify student by message** when saving sends the affected student a
+Moodle notification (message provider `mod_idetestfeedback/feedback`) whose body
+contains the feedback text that changed plus a link back to the run. Without the
+tick, nothing is sent. Students control delivery channels under their own
+notification preferences.
+
 ## Capabilities
 
 | Capability | Default roles | Purpose |
 | --- | --- | --- |
 | `mod/idetestfeedback:view` | student, teacher, editingteacher, manager | View own test results. |
 | `mod/idetestfeedback:viewall` | teacher, editingteacher, manager | View all students' results (`RISK_PERSONAL`). |
+| `mod/idetestfeedback:comment` | teacher, editingteacher, manager | Write per-test feedback on a student's run. |
 | `mod/idetestfeedback:submit` | manager | Submit results via the web service. Intended to be granted only to the middleware's service account. |
 | `mod/idetestfeedback:addinstance` | editingteacher, manager | Add the activity to a course. |
 

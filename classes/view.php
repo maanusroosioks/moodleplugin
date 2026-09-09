@@ -55,6 +55,103 @@ class view {
         }
     }
 
+    public function handle_post(): void {
+        if (!optional_param('savefeedback', 0, PARAM_BOOL)) {
+            return;
+        }
+
+        require_sesskey();
+        require_capability('mod/idetestfeedback:comment', $this->context);
+
+        $listurl = new \moodle_url('/mod/idetestfeedback/view.php', ['id' => $this->id]);
+
+        $run = $this->repository->get_run($this->runid, $this->instance->id);
+        if (!$run) {
+            redirect($listurl);
+        }
+
+        $results = $this->repository->get_results($this->runid);
+        $changed = [];
+
+        foreach ($results as $result) {
+            $submitted = trim(optional_param('feedback_' . $result->id, '', PARAM_TEXT));
+            $current   = trim((string) ($result->feedback ?? ''));
+
+            if ($submitted === $current) {
+                continue;
+            }
+
+            $this->repository->update_result_feedback(
+                (int) $result->id, $submitted, FORMAT_PLAIN, (int) $this->user->id
+            );
+
+            if ($submitted !== '') {
+                $result->feedback = $submitted;
+                $changed[] = $result;
+            }
+        }
+
+        $notified = false;
+        if ($changed && optional_param('notify', 0, PARAM_BOOL)) {
+            $this->notify_student($run, $changed);
+            $notified = true;
+        }
+
+        redirect(
+            new \moodle_url('/mod/idetestfeedback/view.php', ['id' => $this->id, 'runid' => $this->runid]),
+            get_string($notified ? 'feedbacksavednotified' : 'feedbacksaved', 'mod_idetestfeedback'),
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
+    }
+
+    protected function notify_student(\stdClass $run, array $results): void {
+        $recipient = \core_user::get_user((int) $run->userid, '*', MUST_EXIST);
+        $activityname = format_string($this->instance->name);
+
+        $rundetailurl = new \moodle_url('/mod/idetestfeedback/view.php', [
+            'id'    => $this->id,
+            'runid' => $run->id,
+        ]);
+
+        $textlines = [get_string('feedbackmsgintro', 'mod_idetestfeedback'), ''];
+        $htmlitems = '';
+        foreach ($results as $result) {
+            $label = $result->testsuite
+                ? $result->testsuite . '#' . $result->testname
+                : $result->testname;
+
+            $textlines[] = $label;
+            $textlines[] = $result->feedback;
+            $textlines[] = '';
+
+            $htmlitems .= \html_writer::tag('li',
+                \html_writer::tag('strong', s($label)) . \html_writer::empty_tag('br') .
+                nl2br(s($result->feedback)));
+        }
+        $textlines[] = $rundetailurl->out(false);
+
+        $message = new \core\message\message();
+        $message->component         = 'mod_idetestfeedback';
+        $message->name              = 'feedback';
+        $message->courseid          = $this->course->id;
+        $message->userfrom          = $this->user;
+        $message->userto            = $recipient;
+        $message->subject           = get_string('feedbackmsgsubject', 'mod_idetestfeedback', $activityname);
+        $message->fullmessage       = implode("\n", $textlines);
+        $message->fullmessageformat = FORMAT_PLAIN;
+        $message->fullmessagehtml   =
+            \html_writer::tag('p', get_string('feedbackmsgintro', 'mod_idetestfeedback')) .
+            \html_writer::tag('ul', $htmlitems) .
+            \html_writer::tag('p', \html_writer::link($rundetailurl, get_string('rundetail', 'mod_idetestfeedback')));
+        $message->smallmessage      = get_string('feedbackmsgsmall', 'mod_idetestfeedback');
+        $message->notification      = 1;
+        $message->contexturl        = $rundetailurl->out(false);
+        $message->contexturlname    = get_string('rundetail', 'mod_idetestfeedback');
+
+        message_send($message);
+    }
+
     public function render(): void {
         $this->mark_viewed();
         $this->log_viewed();
@@ -200,6 +297,16 @@ class view {
             return;
         }
 
+        $cancomment  = has_capability('mod/idetestfeedback:comment', $this->context);
+        $hasfeedback = false;
+        foreach ($results as $result) {
+            if (trim((string) ($result->feedback ?? '')) !== '') {
+                $hasfeedback = true;
+                break;
+            }
+        }
+        $showfeedback = $cancomment || $hasfeedback;
+
         $table = new \html_table();
         $table->attributes['class'] = 'table table-sm table-bordered';
         $table->head = [
@@ -212,6 +319,9 @@ class view {
         $table->head[] = get_string('status', 'mod_idetestfeedback');
         $table->head[] = get_string('duration', 'mod_idetestfeedback');
         $table->head[] = get_string('message', 'mod_idetestfeedback');
+        if ($showfeedback) {
+            $table->head[] = get_string('feedback', 'mod_idetestfeedback');
+        }
 
         foreach ($results as $result) {
             $row = new \html_table_row();
@@ -233,6 +343,10 @@ class view {
             }
             $row->cells[] = $msgcell;
 
+            if ($showfeedback) {
+                $row->cells[] = $this->feedback_cell($result, $cancomment);
+            }
+
             $row->attributes['class'] = match (true) {
                 in_array($result->status, ['FAILED', 'ERROR'], true) => 'table-danger',
                 $result->status === 'PASSED' => 'table-success',
@@ -243,7 +357,56 @@ class view {
             $table->data[] = $row;
         }
 
+        if ($cancomment) {
+            echo \html_writer::start_tag('form', [
+                'method' => 'post',
+                'action' => (new \moodle_url('/mod/idetestfeedback/view.php',
+                    ['id' => $this->id, 'runid' => $run->id]))->out(false),
+            ]);
+            echo \html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+            echo \html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'savefeedback', 'value' => 1]);
+        }
+
         echo \html_writer::table($table);
+
+        if ($cancomment) {
+            echo \html_writer::start_div('form-check mb-2');
+            echo \html_writer::empty_tag('input', [
+                'type' => 'checkbox', 'name' => 'notify', 'value' => 1,
+                'id' => 'idetestfeedback-notify', 'class' => 'form-check-input',
+            ]);
+            echo \html_writer::tag('label', get_string('notifystudent', 'mod_idetestfeedback'), [
+                'for' => 'idetestfeedback-notify', 'class' => 'form-check-label',
+            ]);
+            echo \html_writer::end_div();
+            echo \html_writer::tag('button', get_string('savefeedback', 'mod_idetestfeedback'), [
+                'type' => 'submit', 'class' => 'btn btn-primary',
+            ]);
+            echo \html_writer::end_tag('form');
+        }
+    }
+
+    /**
+     * Builds the "Feedback" table cell for one result: an editable textarea for a
+     * teacher, or the read-only text (or a dash) for a student.
+     */
+    protected function feedback_cell(\stdClass $result, bool $cancomment): \html_table_cell {
+        if ($cancomment) {
+            return new \html_table_cell(\html_writer::tag('textarea', s($result->feedback ?? ''), [
+                'name'  => 'feedback_' . $result->id,
+                'rows'  => 2,
+                'class' => 'form-control',
+                'style' => 'min-width:16rem;font-size:0.85em;',
+            ]));
+        }
+
+        if (trim((string) ($result->feedback ?? '')) !== '') {
+            return new \html_table_cell(
+                format_text($result->feedback, (int) $result->feedbackformat, ['context' => $this->context])
+            );
+        }
+
+        return new \html_table_cell(\html_writer::tag('span', '&#8212;', ['style' => 'color:#adb5bd;']));
     }
 
     protected function render_teacher_view(): void {

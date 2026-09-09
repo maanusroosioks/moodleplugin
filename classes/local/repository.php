@@ -145,4 +145,24 @@ class repository {
     public function insert_result(\stdClass $result): void {
         $this->db->insert_record('idetestfeedback_result', $result);
     }
+
+    /**
+     * Stores (or clears) a teacher's feedback on a single test case result.
+     *
+     * @param int $resultid the idetestfeedback_result id
+     * @param string $feedback the feedback text; '' clears it
+     * @param int $format the text format the feedback is stored in
+     * @param int $byuserid the teacher writing the feedback
+     */
+    public function update_result_feedback(int $resultid, string $feedback, int $format, int $byuserid): void {
+        $cleared = trim($feedback) === '';
+
+        $this->db->update_record('idetestfeedback_result', (object) [
+            'id'               => $resultid,
+            'feedback'         => $cleared ? null : $feedback,
+            'feedbackformat'   => $format,
+            'feedbackby'       => $cleared ? null : $byuserid,
+            'feedbackmodified' => $cleared ? null : time(),
+        ]);
+    }
 }

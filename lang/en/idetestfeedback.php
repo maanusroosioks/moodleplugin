@@ -68,7 +68,18 @@ $string['testname']    = 'Test name';
 $string['required']    = 'Required';
 $string['duration']    = 'Duration';
 $string['message']     = 'Failure message';
+$string['feedback']    = 'Teacher feedback';
 $string['viewdetail']  = 'View';
+
+// Teacher feedback
+$string['savefeedback']          = 'Save feedback';
+$string['notifystudent']         = 'Notify student by message';
+$string['feedbacksaved']         = 'Feedback saved.';
+$string['feedbacksavednotified'] = 'Feedback saved. The student has been notified.';
+$string['messageprovider:feedback'] = 'Feedback on your IDE test results';
+$string['feedbackmsgsubject'] = 'New feedback on your test results in {$a}';
+$string['feedbackmsgintro']   = 'Your teacher left feedback on your test run:';
+$string['feedbackmsgsmall']   = 'Your teacher left feedback on your IDE test results.';
 
 // Filters
 $string['allstudents']   = 'All students';
@@ -91,6 +102,7 @@ $string['completionpassrun_desc'] = 'Submit a test run with no failed or errored
 // Capabilities
 $string['idetestfeedback:view']          = 'View own IDE test results';
 $string['idetestfeedback:viewall']       = 'View all students\' IDE test results';
+$string['idetestfeedback:comment']       = 'Add feedback to students\' test results';
 $string['idetestfeedback:submit']        = 'Submit IDE test results via API';
 $string['idetestfeedback:addinstance']   = 'Add a new IDE Test Feedback activity';
 
@@ -116,3 +128,6 @@ $string['privacy:metadata:result:durationms']     = 'How long the test case took
 $string['privacy:metadata:result:message']        = 'The failure or error message.';
 $string['privacy:metadata:result:stacktracehash'] = 'A hash of the failure stack trace, used to group similar failures.';
 $string['privacy:metadata:result:timecreated']    = 'When the test case result was recorded.';
+$string['privacy:metadata:result:feedback']         = 'Feedback a teacher wrote on the test case result.';
+$string['privacy:metadata:result:feedbackby']       = 'The teacher who wrote the feedback.';
+$string['privacy:metadata:result:feedbackmodified'] = 'When the feedback was last edited.';

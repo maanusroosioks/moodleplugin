@@ -44,10 +44,13 @@ class provider implements
                 'testsuite'      => 'privacy:metadata:result:testsuite',
                 'testname'       => 'privacy:metadata:result:testname',
                 'status'         => 'privacy:metadata:result:status',
-                'durationms'     => 'privacy:metadata:result:durationms',
-                'message'        => 'privacy:metadata:result:message',
-                'stacktracehash' => 'privacy:metadata:result:stacktracehash',
-                'timecreated'    => 'privacy:metadata:result:timecreated',
+                'durationms'       => 'privacy:metadata:result:durationms',
+                'message'          => 'privacy:metadata:result:message',
+                'stacktracehash'   => 'privacy:metadata:result:stacktracehash',
+                'timecreated'      => 'privacy:metadata:result:timecreated',
+                'feedback'         => 'privacy:metadata:result:feedback',
+                'feedbackby'       => 'privacy:metadata:result:feedbackby',
+                'feedbackmodified' => 'privacy:metadata:result:feedbackmodified',
             ],
             'privacy:metadata:result'
         );
@@ -125,13 +128,16 @@ class provider implements
                     'timecreated'  => transform::datetime($run->timecreated),
                     'results'      => array_values(array_map(
                         fn($r) => [
-                            'testsuite'      => $r->testsuite,
-                            'testname'       => $r->testname,
-                            'status'         => $r->status,
-                            'durationms'     => $r->durationms,
-                            'message'        => $r->message,
-                            'stacktracehash' => $r->stacktracehash,
-                            'timecreated'    => transform::datetime($r->timecreated),
+                            'testsuite'        => $r->testsuite,
+                            'testname'         => $r->testname,
+                            'status'           => $r->status,
+                            'durationms'       => $r->durationms,
+                            'message'          => $r->message,
+                            'stacktracehash'   => $r->stacktracehash,
+                            'timecreated'      => transform::datetime($r->timecreated),
+                            'feedback'         => $r->feedback,
+                            'feedbackmodified' => $r->feedbackmodified
+                                ? transform::datetime($r->feedbackmodified) : null,
                         ],
                         $results
                     )),

@@ -68,7 +68,18 @@ $string['testname']    = 'Testi nimi';
 $string['required']    = 'Nõutud';
 $string['duration']    = 'Kestus';
 $string['message']     = 'Veateade';
+$string['feedback']    = 'Õpetaja tagasiside';
 $string['viewdetail']  = 'Vaata';
+
+// Teacher feedback
+$string['savefeedback']          = 'Salvesta tagasiside';
+$string['notifystudent']         = 'Teavita õppijat sõnumiga';
+$string['feedbacksaved']         = 'Tagasiside salvestatud.';
+$string['feedbacksavednotified'] = 'Tagasiside salvestatud. Õppijat on teavitatud.';
+$string['messageprovider:feedback'] = 'Tagasiside sinu IDE testitulemustele';
+$string['feedbackmsgsubject'] = 'Uus tagasiside sinu testitulemustele tegevuses {$a}';
+$string['feedbackmsgintro']   = 'Sinu õpetaja jättis sinu testijooksule tagasiside:';
+$string['feedbackmsgsmall']   = 'Sinu õpetaja jättis sinu IDE testitulemustele tagasiside.';
 
 // Filters
 $string['allstudents']   = 'Kõik õppijad';
@@ -91,6 +102,7 @@ $string['completionpassrun_desc'] = 'Esita testijooks, kus ei ole ühtegi ebaõn
 // Capabilities
 $string['idetestfeedback:view']          = 'Vaata enda IDE testitulemusi';
 $string['idetestfeedback:viewall']       = 'Vaata kõigi õpilaste IDE testitulemusi';
+$string['idetestfeedback:comment']       = 'Lisa õppijate testitulemustele tagasisidet';
 $string['idetestfeedback:submit']        = 'Saada IDE testitulemusi API kaudu';
 $string['idetestfeedback:addinstance']   = 'Lisa uus IDE Test Feedback tegevus';
 
@@ -116,3 +128,6 @@ $string['privacy:metadata:result:durationms']     = 'Testijuhtumi kestus millise
 $string['privacy:metadata:result:message']        = 'Ebaõnnestumise või vea teade.';
 $string['privacy:metadata:result:stacktracehash'] = 'Vea pinujälje räsi, mida kasutatakse sarnaste vigade rühmitamiseks.';
 $string['privacy:metadata:result:timecreated']    = 'Millal testijuhtumi tulemus salvestati.';
+$string['privacy:metadata:result:feedback']         = 'Tagasiside, mille õpetaja testijuhtumi tulemusele kirjutas.';
+$string['privacy:metadata:result:feedbackby']       = 'Õpetaja, kes tagasiside kirjutas.';
+$string['privacy:metadata:result:feedbackmodified'] = 'Millal tagasisidet viimati muudeti.';

@@ -26,6 +26,16 @@ $capabilities = [
         ],
     ],
 
+    'mod/idetestfeedback:comment' => [
+        'captype'      => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes'   => [
+            'teacher'        => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+            'manager'        => CAP_ALLOW,
+        ],
+    ],
+
     'mod/idetestfeedback:submit' => [
         'riskbitmask'  => RISK_PERSONAL,
         'captype'      => 'write',
