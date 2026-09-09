@@ -414,6 +414,10 @@ class view {
         $filteruserid = optional_param('filteruserid', 0, PARAM_INT);
         $filterstatus = optional_param('filterstatus', '', PARAM_ALPHA);
 
+        if ($filterstatus === 'ALL') {
+            $filterstatus = '';
+        }
+
         echo $this->output->heading(get_string('viewresults', 'mod_idetestfeedback'), 2);
 
         $grandtotal = $this->repository->count_runs_for_instance($this->instance->id);
@@ -484,7 +488,7 @@ class view {
 
     protected function render_run_filters(int $filteruserid, string $filterstatus): void {
         $students = $this->repository->get_students_with_runs($this->instance->id);
-        $studentoptions = [];
+        $studentoptions = [0 => get_string('allstudents', 'mod_idetestfeedback')];
         foreach ($students as $student) {
             $studentoptions[$student->id] = fullname($student);
         }
@@ -492,8 +496,7 @@ class view {
         $studenturl = new \moodle_url('/mod/idetestfeedback/view.php',
             ['id' => $this->id] + ($filterstatus ? ['filterstatus' => $filterstatus] : []));
         $studentselect = new \single_select(
-            $studenturl, 'filteruserid', $studentoptions, $filteruserid,
-            ['' => get_string('allstudents', 'mod_idetestfeedback')]
+            $studenturl, 'filteruserid', $studentoptions, $filteruserid, null
         );
         $studentselect->label = get_string('student', 'mod_idetestfeedback');
 
@@ -501,9 +504,12 @@ class view {
             ['id' => $this->id] + ($filteruserid ? ['filteruserid' => $filteruserid] : []));
         $statusselect = new \single_select(
             $statusurl, 'filterstatus',
-            ['PASSED' => 'PASSED', 'FAILED' => 'FAILED', 'ERROR' => 'ERROR', 'SKIPPED' => 'SKIPPED'],
-            $filterstatus,
-            ['' => get_string('allstatuses', 'mod_idetestfeedback')]
+            [
+                'ALL' => get_string('allstatuses', 'mod_idetestfeedback'),
+                'PASSED' => 'PASSED', 'FAILED' => 'FAILED', 'ERROR' => 'ERROR', 'SKIPPED' => 'SKIPPED',
+            ],
+            $filterstatus ?: 'ALL',
+            null
         );
         $statusselect->label = get_string('status', 'mod_idetestfeedback');
 
