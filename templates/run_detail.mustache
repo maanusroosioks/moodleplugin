@@ -1,0 +1,71 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_idetestfeedback/run_detail
+
+    Summary of a single test run: a back link and a table of run metadata.
+    The individual test case results are rendered separately by
+    mod_idetestfeedback/run_results, so that they can be wrapped in the
+    teacher feedback form on their own.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * backurl string - link back to the run list
+    * meta array - summary rows, each with a label plus exactly one of
+      text, code, strong or badge
+
+    Example context (json):
+    {
+        "backurl": "https://example.com/mod/idetestfeedback/view.php?id=3",
+        "meta": [
+            {"label": "Student", "text": "Ada Lovelace"},
+            {"label": "Commit hash", "code": "a1b2c3d"},
+            {"label": "Status", "badge": {"label": "PASSED", "classes": "bg-success text-white"}},
+            {"label": "Passed", "strong": "8 / 10"}
+        ]
+    }
+}}
+<div class="mb-3">
+    <a href="{{backurl}}" class="btn btn-secondary">&larr; {{#str}} back, mod_idetestfeedback {{/str}}</a>
+</div>
+
+<h2>{{#str}} rundetail, mod_idetestfeedback {{/str}}</h2>
+
+<div class="table-responsive">
+    <table class="table table-bordered w-auto mb-4">
+        <tbody>
+            {{#meta}}
+                <tr>
+                    <th scope="row">{{label}}</th>
+                    <td>
+                        {{#text}}{{.}}{{/text}}
+                        {{#code}}<code>{{.}}</code>{{/code}}
+                        {{#strong}}<span class="idetestfeedback-count">{{.}}</span>{{/strong}}
+                        {{#badge}}{{> mod_idetestfeedback/status_badge }}{{/badge}}
+                    </td>
+                </tr>
+            {{/meta}}
+        </tbody>
+    </table>
+</div>
+
+<h3>{{#str}} testresults, mod_idetestfeedback {{/str}}</h3>

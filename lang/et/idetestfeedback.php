@@ -68,7 +68,9 @@ $string['testname']    = 'Testi nimi';
 $string['required']    = 'Nõutud';
 $string['duration']    = 'Kestus';
 $string['message']     = 'Veateade';
+$string['durationunit'] = '{$a} ms';
 $string['feedback']    = 'Õpetaja tagasiside';
+$string['feedbackfor'] = 'Tagasiside testile {$a}';
 $string['viewdetail']  = 'Vaata';
 
 // Teacher feedback

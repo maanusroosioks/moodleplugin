@@ -1,0 +1,110 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_idetestfeedback/run_list
+
+    A paged list of test runs. Backs both the teacher view (every student's
+    runs, with the student column and filter widgets) and the student view
+    (their own runs, with a pass rate summary).
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * showstudent bool - whether to show the student column
+    * summary string - optional lead paragraph
+    * totaltext string - optional run count
+    * filters string - pre-rendered filter widgets, already escaped
+    * pagingbar string - pre-rendered paging bar, already escaped
+    * rows array - one entry per run
+
+    Example context (json):
+    {
+        "showstudent": true,
+        "summary": "",
+        "totaltext": "Total: 2 run(s)",
+        "filters": "",
+        "pagingbar": "",
+        "rows": [
+            {
+                "rowclass": "",
+                "student": "Ada Lovelace",
+                "ide": "VSCODE",
+                "projectname": "calculator",
+                "badge": {"label": "PASSED", "classes": "bg-success text-white"},
+                "passed": 8,
+                "failed": 0,
+                "hasfailed": false,
+                "date": "1 January 2026, 9:00 AM",
+                "detailurl": "https://example.com/mod/idetestfeedback/view.php?id=3&runid=9"
+            }
+        ]
+    }
+}}
+{{#summary}}
+    <div class="alert alert-info">{{.}}</div>
+{{/summary}}
+
+{{! Core widgets, rendered by the core renderer before they reach the template. }}
+{{{filters}}}
+
+{{#totaltext}}
+    <p class="text-muted">{{.}}</p>
+{{/totaltext}}
+
+<div class="table-responsive">
+    <table class="table table-striped table-bordered table-sm">
+        <thead>
+            <tr>
+                {{#showstudent}}
+                    <th scope="col">{{#str}} student, mod_idetestfeedback {{/str}}</th>
+                {{/showstudent}}
+                <th scope="col">{{#str}} ide, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} projectname, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} status, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} passed, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} failed, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} timecreated, mod_idetestfeedback {{/str}}</th>
+                <th scope="col"><span class="visually-hidden sr-only">{{#str}} viewdetail, mod_idetestfeedback {{/str}}</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#rows}}
+                <tr class="{{rowclass}}">
+                    {{#showstudent}}
+                        <td>{{student}}</td>
+                    {{/showstudent}}
+                    <td>{{ide}}</td>
+                    <td>{{projectname}}</td>
+                    <td>{{#badge}}{{> mod_idetestfeedback/status_badge }}{{/badge}}</td>
+                    <td><span class="text-success idetestfeedback-count">{{passed}}</span></td>
+                    <td>
+                        {{#hasfailed}}<span class="text-danger idetestfeedback-count">{{failed}}</span>{{/hasfailed}}
+                        {{^hasfailed}}{{failed}}{{/hasfailed}}
+                    </td>
+                    <td>{{date}}</td>
+                    <td><a href="{{detailurl}}">{{#str}} viewdetail, mod_idetestfeedback {{/str}}</a></td>
+                </tr>
+            {{/rows}}
+        </tbody>
+    </table>
+</div>
+
+{{{pagingbar}}}

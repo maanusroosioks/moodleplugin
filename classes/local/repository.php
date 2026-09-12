@@ -1,6 +1,4 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-
 namespace mod_idetestfeedback\local;
 
 defined('MOODLE_INTERNAL') || die();

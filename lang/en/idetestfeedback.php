@@ -68,7 +68,9 @@ $string['testname']    = 'Test name';
 $string['required']    = 'Required';
 $string['duration']    = 'Duration';
 $string['message']     = 'Failure message';
+$string['durationunit'] = '{$a} ms';
 $string['feedback']    = 'Teacher feedback';
+$string['feedbackfor'] = 'Feedback on {$a}';
 $string['viewdetail']  = 'View';
 
 // Teacher feedback

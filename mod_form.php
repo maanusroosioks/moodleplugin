@@ -41,7 +41,7 @@ class mod_idetestfeedback_mod_form extends moodleform_mod {
             'textarea',
             'requiredtests',
             get_string('requiredtests', 'mod_idetestfeedback'),
-            ['rows' => 8, 'cols' => 60, 'style' => 'font-family:monospace;']
+            ['rows' => 8, 'cols' => 60, 'class' => 'idetestfeedback-monospace']
         );
         $mform->setType('requiredtests', PARAM_RAW);
         $mform->addHelpButton('requiredtests', 'requiredtests', 'mod_idetestfeedback');

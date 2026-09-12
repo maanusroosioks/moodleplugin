@@ -1,0 +1,30 @@
+.idetestfeedback-count {
+    font-weight: bold;
+}
+
+.idetestfeedback-badge-error {
+    filter: brightness(0.75);
+}
+
+.idetestfeedback-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.idetestfeedback-message {
+    max-height: 120px;
+    overflow-y: auto;
+    margin: 0;
+    font-size: 0.78em;
+    white-space: pre-wrap;
+}
+
+.idetestfeedback-feedback-input {
+    min-width: 16rem;
+    font-size: 0.85em;
+}
+
+.idetestfeedback-monospace {
+    font-family: monospace;
+}

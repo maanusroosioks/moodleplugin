@@ -1,0 +1,114 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_idetestfeedback/run_results
+
+    The individual test case results of one run.
+
+    When the viewer may comment, each row carries a feedback textarea. Those
+    inputs are plain markup rather than form elements because the whole table
+    is injected into mod_idetestfeedback\form\feedback_form as HTML, the same
+    way mod_assign builds its quick grading form; the controller reads them
+    back with optional_param().
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * showrequired bool - whether the activity defines test cases
+    * showfeedback bool - whether to show the feedback column at all
+    * cancomment bool - whether the viewer may edit feedback
+    * rows array - one entry per test case result
+
+    Example context (json):
+    {
+        "showrequired": true,
+        "showfeedback": true,
+        "cancomment": false,
+        "rows": [
+            {
+                "rowclass": "table-success",
+                "testsuite": "CalculatorTest",
+                "testname": "testAddition",
+                "required": true,
+                "badge": {"label": "PASSED", "classes": "bg-success text-white"},
+                "duration": "12 ms",
+                "message": "",
+                "feedbackname": "feedback_7",
+                "feedbacklabel": "Feedback on testAddition",
+                "feedback": "",
+                "feedbackhtml": ""
+            }
+        ]
+    }
+}}
+<div class="table-responsive">
+    <table class="table table-sm table-bordered">
+        <thead>
+            <tr>
+                <th scope="col">{{#str}} testsuite, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} testname, mod_idetestfeedback {{/str}}</th>
+                {{#showrequired}}
+                    <th scope="col">{{#str}} required, mod_idetestfeedback {{/str}}</th>
+                {{/showrequired}}
+                <th scope="col">{{#str}} status, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} duration, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} message, mod_idetestfeedback {{/str}}</th>
+                {{#showfeedback}}
+                    <th scope="col">{{#str}} feedback, mod_idetestfeedback {{/str}}</th>
+                {{/showfeedback}}
+            </tr>
+        </thead>
+        <tbody>
+            {{#rows}}
+                <tr class="{{rowclass}}">
+                    <td>{{testsuite}}</td>
+                    <td>{{testname}}</td>
+                    {{#showrequired}}
+                        <td>
+                            {{#required}}
+                                <span class="badge bg-primary text-white">{{#str}} yes, core {{/str}}</span>
+                            {{/required}}
+                            {{^required}}
+                                <span class="text-muted">&mdash;</span>
+                            {{/required}}
+                        </td>
+                    {{/showrequired}}
+                    <td>{{#badge}}{{> mod_idetestfeedback/status_badge }}{{/badge}}</td>
+                    <td>{{duration}}</td>
+                    <td>{{#message}}<pre class="idetestfeedback-message">{{.}}</pre>{{/message}}</td>
+                    {{#showfeedback}}
+                        <td>
+                            {{#cancomment}}
+                                <textarea name="{{feedbackname}}" rows="2" aria-label="{{feedbacklabel}}"
+                                    class="form-control idetestfeedback-feedback-input">{{feedback}}</textarea>
+                            {{/cancomment}}
+                            {{^cancomment}}
+                                {{! Already sanitised by format_text(). }}
+                                {{#feedbackhtml}}{{{.}}}{{/feedbackhtml}}
+                                {{^feedbackhtml}}<span class="text-muted">&mdash;</span>{{/feedbackhtml}}
+                            {{/cancomment}}
+                        </td>
+                    {{/showfeedback}}
+                </tr>
+            {{/rows}}
+        </tbody>
+    </table>
+</div>

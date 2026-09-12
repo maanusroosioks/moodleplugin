@@ -1,0 +1,76 @@
+<?php
+
+namespace mod_idetestfeedback\local;
+
+use core\message\message;
+use core_user;
+use html_writer;
+use moodle_url;
+use stdClass;
+
+class feedback_notifier {
+
+    public function __construct(
+        protected readonly stdClass $course,
+        protected readonly stdClass $instance,
+        protected readonly int $cmid
+    ) {
+    }
+
+    public function notify(stdClass $run, array $results, stdClass $from): bool {
+        $recipient = core_user::get_user((int) $run->userid, '*', MUST_EXIST);
+
+        $rundetailurl = new moodle_url('/mod/idetestfeedback/view.php', [
+            'id' => $this->cmid,
+            'runid' => $run->id,
+        ]);
+
+        $textlines = [get_string('feedbackmsgintro', 'mod_idetestfeedback'), ''];
+        $htmlitems = '';
+
+        foreach ($results as $result) {
+            $label = $result->testsuite
+                ? $result->testsuite . '#' . $result->testname
+                : $result->testname;
+
+            $textlines[] = $label;
+            $textlines[] = $result->feedback;
+            $textlines[] = '';
+
+            $htmlitems .= html_writer::tag(
+                'li',
+                html_writer::tag('strong', s($label)) . html_writer::empty_tag('br') .
+                    nl2br(s($result->feedback))
+            );
+        }
+
+        $textlines[] = $rundetailurl->out(false);
+
+        $message = new message();
+        $message->component = 'mod_idetestfeedback';
+        $message->name = 'feedback';
+        $message->courseid = $this->course->id;
+        $message->userfrom = $from;
+        $message->userto = $recipient;
+        $message->subject = get_string(
+            'feedbackmsgsubject',
+            'mod_idetestfeedback',
+            format_string($this->instance->name)
+        );
+        $message->fullmessage = implode("\n", $textlines);
+        $message->fullmessageformat = FORMAT_PLAIN;
+        $message->fullmessagehtml =
+            html_writer::tag('p', get_string('feedbackmsgintro', 'mod_idetestfeedback')) .
+            html_writer::tag('ul', $htmlitems) .
+            html_writer::tag('p', html_writer::link(
+                $rundetailurl,
+                get_string('rundetail', 'mod_idetestfeedback')
+            ));
+        $message->smallmessage = get_string('feedbackmsgsmall', 'mod_idetestfeedback');
+        $message->notification = 1;
+        $message->contexturl = $rundetailurl->out(false);
+        $message->contexturlname = get_string('rundetail', 'mod_idetestfeedback');
+
+        return (bool) message_send($message);
+    }
+}

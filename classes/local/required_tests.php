@@ -1,6 +1,4 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-
 namespace mod_idetestfeedback\local;
 
 defined('MOODLE_INTERNAL') || die();
@@ -49,14 +47,6 @@ class required_tests {
 
     /**
      * Scores reported results against the defined entries.
-     *
-     * Each entry lands in exactly one bucket, so
-     * passed + failed + skipped + missing === total:
-     *  - failed:  at least one matching result is FAILED or ERROR;
-     *  - passed:  otherwise, at least one matching result is PASSED;
-     *  - skipped: otherwise, the only matching results are SKIPPED;
-     *  - missing: no reported result matches the entry.
-     *
      * @param string[] $entries from {@see parse()}
      * @param array $results the run's result rows (associative arrays or objects),
      *        each with 'testname', an optional 'testsuite', and 'status'
@@ -107,10 +97,6 @@ class required_tests {
 
     /**
      * Whether a single reported test is covered by one of the defined entries.
-     *
-     * Uses the same case-insensitive rule as {@see evaluate()}: a bare entry
-     * matches on name alone, a `suite#name` entry also requires the suite.
-     *
      * @param string[] $entries from {@see parse()}
      */
     public static function is_required(array $entries, ?string $testsuite, string $testname): bool {
