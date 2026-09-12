@@ -1,9 +1,20 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\external;
-
-defined('MOODLE_INTERNAL') || die();
 
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -15,8 +26,16 @@ use context_course;
 use context_module;
 use mod_idetestfeedback\event\test_run_submitted;
 use mod_idetestfeedback\local\repository;
+use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\local\validation_exception;
 
+/**
+ * The web service the IDE plugin posts a finished test run to.
+ *
+ * @package    mod_idetestfeedback
+ * @copyright  2026 Maanus Roosioks
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class submit_test_run extends external_api {
 
     public static function execute_parameters(): external_function_parameters {
@@ -136,7 +155,7 @@ class submit_test_run extends external_api {
         }
 
         foreach ($params['results'] as $result) {
-            if (!in_array($result['status'], ['PASSED', 'FAILED', 'SKIPPED', 'ERROR'], true)) {
+            if (status::tryFrom($result['status']) === null) {
                 throw new validation_exception('idetestfeedback_validation_invalidstatus', $result['status']);
             }
         }
@@ -159,11 +178,11 @@ class submit_test_run extends external_api {
         $run->commithash     = $params['commithash']  ?? null;
         $run->startedat      = $params['startedat']   ?? null;
         $run->finishedat     = $params['finishedat']  ?? null;
-        $run->status         = self::resolve_run_status($params['results']);
-        $run->passedcount    = self::count_status($params['results'], 'PASSED');
-        $run->failedcount    = self::count_status($params['results'], 'FAILED');
-        $run->skippedcount   = self::count_status($params['results'], 'SKIPPED');
-        $run->errorcount     = self::count_status($params['results'], 'ERROR');
+        $run->status         = self::resolve_run_status($params['results'])->value;
+        $run->passedcount    = self::count_status($params['results'], status::PASSED);
+        $run->failedcount    = self::count_status($params['results'], status::FAILED);
+        $run->skippedcount   = self::count_status($params['results'], status::SKIPPED);
+        $run->errorcount     = self::count_status($params['results'], status::ERROR);
         $run->timecreated    = $now;
 
         $run->id = $repository->insert_run($run);
@@ -184,15 +203,21 @@ class submit_test_run extends external_api {
         return $run;
     }
 
-    private static function resolve_run_status(array $results): string {
-        if (self::count_status($results, 'ERROR') > 0)  return 'ERROR';
-        if (self::count_status($results, 'FAILED') > 0) return 'FAILED';
-        if (self::count_status($results, 'PASSED') > 0) return 'PASSED';
+    private static function resolve_run_status(array $results): status {
+        if (self::count_status($results, status::ERROR) > 0) {
+            return status::ERROR;
+        }
+        if (self::count_status($results, status::FAILED) > 0) {
+            return status::FAILED;
+        }
+        if (self::count_status($results, status::PASSED) > 0) {
+            return status::PASSED;
+        }
 
-        return 'SKIPPED';
+        return status::SKIPPED;
     }
 
-    private static function count_status(array $results, string $status): int {
-        return count(array_filter($results, fn($r) => ($r['status'] ?? '') === $status));
+    private static function count_status(array $results, status $status): int {
+        return count(array_filter($results, fn($r) => ($r['status'] ?? '') === $status->value));
     }
 }

@@ -1,4 +1,19 @@
 <?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
 namespace mod_idetestfeedback\output;
 
 use context;
@@ -9,6 +24,13 @@ use renderer_base;
 use stdClass;
 use templatable;
 
+/**
+ * One test run in full: its summary and every test case result.
+ *
+ * @package    mod_idetestfeedback
+ * @copyright  2026 Maanus Roosioks
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class run_detail implements renderable, templatable {
 
     public function __construct(
@@ -218,7 +240,7 @@ class run_detail implements renderable, templatable {
             $feedback = trim((string) ($result->feedback ?? ''));
 
             $rows[] = [
-                'rowclass' => $this->row_class($result->status),
+                'rowclass' => status_badge::row_class($result->status),
                 'testsuite' => (string) ($result->testsuite ?? ''),
                 'testname' => $result->testname,
                 'required' => $showrequired && required_tests::is_required(
@@ -245,20 +267,5 @@ class run_detail implements renderable, templatable {
         }
 
         return $rows;
-    }
-
-    /**
-     * The Bootstrap table row class for a test case status.
-     *
-     * @param string $status the test case status
-     * @return string
-     */
-    protected function row_class(string $status): string {
-        return match ($status) {
-            'FAILED', 'ERROR' => 'table-danger',
-            'PASSED' => 'table-success',
-            'SKIPPED' => 'table-warning',
-            default => '',
-        };
     }
 }

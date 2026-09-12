@@ -1,8 +1,28 @@
 <?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
 namespace mod_idetestfeedback\local;
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * Parses and scores the list of test cases a teacher says count.
+ *
+ * @package    mod_idetestfeedback
+ * @copyright  2026 Maanus Roosioks
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class required_tests {
 
     private const QUALIFIER = '#';
@@ -83,9 +103,9 @@ class required_tests {
 
             if (!$statuses) {
                 $tally['missing']++;
-            } else if (array_intersect(['FAILED', 'ERROR'], $statuses)) {
+            } else if (array_intersect([status::FAILED->value, status::ERROR->value], $statuses)) {
                 $tally['failed']++;
-            } else if (in_array('PASSED', $statuses, true)) {
+            } else if (in_array(status::PASSED->value, $statuses, true)) {
                 $tally['passed']++;
             } else {
                 $tally['skipped']++;
