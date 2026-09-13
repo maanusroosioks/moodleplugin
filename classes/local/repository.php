@@ -118,6 +118,19 @@ class repository {
     }
 
     /**
+     * Whether the user has a run in which every reported test passed; a run is
+     * PASSED as soon as nothing failed, so skips have to be excluded too.
+     */
+    public function has_fully_passing_run(int $instanceid, int $userid): bool {
+        return $this->db->record_exists('idetestfeedback_run', [
+            'idetestfeedbackid' => $instanceid,
+            'userid'            => $userid,
+            'status'            => status::PASSED->value,
+            'skippedcount'      => 0,
+        ]);
+    }
+
+    /**
      * Builds the shared WHERE clause (no table alias) for the run list/count.
      *
      * @return array [string $where, array $params]
@@ -138,30 +151,37 @@ class repository {
         return [$where, $params];
     }
 
-    public function get_active_user_by_email(string $email): object|false {
-        $users = $this->db->get_records_select(
+    /**
+     * More than one is possible when $CFG->allowaccountssameemail is on.
+     */
+    public function get_active_users_by_email(string $email): array {
+        return $this->db->get_records_select(
             'user',
             'LOWER(email) = LOWER(:email) AND deleted = 0 AND suspended = 0',
             ['email' => $email]
         );
-
-        if (count($users) !== 1) {
-            return false;
-        }
-
-        return reset($users);
     }
 
     public function get_instance_by_assignmentkey(string $assignmentkey): object|false {
         return $this->db->get_record('idetestfeedback', ['assignmentkey' => $assignmentkey]);
     }
 
-    public function insert_run(\stdClass $run): int {
-        return $this->db->insert_record('idetestfeedback_run', $run);
-    }
+    /**
+     * Stores a run and its results atomically, so a rejected result cannot
+     * leave behind a run whose counts describe rows that were never written.
+     */
+    public function insert_run_with_results(\stdClass $run, array $results): int {
+        $transaction = $this->db->start_delegated_transaction();
 
-    public function insert_result(\stdClass $result): void {
-        $this->db->insert_record('idetestfeedback_result', $result);
+        $runid = $this->db->insert_record('idetestfeedback_run', $run);
+        foreach ($results as $result) {
+            $result->runid = $runid;
+        }
+        $this->db->insert_records('idetestfeedback_result', $results);
+
+        $transaction->allow_commit();
+
+        return $runid;
     }
 
     /**

@@ -66,6 +66,10 @@ $string['idetestfeedback_validation_windownotopen']      = 'The submission windo
 $string['idetestfeedback_validation_windowclosed']       = 'The submission window for this activity closed on {$a}.';
 $string['idetestfeedback_validation_invalidstatus']      = 'The result status "{$a}" is not valid. Expected one of: PASSED, FAILED, SKIPPED, ERROR.';
 $string['idetestfeedback_validation_noresults']          = 'No results were submitted with this test run.';
+$string['idetestfeedback_validation_toomanyresults']     = 'Too many results were submitted with this test run. At most {$a} are accepted.';
+$string['idetestfeedback_validation_invalidtiming']      = 'The submitted times are not valid. Durations cannot be negative and a run cannot finish before it starts.';
+$string['idetestfeedback_validation_noide']              = 'No IDE identifier was submitted with this test run.';
+$string['idetestfeedback_validation_ambiguousemail']     = 'More than one active user was found with the email "{$a}".';
 
 // Headings
 $string['viewresults'] = 'All test results';

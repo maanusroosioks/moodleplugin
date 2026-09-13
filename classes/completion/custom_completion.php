@@ -19,7 +19,6 @@ namespace mod_idetestfeedback\completion;
 use core_completion\activity_custom_completion;
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\required_tests;
-use mod_idetestfeedback\local\status;
 
 /**
  * The activity completion rules this activity defines.
@@ -35,36 +34,21 @@ class custom_completion extends activity_custom_completion {
 
         $this->validate_rule($rule);
 
-        $instanceid    = $this->cm->instance;
-        $requiredtests = $DB->get_field('idetestfeedback', 'requiredtests', ['id' => $instanceid]);
+        $repository = new repository($DB);
+        $instanceid = $this->cm->instance;
+        $entries    = required_tests::parse($repository->get_instance($instanceid)->requiredtests);
 
-        if (is_string($requiredtests) && trim($requiredtests) !== '') {
-            $passed = $this->has_run_passing_required_tests($instanceid, $requiredtests);
-        } else {
-            $passed = $DB->record_exists('idetestfeedback_run', [
-                'idetestfeedbackid' => $instanceid,
-                'userid'            => $this->userid,
-                'status'            => status::PASSED->value,
-            ]);
-        }
+        $passed = $entries === []
+            ? $repository->has_fully_passing_run($instanceid, $this->userid)
+            : $this->has_run_passing_required_tests($repository, $instanceid, $entries);
 
         return $passed ? COMPLETION_COMPLETE : COMPLETION_INCOMPLETE;
     }
 
-    private function has_run_passing_required_tests(int $instanceid, string $requiredtests): bool {
-        global $DB;
-
-        $entries = required_tests::parse($requiredtests);
-        if ($entries === []) {
-            return false;
-        }
-
-        $repository = new repository($DB);
-        $runs = $repository->get_runs_for_user($instanceid, $this->userid);
-
-        foreach ($runs as $run) {
+    private function has_run_passing_required_tests(repository $repository, int $instanceid, array $entries): bool {
+        foreach ($repository->get_runs_for_user($instanceid, $this->userid) as $run) {
             $tally = required_tests::evaluate($entries, $repository->get_results($run->id));
-            if ($tally['total'] > 0 && $tally['passed'] === $tally['total']) {
+            if ($tally['passed'] === $tally['total']) {
                 return true;
             }
         }

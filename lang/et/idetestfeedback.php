@@ -66,6 +66,10 @@ $string['idetestfeedback_validation_windownotopen']      = 'Selle tegevuse esita
 $string['idetestfeedback_validation_windowclosed']       = 'Selle tegevuse esitamise ajaaken sulgus {$a}.';
 $string['idetestfeedback_validation_invalidstatus']      = 'Staatuse väärtus "{$a}" ei ole lubatud. Oodatud üks järgnevatest: PASSED, FAILED, SKIPPED, ERROR.';
 $string['idetestfeedback_validation_noresults']          = 'Selle testijooksuga ei esitatud ühtegi tulemust.';
+$string['idetestfeedback_validation_toomanyresults']     = 'Selle testijooksuga esitati liiga palju tulemusi. Lubatud on kuni {$a}.';
+$string['idetestfeedback_validation_invalidtiming']      = 'Esitatud ajad ei ole lubatud. Kestus ei saa olla negatiivne ja jooks ei saa lõppeda enne alustamist.';
+$string['idetestfeedback_validation_noide']              = 'Selle testijooksuga ei esitatud IDE tunnust.';
+$string['idetestfeedback_validation_ambiguousemail']     = 'E-postiga "{$a}" leiti rohkem kui üks aktiivne kasutaja.';
 
 // Headings
 $string['viewresults'] = 'Kõik testitulemused';
