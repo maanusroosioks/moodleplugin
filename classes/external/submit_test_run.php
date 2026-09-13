@@ -153,29 +153,29 @@ class submit_test_run extends external_api {
 
         $users = $repository->get_active_users_by_email($params['email']);
         if (!$users) {
-            throw new validation_exception('validationusernotfound', $params['email']);
+            throw new validation_exception('validation_usernotfound', $params['email']);
         }
         if (count($users) > 1) {
-            throw new validation_exception('validationambiguousemail', $params['email']);
+            throw new validation_exception('validation_ambiguousemail', $params['email']);
         }
         $user = reset($users);
 
         $instance = $repository->get_instance_by_assignmentkey($params['assignmentkey']);
         if (!$instance) {
-            throw new validation_exception('validationassignmentnotfound', $params['assignmentkey']);
+            throw new validation_exception('validation_assignmentnotfound', $params['assignmentkey']);
         }
 
         $coursecontext = context_course::instance($instance->course);
         if (!is_enrolled($coursecontext, $user->id, '', true)) {
-            throw new validation_exception('validationnotenrolled');
+            throw new validation_exception('validation_notenrolled');
         }
 
         $now = time();
         if ($instance->timeopen > 0 && $now < $instance->timeopen) {
-            throw new validation_exception('validationwindownotopen', userdate($instance->timeopen));
+            throw new validation_exception('validation_windownotopen', userdate($instance->timeopen));
         }
         if ($instance->timeclose > 0 && $now > $instance->timeclose) {
-            throw new validation_exception('validationwindowclosed', userdate($instance->timeclose));
+            throw new validation_exception('validation_windowclosed', userdate($instance->timeclose));
         }
 
         return [$user->id, $instance];
@@ -188,32 +188,32 @@ class submit_test_run extends external_api {
      */
     private static function validate_payload(array $params): void {
         if (!$params['results']) {
-            throw new validation_exception('validationnoresults');
+            throw new validation_exception('validation_noresults');
         }
         if (count($params['results']) > self::MAX_RESULTS) {
-            throw new validation_exception('validationtoomanyresults', self::MAX_RESULTS);
+            throw new validation_exception('validation_toomanyresults', self::MAX_RESULTS);
         }
         if (trim($params['ide']) === '') {
-            throw new validation_exception('validationnoide');
+            throw new validation_exception('validation_noide');
         }
 
         foreach ($params['results'] as $result) {
             if (status::tryFrom(self::normalise_status($result['status'])) === null) {
-                throw new validation_exception('validationinvalidstatus', $result['status']);
+                throw new validation_exception('validation_invalidstatus', $result['status']);
             }
             if ($result['durationms'] !== null && $result['durationms'] < 0) {
-                throw new validation_exception('validationinvalidtiming');
+                throw new validation_exception('validation_invalidtiming');
             }
         }
 
         foreach (['startedat', 'finishedat'] as $field) {
             if ($params[$field] !== null && $params[$field] < 0) {
-                throw new validation_exception('validationinvalidtiming');
+                throw new validation_exception('validation_invalidtiming');
             }
         }
         if ($params['startedat'] !== null && $params['finishedat'] !== null
                 && $params['finishedat'] < $params['startedat']) {
-            throw new validation_exception('validationinvalidtiming');
+            throw new validation_exception('validation_invalidtiming');
         }
     }
 
