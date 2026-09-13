@@ -132,9 +132,8 @@ class provider implements
     }
 
     public static function export_user_data(approved_contextlist $contextlist): void {
-        global $DB;
-
-        $userid = $contextlist->get_user()->id;
+        $repository = self::repository();
+        $userid = (int) $contextlist->get_user()->id;
 
         foreach ($contextlist->get_contexts() as $context) {
             if (!$context instanceof \context_module) {
@@ -145,14 +144,10 @@ class provider implements
                 continue;
             }
 
-            $runs = $DB->get_records(
-                'idetestfeedback_run',
-                ['idetestfeedbackid' => $cm->instance, 'userid' => $userid],
-                'timecreated DESC'
-            );
+            $runs = $repository->get_runs_for_user((int) $cm->instance, $userid);
 
             foreach ($runs as $run) {
-                $results = $DB->get_records('idetestfeedback_result', ['runid' => $run->id], 'id ASC');
+                $results = $repository->get_results((int) $run->id);
                 $data = (object) [
                     'ide'          => $run->ide,
                     'projectname'  => $run->projectname,
@@ -184,29 +179,21 @@ class provider implements
                 writer::with_context($context)->export_data(['run_' . $run->id], $data);
             }
 
-            self::export_feedback_given($context, $cm->instance, $userid);
+            self::export_feedback_given($repository, $context, (int) $cm->instance, $userid);
         }
     }
 
     /**
      * Exports the feedback the user wrote on other people's runs.
      *
+     * @param repository $repository the activity's database access
      * @param \context_module $context the activity context
      * @param int $instanceid the activity instance id
      * @param int $userid the feedback author
      */
-    private static function export_feedback_given(\context_module $context, int $instanceid, int $userid): void {
-        global $DB;
-
-        $results = $DB->get_records_sql(
-            "SELECT res.id, res.runid, res.testsuite, res.testname, res.feedback, res.feedbackmodified
-               FROM {idetestfeedback_result} res
-               JOIN {idetestfeedback_run} r ON r.id = res.runid
-              WHERE r.idetestfeedbackid = :instanceid
-                AND res.feedbackby = :userid
-              ORDER BY res.id ASC",
-            ['instanceid' => $instanceid, 'userid' => $userid]
-        );
+    private static function export_feedback_given(repository $repository, \context_module $context,
+                                                  int $instanceid, int $userid): void {
+        $results = $repository->get_feedback_authored_by($instanceid, $userid);
 
         if (!$results) {
             return;

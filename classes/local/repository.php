@@ -17,7 +17,7 @@
 namespace mod_idetestfeedback\local;
 
 /**
- * The database reads and writes behind this activity's runs and feedback.
+ * Every data read and write for this activity; the privacy API keeps its own context SQL.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
@@ -101,6 +101,25 @@ class repository {
         }
 
         return $grouped;
+    }
+
+    /**
+     * The feedback one user wrote on results in this activity, without the runs' owners.
+     *
+     * @param int $instanceid the activity instance id
+     * @param int $userid the feedback author
+     * @return \stdClass[] result rows keyed by id
+     */
+    public function get_feedback_authored_by(int $instanceid, int $userid): array {
+        return $this->db->get_records_sql(
+            "SELECT res.id, res.runid, res.testsuite, res.testname, res.feedback, res.feedbackmodified
+               FROM {idetestfeedback_result} res
+               JOIN {idetestfeedback_run} run ON run.id = res.runid
+              WHERE run.idetestfeedbackid = :instanceid
+                AND res.feedbackby = :userid
+              ORDER BY res.id ASC",
+            ['instanceid' => $instanceid, 'userid' => $userid]
+        );
     }
 
     /**
