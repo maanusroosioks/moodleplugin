@@ -19,8 +19,9 @@ namespace mod_idetestfeedback;
 use completion_info;
 use context_module;
 use core\exception\required_capability_exception;
+use core\output\html_writer;
 use core\output\notification;
-use html_writer;
+use core\output\single_select;
 use mod_idetestfeedback\event\course_module_viewed;
 use mod_idetestfeedback\local\feedback_notifier;
 use mod_idetestfeedback\local\repository;
@@ -29,7 +30,6 @@ use mod_idetestfeedback\output\renderer;
 use mod_idetestfeedback\output\run_detail;
 use mod_idetestfeedback\output\run_list;
 use moodle_url;
-use single_select;
 use stdClass;
 
 /**

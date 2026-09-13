@@ -158,3 +158,4 @@ $string['privacy:metadata:result:timecreated']    = 'Millal testijuhtumi tulemus
 $string['privacy:metadata:result:feedback']         = 'Tagasiside, mille õpetaja testijuhtumi tulemusele kirjutas.';
 $string['privacy:metadata:result:feedbackby']       = 'Õpetaja, kes tagasiside kirjutas.';
 $string['privacy:metadata:result:feedbackmodified'] = 'Millal tagasisidet viimati muudeti.';
+$string['privacy:path:feedbackgiven'] = 'Teistele õpilastele antud tagasiside';

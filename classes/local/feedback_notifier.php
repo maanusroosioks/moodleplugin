@@ -17,8 +17,8 @@
 namespace mod_idetestfeedback\local;
 
 use core\message\message;
+use core\output\html_writer;
 use core_user;
-use html_writer;
 use moodle_url;
 use stdClass;
 

@@ -23,6 +23,7 @@ use core_privacy\local\request\contextlist;
 use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
+use mod_idetestfeedback\local\repository;
 
 /**
  * Privacy API implementation for the activity.
@@ -77,18 +78,28 @@ class provider implements
     }
 
     public static function get_contexts_for_userid(int $userid): contextlist {
+        $joins = "FROM {context} ctx
+                  JOIN {course_modules} cm ON cm.id = ctx.instanceid
+                   AND ctx.contextlevel = :contextlevel
+                  JOIN {modules} m ON m.id = cm.module AND m.name = 'idetestfeedback'
+                  JOIN {idetestfeedback} mp ON mp.id = cm.instance
+                  JOIN {idetestfeedback_run} r ON r.idetestfeedbackid = mp.id";
+
         $contextlist = new contextlist();
+
         $contextlist->add_from_sql(
-            "SELECT ctx.id
-               FROM {context} ctx
-               JOIN {course_modules} cm ON cm.id = ctx.instanceid
-                AND ctx.contextlevel = :contextlevel
-               JOIN {idetestfeedback} mp ON mp.id = cm.instance
-               JOIN {modules} m ON m.id = cm.module AND m.name = 'idetestfeedback'
-               JOIN {idetestfeedback_run} r ON r.idetestfeedbackid = mp.id
-              WHERE r.userid = :userid",
+            "SELECT ctx.id {$joins} WHERE r.userid = :userid",
             ['contextlevel' => CONTEXT_MODULE, 'userid' => $userid]
         );
+
+        $contextlist->add_from_sql(
+            "SELECT ctx.id
+               {$joins}
+               JOIN {idetestfeedback_result} res ON res.runid = r.id
+              WHERE res.feedbackby = :userid",
+            ['contextlevel' => CONTEXT_MODULE, 'userid' => $userid]
+        );
+
         return $contextlist;
     }
 
@@ -106,6 +117,16 @@ class provider implements
         $userlist->add_from_sql(
             'userid',
             "SELECT userid FROM {idetestfeedback_run} WHERE idetestfeedbackid = :instanceid",
+            ['instanceid' => $cm->instance]
+        );
+
+        $userlist->add_from_sql(
+            'feedbackby',
+            "SELECT res.feedbackby
+               FROM {idetestfeedback_result} res
+               JOIN {idetestfeedback_run} r ON r.id = res.runid
+              WHERE r.idetestfeedbackid = :instanceid
+                AND res.feedbackby IS NOT NULL",
             ['instanceid' => $cm->instance]
         );
     }
@@ -162,7 +183,51 @@ class provider implements
                 ];
                 writer::with_context($context)->export_data(['run_' . $run->id], $data);
             }
+
+            self::export_feedback_given($context, $cm->instance, $userid);
         }
+    }
+
+    /**
+     * Exports the feedback the user wrote on other people's runs.
+     *
+     * @param \context_module $context the activity context
+     * @param int $instanceid the activity instance id
+     * @param int $userid the feedback author
+     */
+    private static function export_feedback_given(\context_module $context, int $instanceid, int $userid): void {
+        global $DB;
+
+        $results = $DB->get_records_sql(
+            "SELECT res.id, res.runid, res.testsuite, res.testname, res.feedback, res.feedbackmodified
+               FROM {idetestfeedback_result} res
+               JOIN {idetestfeedback_run} r ON r.id = res.runid
+              WHERE r.idetestfeedbackid = :instanceid
+                AND res.feedbackby = :userid
+              ORDER BY res.id ASC",
+            ['instanceid' => $instanceid, 'userid' => $userid]
+        );
+
+        if (!$results) {
+            return;
+        }
+
+        writer::with_context($context)->export_data(
+            [get_string('privacy:path:feedbackgiven', 'mod_idetestfeedback')],
+            (object) [
+                'feedback' => array_values(array_map(
+                    fn($r) => [
+                        'runid'            => $r->runid,
+                        'testsuite'        => $r->testsuite,
+                        'testname'         => $r->testname,
+                        'feedback'         => $r->feedback,
+                        'feedbackmodified' => $r->feedbackmodified
+                            ? transform::datetime($r->feedbackmodified) : null,
+                    ],
+                    $results
+                )),
+            ]
+        );
     }
 
     public static function delete_data_for_all_users_in_context(\context $context): void {
@@ -174,7 +239,7 @@ class provider implements
             return;
         }
 
-        self::delete_runs($cm->instance);
+        self::repository()->delete_runs($cm->instance);
     }
 
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
@@ -189,7 +254,7 @@ class provider implements
                 continue;
             }
 
-            self::delete_runs($cm->instance, [$userid]);
+            self::forget_users($cm->instance, [$userid]);
         }
     }
 
@@ -203,35 +268,28 @@ class provider implements
             return;
         }
 
-        self::delete_runs($cm->instance, $userlist->get_userids());
+        self::forget_users($cm->instance, $userlist->get_userids());
     }
 
     /**
-     * Deletes runs (and their results) for an instance, optionally limited to specific users.
+     * Deletes the users' runs and detaches them from any feedback they wrote.
      *
      * @param int $instanceid the idetestfeedback instance id
-     * @param int[]|null $userids null = every user; otherwise only these users
+     * @param int[] $userids the users to forget
      */
-    private static function delete_runs(int $instanceid, ?array $userids = null): void {
+    private static function forget_users(int $instanceid, array $userids): void {
+        $repository = self::repository();
+
+        $repository->anonymise_feedback_authors($instanceid, $userids);
+        $repository->delete_runs($instanceid, $userids);
+    }
+
+    /**
+     * @return repository the activity's database access
+     */
+    private static function repository(): repository {
         global $DB;
 
-        $runselect = 'idetestfeedbackid = :instanceid';
-        $runparams = ['instanceid' => $instanceid];
-
-        if ($userids !== null) {
-            if (empty($userids)) {
-                return;
-            }
-            [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
-            $runselect .= " AND userid $insql";
-            $runparams += $inparams;
-        }
-
-        $runids = $DB->get_fieldset_select('idetestfeedback_run', 'id', $runselect, $runparams);
-        if ($runids) {
-            [$insql, $inparams] = $DB->get_in_or_equal($runids);
-            $DB->delete_records_select('idetestfeedback_result', "runid $insql", $inparams);
-        }
-        $DB->delete_records_select('idetestfeedback_run', $runselect, $runparams);
+        return new repository($DB);
     }
 }

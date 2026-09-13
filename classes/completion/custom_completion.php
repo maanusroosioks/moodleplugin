@@ -45,9 +45,17 @@ class custom_completion extends activity_custom_completion {
         return $passed ? COMPLETION_COMPLETE : COMPLETION_INCOMPLETE;
     }
 
+    /**
+     * Whether any of the user's runs passed every defined test case.
+     *
+     * @param repository $repository the activity's database access
+     * @param int $instanceid the activity instance id
+     * @param string[] $entries the defined test cases, from required_tests::parse()
+     * @return bool
+     */
     private function has_run_passing_required_tests(repository $repository, int $instanceid, array $entries): bool {
-        foreach ($repository->get_runs_for_user($instanceid, $this->userid) as $run) {
-            $tally = required_tests::evaluate($entries, $repository->get_results($run->id));
+        foreach ($repository->get_results_by_run_for_user($instanceid, $this->userid) as $results) {
+            $tally = required_tests::evaluate($entries, $results);
             if ($tally['passed'] === $tally['total']) {
                 return true;
             }

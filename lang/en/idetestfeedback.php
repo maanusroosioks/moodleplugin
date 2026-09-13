@@ -158,3 +158,4 @@ $string['privacy:metadata:result:timecreated']    = 'When the test case result w
 $string['privacy:metadata:result:feedback']         = 'Feedback a teacher wrote on the test case result.';
 $string['privacy:metadata:result:feedbackby']       = 'The teacher who wrote the feedback.';
 $string['privacy:metadata:result:feedbackmodified'] = 'When the feedback was last edited.';
+$string['privacy:path:feedbackgiven'] = 'Feedback given to other students';

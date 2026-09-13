@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026090900" COMMENT="XMLDB file for mod_idetestfeedback"
+<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026091300" COMMENT="XMLDB file for mod_idetestfeedback"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
 
@@ -38,20 +38,21 @@
                 <FIELD NAME="commithash"        TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="startedat"         TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="finishedat"        TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
-                <FIELD NAME="status"            TYPE="char" LENGTH="30"  NOTNULL="true"  SEQUENCE="false"/>
-                <FIELD NAME="passedcount"       TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="failedcount"       TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="skippedcount"      TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="errorcount"        TYPE="int"  LENGTH="10"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="status"            TYPE="char" LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="passedcount"       TYPE="int"  LENGTH="6"   NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="failedcount"       TYPE="int"  LENGTH="6"   NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="skippedcount"      TYPE="int"  LENGTH="6"   NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="errorcount"        TYPE="int"  LENGTH="6"   NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="timecreated"       TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
             </FIELDS>
             <KEYS>
-                <KEY NAME="primary"              TYPE="primary"  FIELDS="id"/>
+                <KEY NAME="primary"              TYPE="primary" FIELDS="id"/>
                 <KEY NAME="idetestfeedbackid_fk" TYPE="foreign" FIELDS="idetestfeedbackid" REFTABLE="idetestfeedback" REFFIELDS="id"/>
-                <KEY NAME="userid_fk"            TYPE="foreign"  FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+                <KEY NAME="userid_fk"            TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
             </KEYS>
             <INDEXES>
                 <INDEX NAME="instance_user_time_idx" UNIQUE="false" FIELDS="idetestfeedbackid, userid, timecreated"/>
+                <INDEX NAME="instance_status_time_idx" UNIQUE="false" FIELDS="idetestfeedbackid, status, timecreated"/>
                 <INDEX NAME="instance_time_idx" UNIQUE="false" FIELDS="idetestfeedbackid, timecreated"/>
             </INDEXES>
         </TABLE>
@@ -62,7 +63,7 @@
                 <FIELD NAME="runid"          TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
                 <FIELD NAME="testsuite"      TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="testname"       TYPE="char" LENGTH="255" NOTNULL="true"  SEQUENCE="false"/>
-                <FIELD NAME="status"         TYPE="char" LENGTH="30"  NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="status"         TYPE="char" LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
                 <FIELD NAME="durationms"     TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="message"        TYPE="text" NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="stacktracehash" TYPE="char" LENGTH="64"  NOTNULL="false" SEQUENCE="false"/>
@@ -73,12 +74,10 @@
                 <FIELD NAME="feedbackmodified" TYPE="int"  LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="When the feedback was last edited"/>
             </FIELDS>
             <KEYS>
-                <KEY NAME="primary"  TYPE="primary"  FIELDS="id"/>
-                <KEY NAME="runid_fk" TYPE="foreign"  FIELDS="runid" REFTABLE="idetestfeedback_run" REFFIELDS="id"/>
+                <KEY NAME="primary"       TYPE="primary" FIELDS="id"/>
+                <KEY NAME="runid_fk"      TYPE="foreign" FIELDS="runid" REFTABLE="idetestfeedback_run" REFFIELDS="id"/>
+                <KEY NAME="feedbackby_fk" TYPE="foreign" FIELDS="feedbackby" REFTABLE="user" REFFIELDS="id"/>
             </KEYS>
-            <INDEXES>
-                <INDEX NAME="runid_idx" UNIQUE="false" FIELDS="runid"/>
-            </INDEXES>
         </TABLE>
     </TABLES>
 </XMLDB>

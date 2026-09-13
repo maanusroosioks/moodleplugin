@@ -52,13 +52,7 @@ function idetestfeedback_update_instance(stdClass $data): bool {
 function idetestfeedback_delete_instance(int $id): bool {
     global $DB;
 
-    $runids = $DB->get_fieldset_select('idetestfeedback_run', 'id', 'idetestfeedbackid = ?', [$id]);
-    if ($runids) {
-        [$insql, $inparams] = $DB->get_in_or_equal($runids);
-        $DB->delete_records_select('idetestfeedback_result', "runid $insql", $inparams);
-    }
-    $DB->delete_records('idetestfeedback_run', ['idetestfeedbackid' => $id]);
-    $DB->delete_records('idetestfeedback', ['id' => $id]);
+    (new \mod_idetestfeedback\local\repository($DB))->delete_instance($id);
 
     return true;
 }
@@ -71,7 +65,9 @@ function idetestfeedback_supports(string $feature): string|bool|null {
         FEATURE_COMPLETION_TRACKS_VIEWS  => true,
         FEATURE_COMPLETION_HAS_RULES     => true,
         FEATURE_MOD_PURPOSE              => MOD_PURPOSE_ASSESSMENT,
-        default                         => null,
+        FEATURE_GROUPS                   => false,
+        FEATURE_GROUPINGS                => false,
+        default                          => null,
     };
 }
 
