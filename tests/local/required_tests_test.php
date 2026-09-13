@@ -76,7 +76,7 @@ final class required_tests_test extends \basic_testcase {
      * @param string|null $suite the test suite
      * @return \stdClass
      */
-    private static function result(string $name, string $status, ?string $suite = null): \stdClass {
+    private static function build_result(string $name, string $status, ?string $suite = null): \stdClass {
         return (object) ['testname' => $name, 'status' => $status, 'testsuite' => $suite];
     }
 
@@ -84,11 +84,11 @@ final class required_tests_test extends \basic_testcase {
         $entries = required_tests::parse("testPass\ntestFail\ntestSkip\ntestGone\ntestError");
 
         $tally = required_tests::evaluate($entries, [
-            self::result('testPass', 'PASSED'),
-            self::result('testFail', 'FAILED'),
-            self::result('testSkip', 'SKIPPED'),
-            self::result('testError', 'ERROR'),
-            self::result('testNotRequired', 'PASSED'),
+            self::build_result('testPass', 'PASSED'),
+            self::build_result('testFail', 'FAILED'),
+            self::build_result('testSkip', 'SKIPPED'),
+            self::build_result('testError', 'ERROR'),
+            self::build_result('testNotRequired', 'PASSED'),
         ]);
 
         $this->assertSame(
@@ -104,7 +104,7 @@ final class required_tests_test extends \basic_testcase {
     public function test_evaluate_ignores_case_and_surrounding_space(): void {
         $tally = required_tests::evaluate(
             required_tests::parse('CalcTest#testAdd'),
-            [self::result('  TESTADD ', 'PASSED', ' calctest ')]
+            [self::build_result('  TESTADD ', 'PASSED', ' calctest ')]
         );
 
         $this->assertSame(1, $tally['passed']);
@@ -113,7 +113,7 @@ final class required_tests_test extends \basic_testcase {
     public function test_evaluate_matches_a_bare_name_in_any_suite(): void {
         $tally = required_tests::evaluate(
             required_tests::parse('testAdd'),
-            [self::result('testAdd', 'PASSED', 'SomeOtherSuite')]
+            [self::build_result('testAdd', 'PASSED', 'SomeOtherSuite')]
         );
 
         $this->assertSame(1, $tally['passed']);
@@ -122,7 +122,7 @@ final class required_tests_test extends \basic_testcase {
     public function test_evaluate_requires_the_suite_to_match_when_one_is_given(): void {
         $tally = required_tests::evaluate(
             required_tests::parse('CalcTest#testAdd'),
-            [self::result('testAdd', 'PASSED', 'StringTest')]
+            [self::build_result('testAdd', 'PASSED', 'StringTest')]
         );
 
         $this->assertSame(['total' => 1, 'passed' => 0, 'failed' => 0, 'skipped' => 0, 'missing' => 1], $tally);
@@ -132,8 +132,8 @@ final class required_tests_test extends \basic_testcase {
         $tally = required_tests::evaluate(
             required_tests::parse('testAdd'),
             [
-                self::result('testAdd', 'PASSED', 'SuiteA'),
-                self::result('testAdd', 'FAILED', 'SuiteB'),
+                self::build_result('testAdd', 'PASSED', 'SuiteA'),
+                self::build_result('testAdd', 'FAILED', 'SuiteB'),
             ]
         );
 
@@ -145,8 +145,8 @@ final class required_tests_test extends \basic_testcase {
         $tally = required_tests::evaluate(
             required_tests::parse('testAdd'),
             [
-                self::result('testAdd', 'SKIPPED', 'SuiteA'),
-                self::result('testAdd', 'PASSED', 'SuiteB'),
+                self::build_result('testAdd', 'SKIPPED', 'SuiteA'),
+                self::build_result('testAdd', 'PASSED', 'SuiteB'),
             ]
         );
 
@@ -163,7 +163,7 @@ final class required_tests_test extends \basic_testcase {
     }
 
     public function test_evaluate_with_no_entries_is_empty(): void {
-        $tally = required_tests::evaluate([], [self::result('testAdd', 'PASSED')]);
+        $tally = required_tests::evaluate([], [self::build_result('testAdd', 'PASSED')]);
 
         $this->assertSame(['total' => 0, 'passed' => 0, 'failed' => 0, 'skipped' => 0, 'missing' => 0], $tally);
     }
