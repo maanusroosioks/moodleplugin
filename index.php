@@ -30,9 +30,14 @@ $course = $DB->get_record('course', ['id' => $id], '*', MUST_EXIST);
 
 require_course_login($course);
 
+$context = context_course::instance($course->id);
+
 $PAGE->set_url('/mod/idetestfeedback/index.php', ['id' => $id]);
 $PAGE->set_title(get_string('modulenameplural', 'mod_idetestfeedback'));
 $PAGE->set_heading(format_string($course->fullname));
+$PAGE->set_pagelayout('incourse');
+
+\core\event\course_module_instance_list_viewed::create(['context' => $context])->trigger();
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('modulenameplural', 'mod_idetestfeedback'));
@@ -50,20 +55,18 @@ $table->attributes['class'] = 'table table-bordered table-sm';
 $table->head = [
     get_string('activityname', 'mod_idetestfeedback'),
     get_string('assignmentkey', 'mod_idetestfeedback'),
-    get_string('timeopen',     'mod_idetestfeedback'),
-    get_string('timeclose',    'mod_idetestfeedback'),
+    get_string('timeopen', 'mod_idetestfeedback'),
+    get_string('timeclose', 'mod_idetestfeedback'),
 ];
 
 foreach ($instances as $instance) {
-    $link = html_writer::link(
-        new moodle_url('/mod/idetestfeedback/view.php', ['id' => $instance->coursemodule]),
-        format_string($instance->name)
-    );
-
     $table->data[] = [
-        $link,
+        html_writer::link(
+            new moodle_url('/mod/idetestfeedback/view.php', ['id' => $instance->coursemodule]),
+            format_string($instance->name)
+        ),
         html_writer::tag('code', s($instance->assignmentkey)),
-        $instance->timeopen  ? userdate($instance->timeopen)  : '—',
+        $instance->timeopen ? userdate($instance->timeopen) : '—',
         $instance->timeclose ? userdate($instance->timeclose) : '—',
     ];
 }

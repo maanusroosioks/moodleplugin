@@ -29,6 +29,11 @@ use mod_idetestfeedback\local\required_tests;
  */
 class custom_completion extends activity_custom_completion {
 
+    /**
+     * @param string $rule the completion rule to evaluate
+     * @return int COMPLETION_COMPLETE or COMPLETION_INCOMPLETE
+     */
+    #[\Override]
     public function get_state(string $rule): int {
         global $DB;
 
@@ -54,8 +59,8 @@ class custom_completion extends activity_custom_completion {
      * @return bool
      */
     private function has_run_passing_required_tests(repository $repository, int $instanceid, array $entries): bool {
-        foreach ($repository->get_results_by_run_for_user($instanceid, $this->userid) as $results) {
-            $tally = required_tests::evaluate($entries, $results);
+        foreach ($repository->get_run_ids_for_user($instanceid, $this->userid) as $runid) {
+            $tally = required_tests::evaluate($entries, $repository->get_results($runid));
             if ($tally['passed'] === $tally['total']) {
                 return true;
             }
@@ -64,16 +69,28 @@ class custom_completion extends activity_custom_completion {
         return false;
     }
 
+    /**
+     * @return string[] the rules this activity defines
+     */
+    #[\Override]
     public static function get_defined_custom_rules(): array {
         return ['completionpassrun'];
     }
 
+    /**
+     * @return array<string, string> rule => the description shown to users
+     */
+    #[\Override]
     public function get_custom_rule_descriptions(): array {
         return [
             'completionpassrun' => get_string('completionpassrun_desc', 'mod_idetestfeedback'),
         ];
     }
 
+    /**
+     * @return string[] the order the rules are displayed in
+     */
+    #[\Override]
     public function get_sort_order(): array {
         return [
             'completionview',

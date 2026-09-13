@@ -24,6 +24,13 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-function xmldb_idetestfeedback_upgrade($oldversion) {
+/**
+ * Runs the upgrade steps for this activity.
+ *
+ * @param int $oldversion the currently installed version
+ * @return bool
+ */
+function xmldb_idetestfeedback_upgrade($oldversion): bool {
+    // No released version has needed a schema change yet.
     return true;
 }

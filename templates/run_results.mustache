@@ -3,11 +3,10 @@
 
     The individual test case results of one run.
 
-    When the viewer may comment, each row carries a feedback textarea. Those
-    inputs are plain markup rather than form elements because the whole table
-    is injected into mod_idetestfeedback\form\feedback_form as HTML, the same
-    way mod_assign builds its quick grading form; the controller reads them
-    back with optional_param().
+    When the viewer may comment, each row carries a feedback textarea and this
+    template is included as a partial by mod_idetestfeedback/run_feedback_form,
+    which supplies the surrounding <form> and its session key. Otherwise the
+    stored feedback is shown read-only.
 
     Example context (json):
     {

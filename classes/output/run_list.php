@@ -31,6 +31,16 @@ use templatable;
  */
 class run_list implements renderable, templatable {
 
+    /**
+     * @param stdClass[] $runs the runs on this page
+     * @param int $cmid the course module id
+     * @param bool $showstudent whether to show the student column
+     * @param bool $colourrows whether to tint each row by its status
+     * @param string $summary a pass rate summary shown above the table
+     * @param string $totaltext how many runs matched, shown above the table
+     * @param string $filters the rendered filter menus
+     * @param string $pagingbar the rendered paging bar
+     */
     public function __construct(
         protected readonly array $runs,
         protected readonly int $cmid,
@@ -49,6 +59,7 @@ class run_list implements renderable, templatable {
      * @param renderer_base $output
      * @return array
      */
+    #[\Override]
     public function export_for_template(renderer_base $output): array {
         return [
             'showstudent' => $this->showstudent,

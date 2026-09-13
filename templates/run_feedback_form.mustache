@@ -1,0 +1,36 @@
+{{!
+    @template mod_idetestfeedback/run_feedback_form
+
+    Wraps the test case results of one run in the form a teacher saves feedback
+    with. The feedback inputs live in mod_idetestfeedback/run_results, which is
+    included here as a partial so the same markup backs the read-only view.
+
+    The inputs are plain markup rather than form elements because there is one
+    textarea per result row; mod_idetestfeedback\view reads them back with
+    data_submitted() after confirming the session key posted below.
+
+    Example context (json):
+    {
+        "formurl": "https://example.com/mod/idetestfeedback/view.php?id=3&runid=9",
+        "sesskey": "aBcD1234",
+        "showrequired": false,
+        "showfeedback": true,
+        "cancomment": true,
+        "rows": []
+    }
+}}
+<form method="post" action="{{formurl}}">
+    <input type="hidden" name="sesskey" value="{{sesskey}}">
+    <input type="hidden" name="savefeedback" value="1">
+
+    {{> mod_idetestfeedback/run_results }}
+
+    <div class="form-check mb-3">
+        <input type="checkbox" class="form-check-input" id="idetestfeedback-notify" name="notify" value="1">
+        <label class="form-check-label" for="idetestfeedback-notify">
+            {{#str}} notifystudent, mod_idetestfeedback {{/str}}
+        </label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">{{#str}} savefeedback, mod_idetestfeedback {{/str}}</button>
+</form>

@@ -28,22 +28,29 @@ Three tables (see [db/install.xml](db/install.xml) for the full schema):
   `assignmentkey`, the optional `timeopen` / `timeclose` submission window, and
   the optional `requiredtests` list (see below).
 - **`idetestfeedback_run`** — one row per API submission (the student, IDE,
-  commit, overall status, per-status counts, and — when a `requiredtests` list
-  was in effect — the `required*` breakdown scored against it).
+  commit, overall status and per-status counts). Nothing about the
+  `requiredtests` list is copied onto the run; it is scored live, see below.
 - **`idetestfeedback_result`** — one row per test case within a run. Also holds
   the optional per-test teacher feedback (`feedback`, `feedbackformat`,
   `feedbackby`, `feedbackmodified`; see *Teacher feedback* below).
 
-Deleting an activity instance cascades to its runs and results. The plugin
+Deleting an activity instance cascades to its runs and results, and **Course
+reset** can clear the submitted runs while keeping the activities. The plugin
 implements the Moodle Privacy API for export and deletion of a user's data.
-Moodle backup/restore is **not** supported.
+
+Moodle backup and restore are supported. Runs and results travel with the backup
+only when *include user data* is selected. The assignment key is preserved when
+the destination site does not already use it, and reissued otherwise — so
+duplicating an activity always yields a fresh key, and students have to copy the
+new one into their IDE.
 
 ## Web service API
 
 **Function:** `mod_idetestfeedback_submit_test_run`
 **Service:** `IDE Test Results Service` (shortname `ide_test_results`, restricted
-users, enabled by default)
-**Required capability:** `mod/idetestfeedback:submit` (system context)
+users, **disabled until an administrator enables it**)
+**Required capability:** `mod/idetestfeedback:submit` (system context, granted to
+no role by default)
 **Type:** write · not AJAX-callable
 
 ### Parameters
@@ -52,7 +59,7 @@ users, enabled by default)
 | --- | --- | --- | --- |
 | `email` | email | yes | Identity asserted by the calling middleware. Must match exactly one active (not deleted, not suspended) Moodle user. |
 | `assignmentkey` | alphanumext | yes | The key shown on the activity. |
-| `ide` | alphaext | yes | IDE identifier, e.g. `VSCODE`. |
+| `ide` | text | yes | IDE identifier, e.g. `VSCODE`. Must not be blank. |
 | `projectname` | text | no | |
 | `commithash` | text | no | |
 | `startedat` | int | no | Unix timestamp. |
@@ -80,12 +87,15 @@ Each `results` entry:
 
 The submission is rejected (with a localised message) when:
 
-- no single active user matches `email`;
+- no active user matches `email`, or more than one does;
 - no activity matches `assignmentkey`;
 - the user is not enrolled in the activity's course;
 - the current time is before `timeopen` or after `timeclose`;
 - any result has a `status` outside the allowed set;
-- `results` is empty.
+- `results` is empty, or holds more than 2000 entries;
+- `ide` is blank;
+- `startedat`, `finishedat` or any `durationms` is negative, or the run finishes
+  before it starts.
 
 The stored run's overall `status` is derived from its results: `ERROR` if any
 result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least
@@ -102,7 +112,7 @@ it currently stands (nothing is copied onto the run):
 
 | `requiredtests` on the activity | How a run is scored | `completionpassrun` is met by |
 | --- | --- | --- |
-| empty (default) | overall `status` only | any run whose `status` is `PASSED` |
+| empty (default) | overall `status` only | a run in which every reported test passed — a skipped test leaves the activity incomplete, even though the run's overall status is `PASSED` |
 | non-empty | every listed entry lands in exactly one bucket per run: passed, failed (also covers errored), skipped, or missing (not reported) | a run in which every listed entry passed |
 
 Matching is case-insensitive (after trimming) against the `testname` /
@@ -115,6 +125,13 @@ Scoring always reflects the **current** list: the run-details page and the
 Adding a list makes earlier runs incomplete until one passes every listed
 entry; clearing the list reverts to the status-only rule. Results remain
 self-reported from the student's environment and are not independently verified.
+
+## Course reset
+
+**Course → Reset** offers *Delete all submitted test runs*, which removes every
+run and result from the course's activities while leaving the activities and
+their assignment keys in place. A date shift moves `timeopen` and `timeclose`
+along with the rest of the course.
 
 ## Teacher feedback
 
@@ -137,7 +154,7 @@ notification preferences.
 | `mod/idetestfeedback:view` | student, teacher, editingteacher, manager | View own test results. |
 | `mod/idetestfeedback:viewall` | teacher, editingteacher, manager | View all students' results (`RISK_PERSONAL`). |
 | `mod/idetestfeedback:comment` | teacher, editingteacher, manager | Write per-test feedback on a student's run. |
-| `mod/idetestfeedback:submit` | manager | Submit results via the web service. Intended to be granted only to the middleware's service account. |
+| `mod/idetestfeedback:submit` | *none* | Submit results via the web service. Intended to be granted only to the middleware's service account. |
 | `mod/idetestfeedback:addinstance` | editingteacher, manager | Add the activity to a course. |
 
 ## Installation
@@ -158,9 +175,20 @@ notification preferences.
 
 ### Requirements
 
-- Moodle 4.4+ (`$plugin->requires = 2024042200`).
+- Moodle 4.5+ (`$plugin->requires = 2024100700`).
 
 Languages: English and Estonian.
+
+## Tests
+
+```bash
+vendor/bin/phpunit --filter mod_idetestfeedback
+```
+
+- `tests/local/required_tests_test.php` — parsing and scoring of the defined test
+  case list (no database needed).
+- `tests/custom_completion_test.php` — the `completionpassrun` rule, including
+  the skipped-test behaviour described above.
 
 ## Development environment
 

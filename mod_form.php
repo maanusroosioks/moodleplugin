@@ -28,11 +28,17 @@ require_once($CFG->dirroot . '/course/moodleform_mod.php');
 
 class mod_idetestfeedback_mod_form extends moodleform_mod {
 
+    /**
+     * Defines the activity settings form.
+     */
+    #[\Override]
     public function definition(): void {
+        global $CFG;
+
         $mform = $this->_form;
 
         $mform->addElement('text', 'name', get_string('activityname', 'mod_idetestfeedback'), ['size' => '64']);
-        $mform->setType('name', PARAM_TEXT);
+        $mform->setType('name', empty($CFG->formatstringstriptags) ? PARAM_CLEANHTML : PARAM_TEXT);
         $mform->addRule('name', null, 'required', null, 'client');
         $mform->addRule('name', get_string('maximumchars', '', 255), 'maxlength', 255, 'client');
 
@@ -89,32 +95,65 @@ class mod_idetestfeedback_mod_form extends moodleform_mod {
         $this->add_action_buttons();
     }
 
+    /**
+     * @param array $data the submitted data
+     * @param array $files the submitted files
+     * @return array field => error message
+     */
+    #[\Override]
     public function validation($data, $files): array {
         $errors = parent::validation($data, $files);
 
         if (!empty($data['timeopen']) && !empty($data['timeclose'])) {
             if ($data['timeclose'] <= $data['timeopen']) {
-                $errors['timeclose'] = get_string('error_closebeforeopen', 'mod_idetestfeedback');
+                $errors['timeclose'] = get_string('closebeforeopen', 'mod_idetestfeedback');
             }
         }
 
         return $errors;
     }
 
-    public function add_completion_rules(): array {
-        $mform = $this->_form;
+    /**
+     * An unticked checkbox is never posted, so the stored flag has to be cleared here
+     * or it survives the teacher switching the rule off.
+     *
+     * @param stdClass $data the submitted form data, modified in place
+     */
+    #[\Override]
+    public function data_postprocessing($data): void {
+        parent::data_postprocessing($data);
 
-        $mform->addElement(
+        if (!empty($data->completionunlocked)) {
+            $element = 'completionpassrun' . $this->get_suffix();
+            if (empty($data->{$element})) {
+                $data->{$element} = 0;
+            }
+        }
+    }
+
+    /**
+     * @return string[] the ids of the completion elements added
+     */
+    #[\Override]
+    public function add_completion_rules(): array {
+        $element = 'completionpassrun' . $this->get_suffix();
+
+        $this->_form->addElement(
             'checkbox',
-            'completionpassrun',
+            $element,
             '',
             get_string('completionpassrun', 'mod_idetestfeedback')
         );
 
-        return ['completionpassrun'];
+        return [$element];
     }
 
+    /**
+     * @param array $data the submitted data
+     * @return bool whether this activity's completion rule is switched on
+     */
+    #[\Override]
     public function completion_rule_enabled($data): bool {
-        return !empty($data['completionpassrun']);
+        return !empty($data['completionpassrun' . $this->get_suffix()]);
     }
 }

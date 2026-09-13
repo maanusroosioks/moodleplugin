@@ -24,6 +24,10 @@ namespace mod_idetestfeedback\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class validation_exception extends \moodle_exception {
+    /**
+     * @param string $errorcode the language string naming the reason
+     * @param mixed $a the placeholder value that string takes, if any
+     */
     public function __construct(string $errorcode, $a = null) {
         parent::__construct($errorcode, 'mod_idetestfeedback', '', $a);
     }

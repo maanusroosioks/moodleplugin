@@ -78,29 +78,20 @@ class repository {
     }
 
     /**
-     * Every result of every run the user has in this activity, in one query.
+     * The ids of a user's runs, so a caller that only needs one matching run can
+     * load the results a run at a time instead of holding all of them at once.
      *
      * @param int $instanceid the activity instance id
      * @param int $userid the student
-     * @return array<int, \stdClass[]> run id => that run's results, newest run first
+     * @return int[] the user's run ids, newest first
      */
-    public function get_results_by_run_for_user(int $instanceid, int $userid): array {
-        $rows = $this->db->get_records_sql(
-            "SELECT res.*
-               FROM {idetestfeedback_result} res
-               JOIN {idetestfeedback_run} run ON run.id = res.runid
-              WHERE run.idetestfeedbackid = :instanceid
-                AND run.userid = :userid
-              ORDER BY run.timecreated DESC, run.id DESC, res.id ASC",
-            ['instanceid' => $instanceid, 'userid' => $userid]
-        );
-
-        $grouped = [];
-        foreach ($rows as $row) {
-            $grouped[(int) $row->runid][] = $row;
-        }
-
-        return $grouped;
+    public function get_run_ids_for_user(int $instanceid, int $userid): array {
+        return array_map('intval', array_keys($this->db->get_records(
+            'idetestfeedback_run',
+            ['idetestfeedbackid' => $instanceid, 'userid' => $userid],
+            'timecreated DESC, id DESC',
+            'id'
+        )));
     }
 
     /**
@@ -315,6 +306,8 @@ class repository {
             return $runid;
         } catch (\Throwable $e) {
             $transaction->rollback($e);
+
+            throw $e;
         }
     }
 
@@ -370,7 +363,22 @@ class repository {
             $transaction->allow_commit();
         } catch (\Throwable $e) {
             $transaction->rollback($e);
+
+            throw $e;
         }
+    }
+
+    /**
+     * @param int $courseid the course id
+     * @return int[] the ids of every activity instance in the course
+     */
+    public function get_instance_ids_in_course(int $courseid): array {
+        return array_map('intval', $this->db->get_fieldset_select(
+            'idetestfeedback',
+            'id',
+            'course = :courseid',
+            ['courseid' => $courseid]
+        ));
     }
 
     /**

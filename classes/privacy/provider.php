@@ -37,6 +37,11 @@ class provider implements
     \core_privacy\local\request\plugin\provider,
     \core_privacy\local\request\core_userlist_provider {
 
+    /**
+     * @param collection $collection the metadata being built
+     * @return collection
+     */
+    #[\Override]
     public static function get_metadata(collection $collection): collection {
         $collection->add_database_table(
             'idetestfeedback_run',
@@ -68,15 +73,24 @@ class provider implements
                 'stacktracehash'   => 'privacy:metadata:result:stacktracehash',
                 'timecreated'      => 'privacy:metadata:result:timecreated',
                 'feedback'         => 'privacy:metadata:result:feedback',
+                'feedbackformat'   => 'privacy:metadata:result:feedbackformat',
                 'feedbackby'       => 'privacy:metadata:result:feedbackby',
                 'feedbackmodified' => 'privacy:metadata:result:feedbackmodified',
             ],
             'privacy:metadata:result'
         );
 
+        // Students are notified when a teacher leaves feedback on one of their runs.
+        $collection->add_subsystem_link('core_message', [], 'privacy:metadata:messages');
+
         return $collection;
     }
 
+    /**
+     * @param int $userid the user to look for
+     * @return contextlist the contexts holding data about them
+     */
+    #[\Override]
     public static function get_contexts_for_userid(int $userid): contextlist {
         $joins = "FROM {context} ctx
                   JOIN {course_modules} cm ON cm.id = ctx.instanceid
@@ -103,6 +117,10 @@ class provider implements
         return $contextlist;
     }
 
+    /**
+     * @param userlist $userlist the users found in one context
+     */
+    #[\Override]
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
         if (!$context instanceof \context_module) {
@@ -131,6 +149,10 @@ class provider implements
         );
     }
 
+    /**
+     * @param approved_contextlist $contextlist the contexts approved for export
+     */
+    #[\Override]
     public static function export_user_data(approved_contextlist $contextlist): void {
         $repository = self::repository();
         $userid = (int) $contextlist->get_user()->id;
@@ -176,7 +198,10 @@ class provider implements
                         $results
                     )),
                 ];
-                writer::with_context($context)->export_data(['run_' . $run->id], $data);
+                writer::with_context($context)->export_data(
+                    [get_string('privacy:path:runs', 'mod_idetestfeedback'), 'run_' . $run->id],
+                    $data
+                );
             }
 
             self::export_feedback_given($repository, $context, (int) $cm->instance, $userid);
@@ -217,6 +242,10 @@ class provider implements
         );
     }
 
+    /**
+     * @param \context $context the context to empty
+     */
+    #[\Override]
     public static function delete_data_for_all_users_in_context(\context $context): void {
         if (!$context instanceof \context_module) {
             return;
@@ -229,6 +258,10 @@ class provider implements
         self::repository()->delete_runs($cm->instance);
     }
 
+    /**
+     * @param approved_contextlist $contextlist the contexts approved for deletion
+     */
+    #[\Override]
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
         $userid = $contextlist->get_user()->id;
 
@@ -245,6 +278,10 @@ class provider implements
         }
     }
 
+    /**
+     * @param approved_userlist $userlist the users approved for deletion
+     */
+    #[\Override]
     public static function delete_data_for_users(approved_userlist $userlist): void {
         $context = $userlist->get_context();
         if (!$context instanceof \context_module) {

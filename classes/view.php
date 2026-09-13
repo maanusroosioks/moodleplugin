@@ -24,6 +24,7 @@ use core\output\notification;
 use core\output\single_select;
 use mod_idetestfeedback\event\course_module_viewed;
 use mod_idetestfeedback\local\feedback_notifier;
+use mod_idetestfeedback\local\feedback_saver;
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\output\renderer;
@@ -132,7 +133,8 @@ class view {
     /**
      * Saves feedback posted from the run detail page and redirects back to it.
      *
-     * The feedback fields are not form elements, so the session key is confirmed here.
+     * The feedback fields are plain markup rather than form elements, so the
+     * session key posted by mod_idetestfeedback/run_feedback_form is confirmed here.
      */
     public function handle_post(): void {
         if (!optional_param('savefeedback', 0, PARAM_BOOL)) {
@@ -147,7 +149,8 @@ class view {
 
         require_capability('mod/idetestfeedback:comment', $this->context);
 
-        $changed = $this->save_feedback($this->submitted_feedback());
+        $changed = (new feedback_saver($this->repository))
+            ->save($this->runid, $this->submitted_feedback(), (int) $this->user->id);
 
         $notified = false;
         if ($changed && optional_param('notify', 0, PARAM_BOOL)) {
@@ -190,39 +193,6 @@ class view {
     }
 
     /**
-     * Writes the feedback that actually changed.
-     *
-     * @param array<int, string> $submitted result id => feedback
-     * @return stdClass[] the results that now carry new feedback
-     */
-    protected function save_feedback(array $submitted): array {
-        $changed = [];
-
-        foreach ($this->repository->get_results($this->runid) as $result) {
-            $resultid = (int) $result->id;
-
-            if (!array_key_exists($resultid, $submitted)) {
-                continue;
-            }
-
-            $new = trim($submitted[$resultid]);
-            if ($new === trim((string) ($result->feedback ?? ''))) {
-                continue;
-            }
-
-            $this->repository->update_result_feedback($resultid, $new, FORMAT_PLAIN, (int) $this->user->id);
-
-            // Cleared feedback is saved but not announced.
-            if ($new !== '') {
-                $result->feedback = $new;
-                $changed[] = $result;
-            }
-        }
-
-        return $changed;
-    }
-
-    /**
      * Writes the page.
      */
     public function render(): void {
@@ -231,6 +201,7 @@ class view {
 
         echo $this->renderer->header();
         echo $this->renderer->heading(format_string($this->instance->name));
+        echo $this->assignment_key();
         echo $this->submission_window_notice();
 
         if ($this->runid > 0) {
@@ -266,6 +237,23 @@ class view {
         $event->add_record_snapshot('course', $this->course);
         $event->add_record_snapshot('idetestfeedback', $this->instance);
         $event->trigger();
+    }
+
+    /**
+     * The key students paste into their IDE plugin.
+     *
+     * Shown to everyone who can see the activity: it routes submissions to this
+     * instance but grants nothing on its own, and a student cannot submit
+     * without it.
+     *
+     * @return string
+     */
+    protected function assignment_key(): string {
+        return html_writer::div(
+            html_writer::tag('span', get_string('assignmentkey', 'mod_idetestfeedback') . ': ') .
+                html_writer::tag('code', s($this->instance->assignmentkey)),
+            'idetestfeedback-key mb-3'
+        );
     }
 
     /**

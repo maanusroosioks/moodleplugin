@@ -63,6 +63,7 @@ class status_badge implements renderable, templatable {
      * @param renderer_base $output
      * @return array
      */
+    #[\Override]
     public function export_for_template(renderer_base $output): array {
         $status = status::tryFrom($this->status);
 

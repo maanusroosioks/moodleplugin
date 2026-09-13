@@ -34,8 +34,11 @@ enum status: string {
     case ERROR = 'ERROR';
     case SKIPPED = 'SKIPPED';
 
-    /** @var string Filter menu sentinel meaning "any status". Not itself a status. */
-    public const ANY = 'ALL';
+    /**
+     * @var string Filter menu sentinel meaning "any status". Empty so that it can
+     * never collide with a status added later, and so tryFrom() rejects it.
+     */
+    public const ANY = '';
 
     /**
      * Options for the run list's status filter menu, keyed by filter value.

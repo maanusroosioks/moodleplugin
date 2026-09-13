@@ -25,16 +25,28 @@ namespace mod_idetestfeedback\event;
  */
 class test_run_submitted extends \core\event\base {
 
+    /**
+     * Initialises the event data.
+     */
+    #[\Override]
     protected function init() {
         $this->data['crud'] = 'c';
         $this->data['edulevel'] = self::LEVEL_PARTICIPATING;
         $this->data['objecttable'] = 'idetestfeedback_run';
     }
 
+    /**
+     * @return string the event's display name
+     */
+    #[\Override]
     public static function get_name() {
         return get_string('event_test_run_submitted', 'mod_idetestfeedback');
     }
 
+    /**
+     * @return string a description of what happened
+     */
+    #[\Override]
     public function get_description() {
         return "The web service account with id '{$this->userid}' submitted test run with id " .
             "'{$this->objectid}' (status {$this->other['status']}) for the user with id " .
@@ -42,6 +54,10 @@ class test_run_submitted extends \core\event\base {
             "'{$this->contextinstanceid}'.";
     }
 
+    /**
+     * @return \moodle_url the run this event describes
+     */
+    #[\Override]
     public function get_url() {
         return new \moodle_url('/mod/idetestfeedback/view.php', [
             'id'    => $this->contextinstanceid,
@@ -49,6 +65,10 @@ class test_run_submitted extends \core\event\base {
         ]);
     }
 
+    /**
+     * Checks the data every instance of this event must carry.
+     */
+    #[\Override]
     protected function validate_data() {
         parent::validate_data();
 
@@ -60,10 +80,18 @@ class test_run_submitted extends \core\event\base {
         }
     }
 
+    /**
+     * @return array the backup mapping for this event's objectid
+     */
+    #[\Override]
     public static function get_objectid_mapping() {
         return ['db' => 'idetestfeedback_run', 'restore' => 'idetestfeedback_run'];
     }
 
+    /**
+     * @return bool false, because nothing in 'other' needs mapping on restore
+     */
+    #[\Override]
     public static function get_other_mapping() {
         return false;
     }

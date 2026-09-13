@@ -33,6 +33,15 @@ use templatable;
  */
 class run_detail implements renderable, templatable {
 
+    /**
+     * @param stdClass $instance the activity instance
+     * @param stdClass $run the run being shown
+     * @param stdClass[] $results the run's test case results
+     * @param string|null $studentname the run's owner, or null to leave it out
+     * @param context $context the activity context, for formatting feedback
+     * @param int $cmid the course module id
+     * @param bool $cancomment whether the viewer may edit feedback
+     */
     public function __construct(
         protected readonly stdClass $instance,
         protected readonly stdClass $run,
@@ -45,56 +54,22 @@ class run_detail implements renderable, templatable {
     }
 
     /**
-     * Whether the viewer may edit feedback on this run.
-     *
-     * @return bool
-     */
-    public function can_comment(): bool {
-        return $this->cancomment;
-    }
-
-    /**
-     * Where the feedback form posts back to.
-     *
-     * @return moodle_url
-     */
-    public function get_form_url(): moodle_url {
-        return new moodle_url('/mod/idetestfeedback/view.php', [
-            'id' => $this->cmid,
-            'runid' => $this->run->id,
-        ]);
-    }
-
-    /**
-     * The run this detail view describes.
-     *
-     * @return stdClass
-     */
-    public function get_run(): stdClass {
-        return $this->run;
-    }
-
-    /**
-     * The course module this run belongs to.
-     *
-     * @return int
-     */
-    public function get_cmid(): int {
-        return $this->cmid;
-    }
-
-    /**
      * Exports the run summary and results for the run detail templates.
      *
      * @param renderer_base $output
      * @return array
      */
+    #[\Override]
     public function export_for_template(renderer_base $output): array {
         $entries = required_tests::parse($this->instance->requiredtests ?? null);
         $showrequired = $entries !== [];
 
         return [
             'backurl' => (new moodle_url('/mod/idetestfeedback/view.php', ['id' => $this->cmid]))->out(false),
+            'formurl' => (new moodle_url('/mod/idetestfeedback/view.php', [
+                'id' => $this->cmid,
+                'runid' => $this->run->id,
+            ]))->out(false),
             'meta' => $this->meta_rows($output, $entries, $showrequired),
             'hasresults' => $this->results !== [],
             'showrequired' => $showrequired,
@@ -235,6 +210,7 @@ class run_detail implements renderable, templatable {
      */
     protected function result_rows(renderer_base $output, array $entries, bool $showrequired): array {
         $rows = [];
+        $index = $showrequired ? required_tests::index_entries($entries) : [];
 
         foreach ($this->results as $result) {
             $feedback = trim((string) ($result->feedback ?? ''));
@@ -244,7 +220,7 @@ class run_detail implements renderable, templatable {
                 'testsuite' => (string) ($result->testsuite ?? ''),
                 'testname' => $result->testname,
                 'required' => $showrequired && required_tests::is_required(
-                    $entries,
+                    $index,
                     $result->testsuite ?? null,
                     $result->testname
                 ),

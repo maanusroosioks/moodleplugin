@@ -27,6 +27,10 @@ class required_tests {
 
     private const QUALIFIER = '#';
 
+    /**
+     * @param string|null $raw the teacher's list as typed
+     * @return string the canonical list, one entry per line
+     */
     public static function normalize(?string $raw): string {
         return implode("\n", self::parse($raw));
     }
@@ -34,6 +38,7 @@ class required_tests {
     /**
      * Parses the teacher's list into canonical `name` / `suite#name` entries.
      *
+     * @param string|null $raw the teacher's list as typed
      * @return string[] the distinct canonical entries, in input order
      */
     public static function parse(?string $raw): array {
@@ -67,6 +72,7 @@ class required_tests {
 
     /**
      * Scores reported results against the defined entries.
+     *
      * @param string[] $entries from {@see parse()}
      * @param array $results the run's result rows (associative arrays or objects),
      *        each with 'testname', an optional 'testsuite', and 'status'
@@ -74,31 +80,18 @@ class required_tests {
      */
     public static function evaluate(array $entries, array $results): array {
         $tally = ['total' => count($entries), 'passed' => 0, 'failed' => 0, 'skipped' => 0, 'missing' => 0];
-
-        $reported = [];
-        foreach ($results as $r) {
-            $r = (array) $r;
-            $reported[] = [
-                'name'   => \core_text::strtolower(trim((string) ($r['testname'] ?? ''))),
-                'suite'  => \core_text::strtolower(trim((string) ($r['testsuite'] ?? ''))),
-                'status' => $r['status'] ?? '',
-            ];
-        }
+        $reported = self::index_results($results);
 
         foreach ($entries as $entry) {
             [$suite, $name] = self::split_entry($entry);
-            $name  = \core_text::strtolower($name);
+            $name = \core_text::strtolower($name);
             $suite = $suite === null ? null : \core_text::strtolower($suite);
 
             $statuses = [];
-            foreach ($reported as $r) {
-                if ($r['name'] !== $name) {
-                    continue;
+            foreach ($reported[$name] ?? [] as $result) {
+                if ($suite === null || $result['suite'] === $suite) {
+                    $statuses[] = $result['status'];
                 }
-                if ($suite !== null && $r['suite'] !== $suite) {
-                    continue;
-                }
-                $statuses[] = $r['status'];
             }
 
             if (!$statuses) {
@@ -116,27 +109,69 @@ class required_tests {
     }
 
     /**
-     * Whether a single reported test is covered by one of the defined entries.
+     * Builds the lookup {@see is_required()} reads, so a run's results can be
+     * flagged in one pass instead of rescanning the entries for every row.
+     *
      * @param string[] $entries from {@see parse()}
+     * @return array{names:array<string,true>,qualified:array<string,true>} an opaque lookup
      */
-    public static function is_required(array $entries, ?string $testsuite, string $testname): bool {
-        $name  = \core_text::strtolower(trim($testname));
-        $suite = \core_text::strtolower(trim((string) $testsuite));
+    public static function index_entries(array $entries): array {
+        $index = ['names' => [], 'qualified' => []];
 
         foreach ($entries as $entry) {
-            [$esuite, $ename] = self::split_entry($entry);
-            if (\core_text::strtolower($ename) !== $name) {
-                continue;
-            }
-            if ($esuite === null || \core_text::strtolower($esuite) === $suite) {
-                return true;
+            [$suite, $name] = self::split_entry($entry);
+            $name = \core_text::strtolower($name);
+
+            if ($suite === null) {
+                $index['names'][$name] = true;
+            } else {
+                $index['qualified'][\core_text::strtolower($suite) . self::QUALIFIER . $name] = true;
             }
         }
 
-        return false;
+        return $index;
     }
 
     /**
+     * Whether a single reported test is covered by one of the defined entries.
+     *
+     * @param array $index from {@see index_entries()}
+     * @param string|null $testsuite the suite the IDE reported, if any
+     * @param string $testname the test name the IDE reported
+     * @return bool
+     */
+    public static function is_required(array $index, ?string $testsuite, string $testname): bool {
+        $name = \core_text::strtolower(trim($testname));
+        $suite = \core_text::strtolower(trim((string) $testsuite));
+
+        return isset($index['names'][$name])
+            || isset($index['qualified'][$suite . self::QUALIFIER . $name]);
+    }
+
+    /**
+     * Groups the reported results by lowercased test name.
+     *
+     * @param array $results the run's result rows
+     * @return array<string, array{suite:string,status:string}[]>
+     */
+    private static function index_results(array $results): array {
+        $reported = [];
+
+        foreach ($results as $result) {
+            $result = (array) $result;
+            $name = \core_text::strtolower(trim((string) ($result['testname'] ?? '')));
+
+            $reported[$name][] = [
+                'suite' => \core_text::strtolower(trim((string) ($result['testsuite'] ?? ''))),
+                'status' => (string) ($result['status'] ?? ''),
+            ];
+        }
+
+        return $reported;
+    }
+
+    /**
+     * @param string $entry a canonical entry
      * @return array{0:?string,1:string} [suite|null, name] for an entry
      */
     private static function split_entry(string $entry): array {
@@ -146,7 +181,7 @@ class required_tests {
         }
 
         $suite = trim(substr($entry, 0, $pos));
-        $name  = trim(substr($entry, $pos + 1));
+        $name = trim(substr($entry, $pos + 1));
 
         return [$suite === '' ? null : $suite, $name];
     }

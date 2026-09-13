@@ -54,22 +54,25 @@ class submit_test_run extends external_api {
         'stacktracehash' => 64,
     ];
 
+    /**
+     * @return external_function_parameters
+     */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'email'         => new external_value(PARAM_EMAIL,        'Email of the user, from the OAuth identity asserted by the Java middleware'),
-            'assignmentkey' => new external_value(PARAM_ALPHANUMEXT,  'Assignment key shown in the activity'),
-            'ide'           => new external_value(PARAM_TEXT,         'IDE identifier, e.g. VSCODE'),
-            'projectname'   => new external_value(PARAM_RAW,          'Project name',     VALUE_DEFAULT, null),
-            'commithash'    => new external_value(PARAM_TEXT,         'Git commit hash',  VALUE_DEFAULT, null),
-            'startedat'     => new external_value(PARAM_INT,          'Run start (unix)', VALUE_DEFAULT, null),
-            'finishedat'    => new external_value(PARAM_INT,          'Run end (unix)',   VALUE_DEFAULT, null),
+            'email'         => new external_value(PARAM_EMAIL, 'Email of the user, from the identity the middleware asserted'),
+            'assignmentkey' => new external_value(PARAM_ALPHANUMEXT, 'Assignment key shown in the activity'),
+            'ide'           => new external_value(PARAM_TEXT, 'IDE identifier, e.g. VSCODE'),
+            'projectname'   => new external_value(PARAM_RAW, 'Project name', VALUE_DEFAULT, null),
+            'commithash'    => new external_value(PARAM_TEXT, 'Git commit hash', VALUE_DEFAULT, null),
+            'startedat'     => new external_value(PARAM_INT, 'Run start (unix)', VALUE_DEFAULT, null),
+            'finishedat'    => new external_value(PARAM_INT, 'Run end (unix)', VALUE_DEFAULT, null),
             'results'       => new external_multiple_structure(
                 new external_single_structure([
-                    'testname'       => new external_value(PARAM_RAW,         'Test name'),
-                    'status'         => new external_value(PARAM_ALPHA,       'PASSED | FAILED | SKIPPED | ERROR, case insensitive'),
-                    'testsuite'      => new external_value(PARAM_RAW,         'Test suite',       VALUE_DEFAULT, null),
-                    'durationms'     => new external_value(PARAM_INT,         'Duration ms',      VALUE_DEFAULT, null),
-                    'message'        => new external_value(PARAM_RAW,         'Failure message',  VALUE_DEFAULT, null),
+                    'testname'       => new external_value(PARAM_RAW, 'Test name'),
+                    'status'         => new external_value(PARAM_ALPHA, 'PASSED, FAILED, SKIPPED or ERROR; case insensitive'),
+                    'testsuite'      => new external_value(PARAM_RAW, 'Test suite', VALUE_DEFAULT, null),
+                    'durationms'     => new external_value(PARAM_INT, 'Duration ms', VALUE_DEFAULT, null),
+                    'message'        => new external_value(PARAM_RAW, 'Failure message', VALUE_DEFAULT, null),
                     'stacktracehash' => new external_value(PARAM_ALPHANUMEXT, 'Stack trace hash', VALUE_DEFAULT, null),
                 ]),
                 'The test case results of the run, at least one'
@@ -77,6 +80,19 @@ class submit_test_run extends external_api {
         ]);
     }
 
+    /**
+     * Stores one finished test run against the activity the key names.
+     *
+     * @param string $email the student the middleware authenticated
+     * @param string $assignmentkey the key shown on the activity
+     * @param string $ide the IDE the run came from
+     * @param string|null $projectname the project the tests ran in
+     * @param string|null $commithash the commit the tests ran against
+     * @param int|null $startedat when the run started
+     * @param int|null $finishedat when the run finished
+     * @param array $results the run's test case results
+     * @return array the new run id
+     */
     public static function execute(
         string $email,
         string $assignmentkey,
@@ -116,6 +132,9 @@ class submit_test_run extends external_api {
         return ['runid' => $run->id];
     }
 
+    /**
+     * @return external_single_structure
+     */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
             'runid' => new external_value(PARAM_INT, 'Created run ID'),
@@ -123,6 +142,10 @@ class submit_test_run extends external_api {
     }
 
     /**
+     * Resolves the student and activity a submission names, and checks it is welcome.
+     *
+     * @param repository $repository the activity's database access
+     * @param array $params the validated call parameters
      * @return array{0:int,1:\stdClass} [user id, activity instance]
      */
     private static function validate_submission(repository $repository, array $params): array {
@@ -130,29 +153,29 @@ class submit_test_run extends external_api {
 
         $users = $repository->get_active_users_by_email($params['email']);
         if (!$users) {
-            throw new validation_exception('idetestfeedback_validation_usernotfound', $params['email']);
+            throw new validation_exception('validationusernotfound', $params['email']);
         }
         if (count($users) > 1) {
-            throw new validation_exception('idetestfeedback_validation_ambiguousemail', $params['email']);
+            throw new validation_exception('validationambiguousemail', $params['email']);
         }
         $user = reset($users);
 
         $instance = $repository->get_instance_by_assignmentkey($params['assignmentkey']);
         if (!$instance) {
-            throw new validation_exception('idetestfeedback_validation_assignmentnotfound', $params['assignmentkey']);
+            throw new validation_exception('validationassignmentnotfound', $params['assignmentkey']);
         }
 
         $coursecontext = context_course::instance($instance->course);
         if (!is_enrolled($coursecontext, $user->id, '', true)) {
-            throw new validation_exception('idetestfeedback_validation_notenrolled');
+            throw new validation_exception('validationnotenrolled');
         }
 
         $now = time();
         if ($instance->timeopen > 0 && $now < $instance->timeopen) {
-            throw new validation_exception('idetestfeedback_validation_windownotopen', userdate($instance->timeopen));
+            throw new validation_exception('validationwindownotopen', userdate($instance->timeopen));
         }
         if ($instance->timeclose > 0 && $now > $instance->timeclose) {
-            throw new validation_exception('idetestfeedback_validation_windowclosed', userdate($instance->timeclose));
+            throw new validation_exception('validationwindowclosed', userdate($instance->timeclose));
         }
 
         return [$user->id, $instance];
@@ -160,38 +183,49 @@ class submit_test_run extends external_api {
 
     /**
      * Rejects values that are unusable on their own, before anything is looked up.
+     *
+     * @param array $params the validated call parameters
      */
     private static function validate_payload(array $params): void {
         if (!$params['results']) {
-            throw new validation_exception('idetestfeedback_validation_noresults');
+            throw new validation_exception('validationnoresults');
         }
         if (count($params['results']) > self::MAX_RESULTS) {
-            throw new validation_exception('idetestfeedback_validation_toomanyresults', self::MAX_RESULTS);
+            throw new validation_exception('validationtoomanyresults', self::MAX_RESULTS);
         }
         if (trim($params['ide']) === '') {
-            throw new validation_exception('idetestfeedback_validation_noide');
+            throw new validation_exception('validationnoide');
         }
 
         foreach ($params['results'] as $result) {
             if (status::tryFrom(self::normalise_status($result['status'])) === null) {
-                throw new validation_exception('idetestfeedback_validation_invalidstatus', $result['status']);
+                throw new validation_exception('validationinvalidstatus', $result['status']);
             }
             if ($result['durationms'] !== null && $result['durationms'] < 0) {
-                throw new validation_exception('idetestfeedback_validation_invalidtiming');
+                throw new validation_exception('validationinvalidtiming');
             }
         }
 
         foreach (['startedat', 'finishedat'] as $field) {
             if ($params[$field] !== null && $params[$field] < 0) {
-                throw new validation_exception('idetestfeedback_validation_invalidtiming');
+                throw new validation_exception('validationinvalidtiming');
             }
         }
         if ($params['startedat'] !== null && $params['finishedat'] !== null
                 && $params['finishedat'] < $params['startedat']) {
-            throw new validation_exception('idetestfeedback_validation_invalidtiming');
+            throw new validation_exception('validationinvalidtiming');
         }
     }
 
+    /**
+     * Writes the run and its results.
+     *
+     * @param repository $repository the activity's database access
+     * @param \stdClass $instance the activity the run belongs to
+     * @param int $userid the student the run is attributed to
+     * @param array $params the validated call parameters
+     * @return \stdClass the stored run, carrying its new id
+     */
     private static function store_run(repository $repository, \stdClass $instance, int $userid, array $params): \stdClass {
         $now = time();
         $counts = self::tally_statuses($params['results']);
@@ -229,6 +263,14 @@ class submit_test_run extends external_api {
         return $run;
     }
 
+    /**
+     * Re-evaluates the custom completion rule for the student who submitted.
+     *
+     * @param repository $repository the activity's database access
+     * @param \stdClass $instance the activity the run belongs to
+     * @param \stdClass $cm the activity's course module
+     * @param int $userid the student the run is attributed to
+     */
     private static function update_completion(repository $repository, \stdClass $instance, \stdClass $cm,
                                               int $userid): void {
         global $CFG;
@@ -244,6 +286,11 @@ class submit_test_run extends external_api {
         }
     }
 
+    /**
+     * @param \stdClass $cm the activity's course module
+     * @param \stdClass $run the stored run
+     * @param int $userid the student the run is attributed to
+     */
     private static function log_submission(\stdClass $cm, \stdClass $run, int $userid): void {
         test_run_submitted::create([
             'objectid'      => $run->id,
@@ -254,6 +301,7 @@ class submit_test_run extends external_api {
     }
 
     /**
+     * @param array $results the submitted test case results
      * @return array<string, int> result count per status, every status present
      */
     private static function tally_statuses(array $results): array {
@@ -268,6 +316,9 @@ class submit_test_run extends external_api {
 
     /**
      * The worst outcome any test in the run reported.
+     *
+     * @param array<string, int> $counts from {@see tally_statuses()}
+     * @return status
      */
     private static function resolve_run_status(array $counts): status {
         if ($counts[status::ERROR->value] > 0) {
@@ -283,12 +334,20 @@ class submit_test_run extends external_api {
         return status::SKIPPED;
     }
 
+    /**
+     * @param string $status a status as the IDE reported it
+     * @return string the status in the form it is stored in
+     */
     private static function normalise_status(string $status): string {
         return \core_text::strtoupper(trim($status));
     }
 
     /**
      * Trims a value and clips it to the width of the column it is stored in.
+     *
+     * @param string|null $value the submitted value
+     * @param string $field the key into {@see MAX_LENGTHS}
+     * @return string|null
      */
     private static function clip(?string $value, string $field): ?string {
         if ($value === null) {

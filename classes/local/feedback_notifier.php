@@ -31,6 +31,11 @@ use stdClass;
  */
 class feedback_notifier {
 
+    /**
+     * @param stdClass $course the course the activity is in
+     * @param stdClass $instance the activity instance
+     * @param int $cmid the course module id, for the link back
+     */
     public function __construct(
         protected readonly stdClass $course,
         protected readonly stdClass $instance,
@@ -38,6 +43,14 @@ class feedback_notifier {
     ) {
     }
 
+    /**
+     * Tells the run's owner that feedback is waiting.
+     *
+     * @param stdClass $run the run that was commented on
+     * @param stdClass[] $results the results that now carry new feedback
+     * @param stdClass $from the teacher who wrote it
+     * @return bool whether the message was accepted for delivery
+     */
     public function notify(stdClass $run, array $results, stdClass $from): bool {
         $recipient = core_user::get_user((int) $run->userid, '*', MUST_EXIST);
 

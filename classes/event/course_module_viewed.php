@@ -25,12 +25,20 @@ namespace mod_idetestfeedback\event;
  */
 class course_module_viewed extends \core\event\course_module_viewed {
 
+    /**
+     * Initialises the event data.
+     */
+    #[\Override]
     protected function init() {
         $this->data['crud'] = 'r';
         $this->data['edulevel'] = self::LEVEL_PARTICIPATING;
         $this->data['objecttable'] = 'idetestfeedback';
     }
 
+    /**
+     * @return array the backup mapping for this event's objectid
+     */
+    #[\Override]
     public static function get_objectid_mapping() {
         return ['db' => 'idetestfeedback', 'restore' => 'idetestfeedback'];
     }
