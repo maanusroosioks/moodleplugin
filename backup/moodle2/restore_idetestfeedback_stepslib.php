@@ -48,6 +48,10 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
                 'idetestfeedback_result',
                 '/activity/idetestfeedback/runs/run/results/result'
             );
+            $paths[] = new restore_path_element(
+                'idetestfeedback_file',
+                '/activity/idetestfeedback/runs/run/files/file'
+            );
         }
 
         return $this->prepare_activity_structure($paths);
@@ -116,6 +120,21 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
             : ($this->get_mappingid('user', $data->feedbackby) ?: null);
 
         $DB->insert_record('idetestfeedback_result', $data);
+    }
+
+    /**
+     * Restores one captured test file.
+     *
+     * @param array $data the backed up test file
+     */
+    protected function process_idetestfeedback_file($data) {
+        global $DB;
+
+        $data = (object) $data;
+
+        $data->runid = $this->get_new_parentid('idetestfeedback_run');
+
+        $DB->insert_record('idetestfeedback_file', $data);
     }
 
     /**

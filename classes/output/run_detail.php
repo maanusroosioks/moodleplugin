@@ -37,6 +37,7 @@ class run_detail implements renderable, templatable {
      * @param stdClass $instance the activity instance
      * @param stdClass $run the run being shown
      * @param stdClass[] $results the run's test case results
+     * @param stdClass[] $files the test files captured with the run
      * @param string|null $studentname the run's owner, or null to leave it out
      * @param context $context the activity context, for formatting feedback
      * @param int $cmid the course module id
@@ -46,6 +47,7 @@ class run_detail implements renderable, templatable {
         protected readonly stdClass $instance,
         protected readonly stdClass $run,
         protected readonly array $results,
+        protected readonly array $files,
         protected readonly ?string $studentname,
         protected readonly context $context,
         protected readonly int $cmid,
@@ -76,7 +78,30 @@ class run_detail implements renderable, templatable {
             'showfeedback' => $this->cancomment || $this->has_feedback(),
             'cancomment' => $this->cancomment,
             'rows' => $this->result_rows($output, $entries, $showrequired),
+            'hasfiles' => $this->files !== [],
+            'files' => $this->file_rows(),
+            'hascode' => $this->has_code(),
         ];
+    }
+
+    /**
+     * Whether anything on this run is worth loading a syntax highlighter for.
+     *
+     * @return bool
+     */
+    protected function has_code(): bool {
+        foreach ($this->results as $result) {
+            if (trim((string) ($result->sourcecode ?? '')) !== '') {
+                return true;
+            }
+        }
+        foreach ($this->files as $file) {
+            if (trim((string) ($file->content ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -154,12 +179,77 @@ class run_detail implements renderable, templatable {
             $rows = array_merge($rows, $this->required_rows($entries));
         }
 
+        $rows = array_merge($rows, $this->timing_rows(), $this->flag_rows());
+
         $rows[] = [
             'label' => get_string('timecreated', 'mod_idetestfeedback'),
             'text' => userdate((int) $this->run->timecreated),
         ];
 
         return $rows;
+    }
+
+    /**
+     * The run's own clock, as the IDE reported it in milliseconds.
+     *
+     * @return array[]
+     */
+    protected function timing_rows(): array {
+        $rows = [];
+
+        foreach (['startedat', 'finishedat'] as $field) {
+            if ($this->run->$field !== null) {
+                $rows[] = [
+                    'label' => get_string($field, 'mod_idetestfeedback'),
+                    'text' => userdate(intdiv((int) $this->run->$field, 1000)),
+                ];
+            }
+        }
+
+        if ($this->run->startedat !== null && $this->run->finishedat !== null) {
+            $rows[] = [
+                'label' => get_string('runduration', 'mod_idetestfeedback'),
+                'text' => get_string(
+                    'durationunit',
+                    'mod_idetestfeedback',
+                    (int) $this->run->finishedat - (int) $this->run->startedat
+                ),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * What the student chose about code capture, which decides how much of this
+     * run can be taken at face value.
+     *
+     * @return array[] at most one row, holding a badge per flag that is set
+     */
+    protected function flag_rows(): array {
+        $badges = [];
+
+        if (!empty($this->run->capturedisabled)) {
+            $badges[] = [
+                'label' => get_string('capturedisabled', 'mod_idetestfeedback'),
+                'classes' => 'bg-secondary text-white',
+            ];
+        }
+        if (!empty($this->run->warningacknowledged)) {
+            $badges[] = [
+                'label' => get_string('warningacknowledged', 'mod_idetestfeedback'),
+                'classes' => 'bg-warning text-dark',
+            ];
+        }
+
+        if (!$badges) {
+            return [];
+        }
+
+        return [[
+            'label' => get_string('runflags', 'mod_idetestfeedback'),
+            'badges' => $badges,
+        ]];
     }
 
     /**
@@ -214,9 +304,12 @@ class run_detail implements renderable, templatable {
 
         foreach ($this->results as $result) {
             $feedback = trim((string) ($result->feedback ?? ''));
+            $source = $this->source_block($result);
 
             $rows[] = [
                 'rowclass' => status_badge::row_class($result->status),
+                'hassource' => $source !== null,
+                'source' => $source,
                 'testsuite' => (string) ($result->testsuite ?? ''),
                 'testname' => $result->testname,
                 'required' => $showrequired && required_tests::is_required(
@@ -243,5 +336,102 @@ class run_detail implements renderable, templatable {
         }
 
         return $rows;
+    }
+
+    /**
+     * The code one test case ran, for the collapsible cell in the results table.
+     *
+     * @param stdClass $result one test case result
+     * @return array|null null when the IDE captured nothing for this test
+     */
+    protected function source_block(stdClass $result): ?array {
+        $code = (string) ($result->sourcecode ?? '');
+        $path = (string) ($result->sourcefilepath ?? '');
+
+        if ($code === '' && $path === '') {
+            return null;
+        }
+
+        return [
+            'summary' => $this->source_summary($result, $path),
+            'kind' => (string) ($result->sourcekind ?? ''),
+            'code' => $code,
+            'hascode' => $code !== '',
+            'language' => self::language_of($path),
+            'hash' => (string) ($result->sourcecodehash ?? ''),
+            'truncated' => !empty($result->sourcetruncated),
+        ];
+    }
+
+    /**
+     * The one line shown while a source block is collapsed.
+     *
+     * @param stdClass $result one test case result
+     * @param string $path the file the code came from, possibly empty
+     * @return string
+     */
+    protected function source_summary(stdClass $result, string $path): string {
+        $label = $path !== '' ? $path : get_string('sourcecode', 'mod_idetestfeedback');
+
+        if ($result->sourcestartline === null) {
+            return $label;
+        }
+
+        $lines = (string) (int) $result->sourcestartline;
+        if ($result->sourceendline !== null && (int) $result->sourceendline !== (int) $result->sourcestartline) {
+            $lines .= '-' . (int) $result->sourceendline;
+        }
+
+        return $label . ':' . $lines;
+    }
+
+    /**
+     * Builds one template row per captured test file.
+     *
+     * @return array[]
+     */
+    protected function file_rows(): array {
+        $rows = [];
+
+        foreach ($this->files as $file) {
+            $content = (string) ($file->content ?? '');
+
+            $rows[] = [
+                'path' => $file->path,
+                'sha256' => (string) ($file->sha256 ?? ''),
+                'content' => $content,
+                'hascontent' => $content !== '',
+                'language' => self::language_of((string) $file->path),
+                'truncated' => !empty($file->truncated),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The Prism language a file's extension names, limited to what the
+     * filter_codehighlighter build actually ships a grammar for.
+     *
+     * @param string $path the file the code came from
+     * @return string the Prism language name, '' when it is not one we highlight
+     */
+    protected static function language_of(string $path): string {
+        $languages = [
+            'c' => 'c', 'h' => 'c',
+            'cpp' => 'cpp', 'cc' => 'cpp', 'cxx' => 'cpp', 'hpp' => 'cpp', 'hh' => 'cpp',
+            'cs' => 'csharp',
+            'css' => 'css',
+            'htm' => 'markup', 'html' => 'markup', 'svg' => 'markup', 'xml' => 'markup',
+            'java' => 'java',
+            'cjs' => 'javascript', 'js' => 'javascript', 'jsx' => 'javascript', 'mjs' => 'javascript',
+            'php' => 'php',
+            'py' => 'python',
+            'rb' => 'ruby',
+        ];
+
+        $extension = \core_text::strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        return $languages[$extension] ?? '';
     }
 }

@@ -51,15 +51,37 @@ class renderer extends plugin_renderer_base {
         $out = $this->render_from_template('mod_idetestfeedback/run_detail', $data);
 
         if (!$data['hasresults']) {
-            return $out . $this->notification(get_string('noresults', 'mod_idetestfeedback'), 'info');
+            $out .= $this->notification(get_string('noresults', 'mod_idetestfeedback'), 'info');
+        } else if (!$data['cancomment']) {
+            $out .= $this->render_from_template('mod_idetestfeedback/run_results', $data);
+        } else {
+            $data['sesskey'] = sesskey();
+            $out .= $this->render_from_template('mod_idetestfeedback/run_feedback_form', $data);
         }
 
-        if (!$data['cancomment']) {
-            return $out . $this->render_from_template('mod_idetestfeedback/run_results', $data);
+        if ($data['hasfiles']) {
+            $out .= $this->render_from_template('mod_idetestfeedback/run_files', $data);
         }
 
-        $data['sesskey'] = sesskey();
+        if ($data['hascode']) {
+            $this->require_highlighter();
+        }
 
-        return $out . $this->render_from_template('mod_idetestfeedback/run_feedback_form', $data);
+        return $out;
+    }
+
+    /**
+     * Colours the code blocks with the highlighter the core filter ships.
+     *
+     * Its AMD module highlights every language-tagged block on the page, so it
+     * works without the filter being enabled. A site that has uninstalled the
+     * filter simply gets plain code rather than a missing module.
+     */
+    protected function require_highlighter(): void {
+        if (\core_component::get_component_directory('filter_codehighlighter') === null) {
+            return;
+        }
+
+        $this->page->requires->js_call_amd('filter_codehighlighter/prism-init');
     }
 }

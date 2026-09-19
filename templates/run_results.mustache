@@ -22,6 +22,16 @@
                 "badge": {"label": "PASSED", "classes": "bg-success text-white"},
                 "duration": "12 ms",
                 "message": "",
+                "hassource": true,
+                "source": {
+                    "summary": "tests/test_calculator.py:12-13",
+                    "kind": "TEST",
+                    "code": "def test_add_returns_sum():\n    assert add(2, 3) == 5",
+                    "hascode": true,
+                    "language": "python",
+                    "hash": "b1946ac92492d234",
+                    "truncated": false
+                },
                 "feedbackname": "feedback_7",
                 "feedbacklabel": "Feedback on testAddition",
                 "feedback": "",
@@ -42,6 +52,7 @@
                 <th scope="col">{{#str}} status, mod_idetestfeedback {{/str}}</th>
                 <th scope="col">{{#str}} duration, mod_idetestfeedback {{/str}}</th>
                 <th scope="col">{{#str}} message, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} sourcecode, mod_idetestfeedback {{/str}}</th>
                 {{#showfeedback}}
                     <th scope="col">{{#str}} feedback, mod_idetestfeedback {{/str}}</th>
                 {{/showfeedback}}
@@ -65,6 +76,35 @@
                     <td>{{#badge}}{{> mod_idetestfeedback/status_badge }}{{/badge}}</td>
                     <td>{{duration}}</td>
                     <td>{{#message}}<pre class="idetestfeedback-message">{{.}}</pre>{{/message}}</td>
+                    <td>
+                        {{#hassource}}
+                            {{#source}}
+                                <details class="idetestfeedback-source">
+                                    <summary>
+                                        <span class="idetestfeedback-filepath">{{summary}}</span>
+                                        {{#truncated}}
+                                            <span class="badge bg-warning text-dark">
+                                                {{#str}} truncated, mod_idetestfeedback {{/str}}
+                                            </span>
+                                        {{/truncated}}
+                                    </summary>
+                                    {{#hash}}
+                                        <div class="text-muted small">
+                                            {{#str}} sourcehash, mod_idetestfeedback {{/str}}: <code>{{.}}</code>
+                                        </div>
+                                    {{/hash}}
+                                    {{#hascode}}
+                                        {{#language}}<pre class="language-{{.}}"><code>{{code}}</code></pre>{{/language}}
+                                        {{^language}}<pre><code>{{code}}</code></pre>{{/language}}
+                                    {{/hascode}}
+                                    {{^hascode}}
+                                        <p class="text-muted">{{#str}} sourcenotcaptured, mod_idetestfeedback {{/str}}</p>
+                                    {{/hascode}}
+                                </details>
+                            {{/source}}
+                        {{/hassource}}
+                        {{^hassource}}<span class="text-muted">&mdash;</span>{{/hassource}}
+                    </td>
                     {{#showfeedback}}
                         <td>
                             {{#cancomment}}

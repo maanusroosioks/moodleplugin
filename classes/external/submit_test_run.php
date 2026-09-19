@@ -44,6 +44,15 @@ class submit_test_run extends external_api {
     /** @var int Most test case results accepted in one submission. */
     private const MAX_RESULTS = 2000;
 
+    /** @var int Most test files accepted in one submission. */
+    private const MAX_FILES = 200;
+
+    /** @var int Most bytes of captured source kept per test case result. */
+    private const MAX_SOURCE_BYTES = 65536;
+
+    /** @var int Most bytes of content kept per test file. */
+    private const MAX_FILE_BYTES = 524288;
+
     /** @var array<string, int> Column widths from db/install.xml. */
     private const MAX_LENGTHS = [
         'ide'            => 50,
@@ -51,7 +60,11 @@ class submit_test_run extends external_api {
         'commithash'     => 100,
         'testsuite'      => 255,
         'testname'       => 255,
-        'stacktracehash' => 64,
+        'sourcekind'     => 20,
+        'sourcefilepath' => 1024,
+        'sourcecodehash' => 64,
+        'filepath'       => 1024,
+        'filesha256'     => 64,
     ];
 
     /**
@@ -64,19 +77,44 @@ class submit_test_run extends external_api {
             'ide'           => new external_value(PARAM_TEXT, 'IDE identifier, e.g. VSCODE'),
             'projectname'   => new external_value(PARAM_RAW, 'Project name', VALUE_DEFAULT, null),
             'commithash'    => new external_value(PARAM_TEXT, 'Git commit hash', VALUE_DEFAULT, null),
-            'startedat'     => new external_value(PARAM_INT, 'Run start (unix)', VALUE_DEFAULT, null),
-            'finishedat'    => new external_value(PARAM_INT, 'Run end (unix)', VALUE_DEFAULT, null),
+            'startedat'     => new external_value(PARAM_INT, 'Run start (epoch milliseconds)', VALUE_DEFAULT, null),
+            'finishedat'    => new external_value(PARAM_INT, 'Run end (epoch milliseconds)', VALUE_DEFAULT, null),
             'results'       => new external_multiple_structure(
                 new external_single_structure([
-                    'testname'       => new external_value(PARAM_RAW, 'Test name'),
-                    'status'         => new external_value(PARAM_ALPHA, 'PASSED, FAILED, SKIPPED or ERROR; case insensitive'),
-                    'testsuite'      => new external_value(PARAM_RAW, 'Test suite', VALUE_DEFAULT, null),
-                    'durationms'     => new external_value(PARAM_INT, 'Duration ms', VALUE_DEFAULT, null),
-                    'message'        => new external_value(PARAM_RAW, 'Failure message', VALUE_DEFAULT, null),
-                    'stacktracehash' => new external_value(PARAM_ALPHANUMEXT, 'Stack trace hash', VALUE_DEFAULT, null),
+                    'testname'   => new external_value(PARAM_RAW, 'Test name'),
+                    'status'     => new external_value(PARAM_ALPHA, 'PASSED, FAILED, SKIPPED or ERROR; case insensitive'),
+                    'testsuite'  => new external_value(PARAM_RAW, 'Test suite', VALUE_DEFAULT, null),
+                    'durationms' => new external_value(PARAM_INT, 'Duration ms', VALUE_DEFAULT, null),
+                    'message'    => new external_value(PARAM_RAW, 'Failure message', VALUE_DEFAULT, null),
+                    'source'     => new external_single_structure([
+                        'kind'      => new external_value(PARAM_ALPHANUMEXT, 'What the code is, e.g. TEST',
+                            VALUE_DEFAULT, null),
+                        'filepath'  => new external_value(PARAM_RAW, 'File the test lives in', VALUE_DEFAULT, null),
+                        'startline' => new external_value(PARAM_INT, 'First line', VALUE_DEFAULT, null),
+                        'endline'   => new external_value(PARAM_INT, 'Last line', VALUE_DEFAULT, null),
+                        'code'      => new external_value(PARAM_RAW, 'The captured source', VALUE_DEFAULT, null),
+                        'truncated' => new external_value(PARAM_BOOL, 'The code was cut short', VALUE_DEFAULT, 0),
+                        'normalizedcodehash' => new external_value(PARAM_ALPHANUMEXT,
+                            'Hash of the normalised source', VALUE_DEFAULT, null),
+                    ], 'Where the test case came from', VALUE_OPTIONAL),
                 ]),
                 'The test case results of the run, at least one'
             ),
+            'testfiles'     => new external_multiple_structure(
+                new external_single_structure([
+                    'path'      => new external_value(PARAM_RAW, 'Repo-relative path'),
+                    'sha256'    => new external_value(PARAM_ALPHANUMEXT, 'SHA-256 of the file', VALUE_DEFAULT, null),
+                    'content'   => new external_value(PARAM_RAW, 'File contents', VALUE_DEFAULT, null),
+                    'truncated' => new external_value(PARAM_BOOL, 'The content was cut short', VALUE_DEFAULT, 0),
+                ]),
+                'Test files captured with the run',
+                VALUE_DEFAULT,
+                []
+            ),
+            'capturedisabled' => new external_value(PARAM_BOOL, 'The student disabled code capture',
+                VALUE_DEFAULT, 0),
+            'warningacknowledged' => new external_value(PARAM_BOOL,
+                'The student acknowledged the empty-test warning', VALUE_DEFAULT, 0),
         ]);
     }
 
@@ -88,9 +126,12 @@ class submit_test_run extends external_api {
      * @param string $ide the IDE the run came from
      * @param string|null $projectname the project the tests ran in
      * @param string|null $commithash the commit the tests ran against
-     * @param int|null $startedat when the run started
-     * @param int|null $finishedat when the run finished
+     * @param int|null $startedat when the run started, in epoch milliseconds
+     * @param int|null $finishedat when the run finished, in epoch milliseconds
      * @param array $results the run's test case results
+     * @param array $testfiles the test files captured with the run
+     * @param bool $capturedisabled whether the student turned source capture off
+     * @param bool $warningacknowledged whether the student submitted past the empty-test warning
      * @return array the new run id
      */
     public static function execute(
@@ -101,19 +142,25 @@ class submit_test_run extends external_api {
         ?string $commithash,
         ?int $startedat,
         ?int $finishedat,
-        array $results
+        array $results,
+        array $testfiles = [],
+        bool $capturedisabled = false,
+        bool $warningacknowledged = false
     ): array {
         global $DB;
 
         $params = self::validate_parameters(self::execute_parameters(), [
-            'email'         => $email,
-            'assignmentkey' => $assignmentkey,
-            'ide'           => $ide,
-            'projectname'   => $projectname,
-            'commithash'    => $commithash,
-            'startedat'     => $startedat,
-            'finishedat'    => $finishedat,
-            'results'       => $results,
+            'email'               => $email,
+            'assignmentkey'       => $assignmentkey,
+            'ide'                 => $ide,
+            'projectname'         => $projectname,
+            'commithash'          => $commithash,
+            'startedat'           => $startedat,
+            'finishedat'          => $finishedat,
+            'results'             => $results,
+            'testfiles'           => $testfiles,
+            'capturedisabled'     => $capturedisabled,
+            'warningacknowledged' => $warningacknowledged,
         ]);
 
         self::validate_context(context_system::instance());
@@ -197,12 +244,23 @@ class submit_test_run extends external_api {
             throw new validation_exception('validation_noide');
         }
 
+        if (count($params['testfiles']) > self::MAX_FILES) {
+            throw new validation_exception('validation_toomanyfiles', self::MAX_FILES);
+        }
+
         foreach ($params['results'] as $result) {
             if (status::tryFrom(self::normalise_status($result['status'])) === null) {
                 throw new validation_exception('validation_invalidstatus', $result['status']);
             }
             if ($result['durationms'] !== null && $result['durationms'] < 0) {
                 throw new validation_exception('validation_invalidtiming');
+            }
+            self::validate_source($result['source'] ?? null);
+        }
+
+        foreach ($params['testfiles'] as $file) {
+            if (trim($file['path']) === '') {
+                throw new validation_exception('validation_nofilepath');
             }
         }
 
@@ -214,6 +272,28 @@ class submit_test_run extends external_api {
         if ($params['startedat'] !== null && $params['finishedat'] !== null
                 && $params['finishedat'] < $params['startedat']) {
             throw new validation_exception('validation_invalidtiming');
+        }
+    }
+
+    /**
+     * Rejects a line range that cannot describe a real excerpt.
+     *
+     * @param array|null $source the source block of one result, absent when the IDE sent none
+     */
+    private static function validate_source(?array $source): void {
+        if ($source === null) {
+            return;
+        }
+
+        foreach (['startline', 'endline'] as $field) {
+            if ($source[$field] !== null && $source[$field] < 0) {
+                throw new validation_exception('validation_invalidsourcelines');
+            }
+        }
+
+        if ($source['startline'] !== null && $source['endline'] !== null
+                && $source['endline'] < $source['startline']) {
+            throw new validation_exception('validation_invalidsourcelines');
         }
     }
 
@@ -244,21 +324,49 @@ class submit_test_run extends external_api {
         $run->skippedcount      = $counts[status::SKIPPED->value];
         $run->errorcount        = $counts[status::ERROR->value];
         $run->timecreated       = $now;
+        $run->capturedisabled     = (int) $params['capturedisabled'];
+        $run->warningacknowledged = (int) $params['warningacknowledged'];
 
         $results = [];
         foreach ($params['results'] as $r) {
-            $result                 = new \stdClass();
-            $result->testsuite      = self::clip($r['testsuite'], 'testsuite');
-            $result->testname       = self::clip($r['testname'], 'testname');
-            $result->status         = self::normalise_status($r['status']);
-            $result->durationms     = $r['durationms'];
-            $result->message        = $r['message'];
-            $result->stacktracehash = self::clip($r['stacktracehash'], 'stacktracehash');
-            $result->timecreated    = $now;
+            $source = $r['source'] ?? null;
+            [$code, $truncated] = self::clip_code(
+                $source['code'] ?? null,
+                !empty($source['truncated']),
+                self::MAX_SOURCE_BYTES
+            );
+
+            $result                  = new \stdClass();
+            $result->testsuite       = self::clip($r['testsuite'], 'testsuite');
+            $result->testname        = self::clip($r['testname'], 'testname');
+            $result->status          = self::normalise_status($r['status']);
+            $result->durationms      = $r['durationms'];
+            $result->message         = $r['message'];
+            $result->timecreated     = $now;
+            $result->sourcekind      = self::clip($source['kind'] ?? null, 'sourcekind');
+            $result->sourcefilepath  = self::clip($source['filepath'] ?? null, 'sourcefilepath');
+            $result->sourcestartline = $source['startline'] ?? null;
+            $result->sourceendline   = $source['endline'] ?? null;
+            $result->sourcecode      = $code;
+            $result->sourcetruncated = $truncated;
+            $result->sourcecodehash  = self::clip($source['normalizedcodehash'] ?? null, 'sourcecodehash');
             $results[] = $result;
         }
 
-        $run->id = $repository->insert_run_with_results($run, $results);
+        $files = [];
+        foreach ($params['testfiles'] as $f) {
+            [$content, $truncated] = self::clip_code($f['content'], !empty($f['truncated']), self::MAX_FILE_BYTES);
+
+            $file              = new \stdClass();
+            $file->path        = self::clip($f['path'], 'filepath');
+            $file->sha256      = self::clip($f['sha256'], 'filesha256');
+            $file->content     = $content;
+            $file->truncated   = $truncated;
+            $file->timecreated = $now;
+            $files[] = $file;
+        }
+
+        $run->id = $repository->insert_run_with_results($run, $results, $files);
 
         return $run;
     }
@@ -355,5 +463,26 @@ class submit_test_run extends external_api {
         }
 
         return \core_text::substr(trim($value), 0, self::MAX_LENGTHS[$field]);
+    }
+
+    /**
+     * Clips captured code to its byte cap, keeping the submission rather than
+     * rejecting it; the truncated flag already means "this is not the whole thing".
+     *
+     * @param string|null $code the submitted code
+     * @param bool $truncated whether the IDE already reported it truncated
+     * @param int $max the byte cap
+     * @return array{0:?string,1:int} [the code to store, the truncated flag]
+     */
+    private static function clip_code(?string $code, bool $truncated, int $max): array {
+        if ($code === null) {
+            return [null, (int) $truncated];
+        }
+
+        if (\core_text::strlen($code) > $max) {
+            return [\core_text::substr($code, 0, $max), 1];
+        }
+
+        return [$code, (int) $truncated];
     }
 }

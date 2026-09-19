@@ -122,6 +122,26 @@ final class repository_test extends \advanced_testcase {
         $this->assertSame(['testFirst', 'testSecond', 'testThird'], array_column($results, 'testname'));
     }
 
+    public function test_get_files_are_returned_by_path(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $run = $this->create_run($student->id, overrides: ['files' => [
+            ['path' => 'tests/test_zeta.py', 'sha256' => 'zzz', 'content' => 'z'],
+            ['path' => 'tests/test_alpha.py', 'sha256' => 'aaa', 'content' => 'a'],
+        ]]);
+
+        $files = array_values($this->repository->get_files($run->id));
+
+        $this->assertSame(['tests/test_alpha.py', 'tests/test_zeta.py'], array_column($files, 'path'));
+        $this->assertSame('aaa', $files[0]->sha256);
+    }
+
+    public function test_get_files_is_empty_for_a_run_with_none(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $run = $this->create_run($student->id);
+
+        $this->assertSame([], $this->repository->get_files($run->id));
+    }
+
     public function test_get_run_ids_for_user_are_newest_first_and_scoped_to_the_user(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
@@ -403,12 +423,15 @@ final class repository_test extends \advanced_testcase {
         global $DB;
 
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id);
+        $run = $this->create_run($student->id, overrides: ['files' => [
+            ['path' => 'tests/test_calculator.py', 'content' => 'x'],
+        ]]);
 
         $this->repository->delete_runs($this->instance->id);
 
         $this->assertSame(0, $DB->count_records('idetestfeedback_run', ['idetestfeedbackid' => $this->instance->id]));
         $this->assertSame(0, $DB->count_records('idetestfeedback_result', ['runid' => $run->id]));
+        $this->assertSame(0, $DB->count_records('idetestfeedback_file', ['runid' => $run->id]));
     }
 
     public function test_delete_runs_can_be_limited_to_specific_users(): void {
@@ -450,12 +473,15 @@ final class repository_test extends \advanced_testcase {
         global $DB;
 
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id);
+        $run = $this->create_run($student->id, overrides: ['files' => [
+            ['path' => 'tests/test_calculator.py', 'content' => 'x'],
+        ]]);
 
         $this->repository->delete_instance($this->instance->id);
 
         $this->assertFalse($DB->record_exists('idetestfeedback', ['id' => $this->instance->id]));
         $this->assertSame(0, $DB->count_records('idetestfeedback_run', ['id' => $run->id]));
+        $this->assertSame(0, $DB->count_records('idetestfeedback_file', ['runid' => $run->id]));
     }
 
     public function test_anonymise_feedback_authors_detaches_only_the_given_users(): void {

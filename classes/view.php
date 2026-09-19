@@ -298,6 +298,7 @@ class view {
             $this->instance,
             $this->run,
             $this->repository->get_results($this->runid),
+            $this->repository->get_files($this->runid),
             $this->canviewall ? $this->student_name($this->run) : null,
             $this->context,
             $this->cmid,

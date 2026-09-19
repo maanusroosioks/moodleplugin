@@ -64,12 +64,28 @@ final class submit_test_run_test extends \advanced_testcase {
             'ide'           => 'VSCODE',
             'projectname'   => 'myproject',
             'commithash'    => 'abc123',
-            'startedat'     => 1000,
-            'finishedat'    => 2000,
+            'startedat'     => 1758134400000,
+            'finishedat'    => 1758134403120,
             'results'       => [
                 ['testname' => 'testAdd', 'status' => 'PASSED', 'testsuite' => null,
-                    'durationms' => 5, 'message' => null, 'stacktracehash' => null],
+                    'durationms' => 5, 'message' => null],
             ],
+        ], $overrides);
+    }
+
+    /**
+     * @param array $overrides fields to override the defaults with
+     * @return array one 'source' block, as the IDE sends it
+     */
+    private function source(array $overrides = []): array {
+        return array_merge([
+            'kind'               => 'TEST',
+            'filepath'           => 'tests/test_calculator.py',
+            'startline'          => 12,
+            'endline'            => 13,
+            'code'               => "def test_add_returns_sum():\n    assert add(2, 3) == 5",
+            'truncated'          => false,
+            'normalizedcodehash' => 'b1946ac92492d234',
         ], $overrides);
     }
 
@@ -93,8 +109,8 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame('VSCODE', $run->ide);
         $this->assertSame('myproject', $run->projectname);
         $this->assertSame('abc123', $run->commithash);
-        $this->assertSame(1000, (int) $run->startedat);
-        $this->assertSame(2000, (int) $run->finishedat);
+        $this->assertSame(1758134400000, (int) $run->startedat);
+        $this->assertSame(1758134403120, (int) $run->finishedat);
         $this->assertSame(status::PASSED->value, $run->status);
         $this->assertSame(1, (int) $run->passedcount);
 
@@ -127,7 +143,7 @@ final class submit_test_run_test extends \advanced_testcase {
 
         $results = array_map(fn($s) => [
             'testname' => 'test_' . $s, 'status' => $s, 'testsuite' => null,
-            'durationms' => null, 'message' => null, 'stacktracehash' => null,
+            'durationms' => null, 'message' => null,
         ], $statuses);
 
         $returned = $this->submit($this->params(['results' => $results]));
@@ -143,7 +159,7 @@ final class submit_test_run_test extends \advanced_testcase {
         // only the case is left for the server to normalise.
         $returned = $this->submit($this->params(['results' => [
             ['testname' => 'testAdd', 'status' => 'passed', 'testsuite' => null,
-                'durationms' => null, 'message' => null, 'stacktracehash' => null],
+                'durationms' => null, 'message' => null],
         ]]));
 
         $results = array_values((new repository($DB))->get_results($returned['runid']));
@@ -162,7 +178,10 @@ final class submit_test_run_test extends \advanced_testcase {
                 'testsuite' => '  ' . str_repeat('s', 300) . '  ',
                 'durationms' => null,
                 'message' => null,
-                'stacktracehash' => str_repeat('a', 100),
+                'source' => $this->source([
+                    'filepath' => str_repeat('p', 1100),
+                    'normalizedcodehash' => str_repeat('a', 100),
+                ]),
             ]],
         ]));
 
@@ -174,7 +193,8 @@ final class submit_test_run_test extends \advanced_testcase {
         $results = array_values($repository->get_results($returned['runid']));
         $this->assertSame(str_repeat('n', 255), $results[0]->testname);
         $this->assertSame(str_repeat('s', 255), $results[0]->testsuite);
-        $this->assertSame(str_repeat('a', 64), $results[0]->stacktracehash);
+        $this->assertSame(str_repeat('p', 1024), $results[0]->sourcefilepath);
+        $this->assertSame(str_repeat('a', 64), $results[0]->sourcecodehash);
     }
 
     public function test_null_optional_fields_are_stored_as_null(): void {
@@ -192,6 +212,183 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertNull($run->commithash);
         $this->assertNull($run->startedat);
         $this->assertNull($run->finishedat);
+    }
+
+    public function test_it_stores_the_source_block_of_a_result(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['results' => [[
+            'testname' => 'test_add_returns_sum',
+            'status' => 'PASSED',
+            'testsuite' => 'test_calculator',
+            'durationms' => 12,
+            'message' => null,
+            'source' => $this->source(),
+        ]]]));
+
+        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $this->assertSame('TEST', $results[0]->sourcekind);
+        $this->assertSame('tests/test_calculator.py', $results[0]->sourcefilepath);
+        $this->assertSame(12, (int) $results[0]->sourcestartline);
+        $this->assertSame(13, (int) $results[0]->sourceendline);
+        $this->assertSame("def test_add_returns_sum():\n    assert add(2, 3) == 5", $results[0]->sourcecode);
+        $this->assertSame(0, (int) $results[0]->sourcetruncated);
+        $this->assertSame('b1946ac92492d234', $results[0]->sourcecodehash);
+    }
+
+    public function test_a_result_without_a_source_block_stores_nulls(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params());
+
+        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $this->assertNull($results[0]->sourcekind);
+        $this->assertNull($results[0]->sourcefilepath);
+        $this->assertNull($results[0]->sourcecode);
+        $this->assertSame(0, (int) $results[0]->sourcetruncated);
+    }
+
+    public function test_it_stores_the_submitted_test_files(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['testfiles' => [
+            [
+                'path' => 'tests/test_calculator.py',
+                'sha256' => 'c7be1ed902fb8dd4',
+                'content' => "import pytest\n\ndef test_add_returns_sum():\n    assert add(2, 3) == 5\n",
+                'truncated' => false,
+            ],
+            [
+                'path' => 'tests/conftest.py',
+                'sha256' => 'aaaa1111',
+                'content' => "import sys\n",
+                'truncated' => true,
+            ],
+        ]]));
+
+        $files = array_values((new repository($DB))->get_files($returned['runid']));
+        $this->assertCount(2, $files);
+
+        // get_files() orders by path, so conftest.py comes first.
+        $this->assertSame('tests/conftest.py', $files[0]->path);
+        $this->assertSame(1, (int) $files[0]->truncated);
+        $this->assertSame('tests/test_calculator.py', $files[1]->path);
+        $this->assertSame('c7be1ed902fb8dd4', $files[1]->sha256);
+        $this->assertStringContainsString('import pytest', $files[1]->content);
+        $this->assertSame(0, (int) $files[1]->truncated);
+    }
+
+    public function test_a_submission_with_no_test_files_stores_none(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params());
+
+        $this->assertSame([], (new repository($DB))->get_files($returned['runid']));
+    }
+
+    public function test_it_stores_the_capture_flags(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params([
+            'capturedisabled' => true,
+            'warningacknowledged' => true,
+        ]));
+
+        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
+        $this->assertSame(1, (int) $run->capturedisabled);
+        $this->assertSame(1, (int) $run->warningacknowledged);
+    }
+
+    public function test_the_capture_flags_default_to_off(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params());
+
+        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
+        $this->assertSame(0, (int) $run->capturedisabled);
+        $this->assertSame(0, (int) $run->warningacknowledged);
+    }
+
+    public function test_oversized_source_code_is_clipped_and_marked_truncated(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['results' => [[
+            'testname' => 'testAdd',
+            'status' => 'PASSED',
+            'testsuite' => null,
+            'durationms' => null,
+            'message' => null,
+            'source' => $this->source(['code' => str_repeat('x', 70000)]),
+        ]]]));
+
+        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $this->assertSame(65536, \core_text::strlen($results[0]->sourcecode));
+        $this->assertSame(1, (int) $results[0]->sourcetruncated);
+    }
+
+    public function test_oversized_file_content_is_clipped_and_marked_truncated(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['testfiles' => [[
+            'path' => 'tests/big.py',
+            'sha256' => null,
+            'content' => str_repeat('y', 600000),
+            'truncated' => false,
+        ]]]));
+
+        $files = array_values((new repository($DB))->get_files($returned['runid']));
+        $this->assertSame(524288, \core_text::strlen($files[0]->content));
+        $this->assertSame(1, (int) $files[0]->truncated);
+    }
+
+    public function test_it_rejects_more_than_the_maximum_number_of_files(): void {
+        $files = array_fill(0, 201, [
+            'path' => 'tests/test.py', 'sha256' => null, 'content' => null, 'truncated' => false,
+        ]);
+
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_toomanyfiles', 'mod_idetestfeedback', 200));
+
+        $this->submit($this->params(['testfiles' => $files]));
+    }
+
+    public function test_it_rejects_a_file_without_a_path(): void {
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_nofilepath', 'mod_idetestfeedback'));
+
+        $this->submit($this->params(['testfiles' => [
+            ['path' => '   ', 'sha256' => null, 'content' => null, 'truncated' => false],
+        ]]));
+    }
+
+    /**
+     * @return array[] [the source line numbers to submit]
+     */
+    public static function invalid_source_lines_provider(): array {
+        return [
+            'negative start' => [-1, 10],
+            'negative end' => [1, -10],
+            'ends before it starts' => [13, 12],
+        ];
+    }
+
+    /**
+     * @dataProvider invalid_source_lines_provider
+     * @param int $startline the first line to submit
+     * @param int $endline the last line to submit
+     */
+    public function test_it_rejects_an_impossible_source_line_range(int $startline, int $endline): void {
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_invalidsourcelines', 'mod_idetestfeedback'));
+
+        $this->submit($this->params(['results' => [[
+            'testname' => 'testAdd',
+            'status' => 'PASSED',
+            'testsuite' => null,
+            'durationms' => null,
+            'message' => null,
+            'source' => $this->source(['startline' => $startline, 'endline' => $endline]),
+        ]]]));
     }
 
     public function test_it_triggers_a_test_run_submitted_event(): void {
@@ -218,7 +415,7 @@ final class submit_test_run_test extends \advanced_testcase {
     public function test_it_rejects_more_than_the_maximum_number_of_results(): void {
         $results = array_fill(0, 2001, [
             'testname' => 'test', 'status' => 'PASSED', 'testsuite' => null,
-            'durationms' => null, 'message' => null, 'stacktracehash' => null,
+            'durationms' => null, 'message' => null,
         ]);
 
         $this->expectException(validation_exception::class);
@@ -237,7 +434,7 @@ final class submit_test_run_test extends \advanced_testcase {
 
         $this->submit($this->params(['results' => [
             ['testname' => 'testAdd', 'status' => 'BOGUS', 'testsuite' => null,
-                'durationms' => null, 'message' => null, 'stacktracehash' => null],
+                'durationms' => null, 'message' => null],
         ]]));
     }
 
@@ -246,7 +443,7 @@ final class submit_test_run_test extends \advanced_testcase {
 
         $this->submit($this->params(['results' => [[
             'testname' => 'testAdd', 'status' => 'PASSED', 'testsuite' => null,
-            'durationms' => -1, 'message' => null, 'stacktracehash' => null,
+            'durationms' => -1, 'message' => null,
         ]]]));
     }
 

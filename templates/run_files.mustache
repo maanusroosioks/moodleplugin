@@ -1,0 +1,42 @@
+{{!
+    @template mod_idetestfeedback/run_files
+
+    The test files captured with one run, each collapsed to its path so the
+    source code is out of the way until a teacher asks for it.
+
+    Example context (json):
+    {
+        "files": [
+            {
+                "path": "tests/test_calculator.py",
+                "sha256": "c7be1ed902fb8dd4",
+                "content": "import pytest\n\ndef test_add_returns_sum():\n    assert add(2, 3) == 5\n",
+                "hascontent": true,
+                "language": "python",
+                "truncated": false
+            }
+        ]
+    }
+}}
+<h3 class="mt-4">{{#str}} files, mod_idetestfeedback {{/str}}</h3>
+
+{{#files}}
+    <details class="idetestfeedback-file mb-2">
+        <summary>
+            <span class="idetestfeedback-filepath">{{path}}</span>
+            {{#truncated}}
+                <span class="badge bg-warning text-dark">{{#str}} truncated, mod_idetestfeedback {{/str}}</span>
+            {{/truncated}}
+        </summary>
+        {{#sha256}}
+            <div class="text-muted small">{{#str}} filehash, mod_idetestfeedback {{/str}}: <code>{{.}}</code></div>
+        {{/sha256}}
+        {{#hascontent}}
+            {{#language}}<pre class="language-{{.}}"><code>{{content}}</code></pre>{{/language}}
+            {{^language}}<pre><code>{{content}}</code></pre>{{/language}}
+        {{/hascontent}}
+        {{^hascontent}}
+            <p class="text-muted">{{#str}} sourcenotcaptured, mod_idetestfeedback {{/str}}</p>
+        {{/hascontent}}
+    </details>
+{{/files}}

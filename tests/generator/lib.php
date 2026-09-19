@@ -42,7 +42,8 @@ class mod_idetestfeedback_generator extends testing_module_generator {
      * Stores a run and its results, the way the web service would.
      *
      * @param array $record 'idetestfeedbackid', 'userid' and 'results', where each
-     *        result is ['testname' => …, 'status' => …, 'testsuite' => …]
+     *        result is ['testname' => …, 'status' => …, 'testsuite' => …]; optional
+     *        'files', each ['path' => …, 'sha256' => …, 'content' => …]
      * @return stdClass the stored run, carrying its new id
      */
     public function create_run(array $record): stdClass {
@@ -59,12 +60,18 @@ class mod_idetestfeedback_generator extends testing_module_generator {
                 'status' => $r['status'],
                 'durationms' => $r['durationms'] ?? null,
                 'message' => $r['message'] ?? null,
-                'stacktracehash' => $r['stacktracehash'] ?? null,
                 'timecreated' => $now,
                 'feedback' => null,
                 'feedbackformat' => 0,
                 'feedbackby' => null,
                 'feedbackmodified' => null,
+                'sourcekind' => $r['sourcekind'] ?? null,
+                'sourcefilepath' => $r['sourcefilepath'] ?? null,
+                'sourcestartline' => $r['sourcestartline'] ?? null,
+                'sourceendline' => $r['sourceendline'] ?? null,
+                'sourcecode' => $r['sourcecode'] ?? null,
+                'sourcetruncated' => (int) ($r['sourcetruncated'] ?? 0),
+                'sourcecodehash' => $r['sourcecodehash'] ?? null,
             ];
             $counts[$result->status]++;
             $results[] = $result;
@@ -76,17 +83,30 @@ class mod_idetestfeedback_generator extends testing_module_generator {
             'ide' => $record['ide'] ?? 'VSCODE',
             'projectname' => $record['projectname'] ?? null,
             'commithash' => $record['commithash'] ?? null,
-            'startedat' => null,
-            'finishedat' => null,
+            'startedat' => $record['startedat'] ?? null,
+            'finishedat' => $record['finishedat'] ?? null,
             'status' => $record['status'] ?? self::worst_status($counts),
             'passedcount' => $counts[status::PASSED->value],
             'failedcount' => $counts[status::FAILED->value],
             'skippedcount' => $counts[status::SKIPPED->value],
             'errorcount' => $counts[status::ERROR->value],
             'timecreated' => $now,
+            'capturedisabled' => (int) ($record['capturedisabled'] ?? 0),
+            'warningacknowledged' => (int) ($record['warningacknowledged'] ?? 0),
         ];
 
-        $run->id = (new repository($DB))->insert_run_with_results($run, $results);
+        $files = [];
+        foreach ($record['files'] ?? [] as $f) {
+            $files[] = (object) [
+                'path' => $f['path'],
+                'sha256' => $f['sha256'] ?? null,
+                'content' => $f['content'] ?? null,
+                'truncated' => (int) ($f['truncated'] ?? 0),
+                'timecreated' => $now,
+            ];
+        }
+
+        $run->id = (new repository($DB))->insert_run_with_results($run, $results, $files);
 
         return $run;
     }

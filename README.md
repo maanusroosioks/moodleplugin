@@ -38,8 +38,8 @@ Deleting an activity instance cascades to its runs and results, and **Course
 reset** can clear the submitted runs while keeping the activities. The plugin
 implements the Moodle Privacy API for export and deletion of a user's data.
 
-Moodle backup and restore are supported. Runs and results travel with the backup
-only when *include user data* is selected. The assignment key is preserved when
+Moodle backup and restore are supported. Runs, their results and their captured
+test files travel with the backup only when *include user data* is selected. The assignment key is preserved when
 the destination site does not already use it, and reissued otherwise — so
 duplicating an activity always yields a fresh key, and students have to copy the
 new one into their IDE.
@@ -62,9 +62,16 @@ no role by default)
 | `ide` | text | yes | IDE identifier, e.g. `VSCODE`. Must not be blank. |
 | `projectname` | text | no | |
 | `commithash` | text | no | |
-| `startedat` | int | no | Unix timestamp. |
-| `finishedat` | int | no | Unix timestamp. |
+| `startedat` | int | no | Epoch **milliseconds**. |
+| `finishedat` | int | no | Epoch **milliseconds**. |
 | `results` | list | yes | Non-empty list of result objects (see below). |
+| `testfiles` | list | no | Test files captured with the run (see below). At most 200. |
+| `capturedisabled` | bool | no | The student turned off sending source code. |
+| `warningacknowledged` | bool | no | The student was warned that some tests are empty and submitted anyway. |
+
+The parameter names are lowercase: a middleware posting the IDE's camelCase
+payload maps `assignmentKey` → `assignmentkey`, `testFiles` → `testfiles`,
+`normalizedCodeHash` → `normalizedcodehash`, and so on.
 
 Each `results` entry:
 
@@ -75,7 +82,28 @@ Each `results` entry:
 | `testsuite` | text | no | |
 | `durationms` | int | no | |
 | `message` | text | no | Failure / error message. |
-| `stacktracehash` | alphanumext | no | |
+| `source` | object | no | Where the test case came from (see below). |
+
+Each `results[].source` object:
+
+| Name | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `kind` | alphanumext | no | What the captured code is, e.g. `TEST`. |
+| `filepath` | text | no | Path of the file the test is defined in. |
+| `startline` | int | no | |
+| `endline` | int | no | Must not be below `startline`. |
+| `code` | text | no | Clipped to 64 KB, setting `truncated`. |
+| `truncated` | bool | no | The code is not the whole thing. |
+| `normalizedcodehash` | alphanumext | no | Hash of the normalised source, for grouping identical test bodies. |
+
+Each `testfiles` entry:
+
+| Name | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `path` | text | yes | Repo-relative path. Must not be blank. |
+| `sha256` | alphanumext | no | |
+| `content` | text | no | Clipped to 512 KB, setting `truncated`. |
+| `truncated` | bool | no | The content is not the whole file. |
 
 ### Returns
 
@@ -95,7 +123,13 @@ The submission is rejected (with a localised message) when:
 - `results` is empty, or holds more than 2000 entries;
 - `ide` is blank;
 - `startedat`, `finishedat` or any `durationms` is negative, or the run finishes
-  before it starts.
+  before it starts;
+- `testfiles` holds more than 200 entries, or any entry has a blank `path`;
+- any `source` has a negative line number, or ends before it starts.
+
+Oversized `source.code` or `testfiles[].content` does not reject the submission:
+it is clipped and stored with `truncated` set, which is what the run detail page
+then flags.
 
 The stored run's overall `status` is derived from its results: `ERROR` if any
 result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least

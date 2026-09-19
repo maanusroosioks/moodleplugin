@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026091301" COMMENT="XMLDB file for mod_idetestfeedback"
+<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026091700" COMMENT="XMLDB file for mod_idetestfeedback"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
 
@@ -36,14 +36,16 @@
                 <FIELD NAME="ide"               TYPE="char" LENGTH="50"  NOTNULL="true" SEQUENCE="false"/>
                 <FIELD NAME="projectname"       TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="commithash"        TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"/>
-                <FIELD NAME="startedat"         TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
-                <FIELD NAME="finishedat"        TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="startedat"         TYPE="int"  LENGTH="18"  NOTNULL="false" SEQUENCE="false" COMMENT="Run start, epoch milliseconds"/>
+                <FIELD NAME="finishedat"        TYPE="int"  LENGTH="18"  NOTNULL="false" SEQUENCE="false" COMMENT="Run end, epoch milliseconds"/>
                 <FIELD NAME="status"            TYPE="char" LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
                 <FIELD NAME="passedcount"       TYPE="int"  LENGTH="6"   NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="failedcount"       TYPE="int"  LENGTH="6"   NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="skippedcount"      TYPE="int"  LENGTH="6"   NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="errorcount"        TYPE="int"  LENGTH="6"   NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="timecreated"       TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="capturedisabled"     TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The student disabled source code capture for this run"/>
+                <FIELD NAME="warningacknowledged" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The student was warned some tests are empty and submitted anyway"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary"              TYPE="primary" FIELDS="id"/>
@@ -66,8 +68,14 @@
                 <FIELD NAME="status"         TYPE="char" LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
                 <FIELD NAME="durationms"     TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="message"        TYPE="text" NOTNULL="false" SEQUENCE="false"/>
-                <FIELD NAME="stacktracehash" TYPE="char" LENGTH="64"  NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="timecreated"    TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="sourcekind"      TYPE="char" LENGTH="20"   NOTNULL="false" SEQUENCE="false" COMMENT="What the captured code is, e.g. TEST"/>
+                <FIELD NAME="sourcefilepath"  TYPE="char" LENGTH="1024" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="sourcestartline" TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="sourceendline"   TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="sourcecode"      TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="sourcetruncated" TYPE="int"  LENGTH="1"    NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="sourcecodehash"  TYPE="char" LENGTH="64"   NOTNULL="false" SEQUENCE="false" COMMENT="Hash of the normalised source, for grouping identical test bodies"/>
                 <FIELD NAME="feedback"         TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional teacher feedback on this test case result"/>
                 <FIELD NAME="feedbackformat"   TYPE="int"  LENGTH="4"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="feedbackby"       TYPE="int"  LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User id of the teacher who last edited the feedback"/>
@@ -77,6 +85,22 @@
                 <KEY NAME="primary"       TYPE="primary" FIELDS="id"/>
                 <KEY NAME="runid_fk"      TYPE="foreign" FIELDS="runid" REFTABLE="idetestfeedback_run" REFFIELDS="id"/>
                 <KEY NAME="feedbackby_fk" TYPE="foreign" FIELDS="feedbackby" REFTABLE="user" REFFIELDS="id"/>
+            </KEYS>
+        </TABLE>
+
+        <TABLE NAME="idetestfeedback_file" COMMENT="Test file contents captured with a run">
+            <FIELDS>
+                <FIELD NAME="id"          TYPE="int"  LENGTH="10"   NOTNULL="true"  SEQUENCE="true"/>
+                <FIELD NAME="runid"       TYPE="int"  LENGTH="10"   NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="path"        TYPE="char" LENGTH="1024" NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="sha256"      TYPE="char" LENGTH="64"   NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="content"     TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="truncated"   TYPE="int"  LENGTH="1"    NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
+                <FIELD NAME="timecreated" TYPE="int"  LENGTH="10"   NOTNULL="true"  SEQUENCE="false"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary"  TYPE="primary" FIELDS="id"/>
+                <KEY NAME="runid_fk" TYPE="foreign" FIELDS="runid" REFTABLE="idetestfeedback_run" REFFIELDS="id"/>
             </KEYS>
         </TABLE>
     </TABLES>

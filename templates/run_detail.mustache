@@ -16,7 +16,13 @@
                 "label": "Status",
                 "badge": {"label": "PASSED", "classes": "bg-success text-white"}
             },
-            {"label": "Passed", "strong": "8 / 10"}
+            {"label": "Passed", "strong": "8 / 10"},
+            {
+                "label": "Flags",
+                "badges": [
+                    {"label": "Code capture disabled", "classes": "bg-secondary text-white"}
+                ]
+            }
         ]
     }
 }}
@@ -37,6 +43,7 @@
                         {{#code}}<code>{{.}}</code>{{/code}}
                         {{#strong}}<span class="idetestfeedback-count">{{.}}</span>{{/strong}}
                         {{#badge}}{{> mod_idetestfeedback/status_badge }}{{/badge}}
+                        {{#badges}}{{> mod_idetestfeedback/status_badge }} {{/badges}}
                     </td>
                 </tr>
             {{/meta}}

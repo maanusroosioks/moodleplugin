@@ -78,6 +78,14 @@ class repository {
     }
 
     /**
+     * @param int $runid the run id
+     * @return \stdClass[] the test files captured with the run, by path
+     */
+    public function get_files(int $runid): array {
+        return $this->db->get_records('idetestfeedback_file', ['runid' => $runid], 'path ASC');
+    }
+
+    /**
      * The ids of a user's runs, so a caller that only needs one matching run can
      * load the results a run at a time instead of holding all of them at once.
      *
@@ -289,9 +297,10 @@ class repository {
      *
      * @param \stdClass $run the run to insert
      * @param \stdClass[] $results its results; runid is filled in here
+     * @param \stdClass[] $files its captured test files; runid is filled in here
      * @return int the new run id
      */
-    public function insert_run_with_results(\stdClass $run, array $results): int {
+    public function insert_run_with_results(\stdClass $run, array $results, array $files = []): int {
         $transaction = $this->db->start_delegated_transaction();
 
         try {
@@ -300,6 +309,13 @@ class repository {
                 $result->runid = $runid;
             }
             $this->db->insert_records('idetestfeedback_result', $results);
+
+            if ($files) {
+                foreach ($files as $file) {
+                    $file->runid = $runid;
+                }
+                $this->db->insert_records('idetestfeedback_file', $files);
+            }
 
             $transaction->allow_commit();
 
@@ -353,11 +369,13 @@ class repository {
         $transaction = $this->db->start_delegated_transaction();
 
         try {
-            $this->db->delete_records_select(
-                'idetestfeedback_result',
-                "runid IN (SELECT id FROM {idetestfeedback_run} WHERE {$select})",
-                $params
-            );
+            foreach (['idetestfeedback_result', 'idetestfeedback_file'] as $child) {
+                $this->db->delete_records_select(
+                    $child,
+                    "runid IN (SELECT id FROM {idetestfeedback_run} WHERE {$select})",
+                    $params
+                );
+            }
             $this->db->delete_records_select('idetestfeedback_run', $select, $params);
 
             $transaction->allow_commit();

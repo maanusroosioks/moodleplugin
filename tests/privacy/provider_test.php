@@ -156,6 +156,29 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $this->assertSame('testAdd', $data->results[0]['testname']);
     }
 
+    public function test_export_user_data_writes_the_test_files_captured_with_a_run(): void {
+        $run = $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
+            'idetestfeedbackid' => $this->instance->id,
+            'userid' => $this->student->id,
+            'results' => [['testname' => 'testAdd', 'status' => 'PASSED']],
+            'files' => [[
+                'path' => 'tests/test_calculator.py',
+                'sha256' => 'c7be1ed902fb8dd4',
+                'content' => "import pytest\n",
+            ]],
+        ]);
+
+        $approved = new approved_contextlist($this->student, 'mod_idetestfeedback', [$this->context->id]);
+        provider::export_user_data($approved);
+
+        $data = writer::with_context($this->context)->get_data(
+            [get_string('privacy:path:runs', 'mod_idetestfeedback'), 'run_' . $run->id]
+        );
+        $this->assertCount(1, $data->testfiles);
+        $this->assertSame('tests/test_calculator.py', $data->testfiles[0]['path']);
+        $this->assertSame('c7be1ed902fb8dd4', $data->testfiles[0]['sha256']);
+    }
+
     public function test_export_user_data_writes_feedback_the_user_gave_on_others_runs(): void {
         $run = $this->create_run($this->student->id);
         $repository = $this->repository();

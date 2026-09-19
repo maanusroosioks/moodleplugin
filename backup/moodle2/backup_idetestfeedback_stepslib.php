@@ -45,25 +45,37 @@ class backup_idetestfeedback_activity_structure_step extends backup_activity_str
         $run = new backup_nested_element('run', ['id'], [
             'userid', 'ide', 'projectname', 'commithash', 'startedat', 'finishedat',
             'status', 'passedcount', 'failedcount', 'skippedcount', 'errorcount', 'timecreated',
+            'capturedisabled', 'warningacknowledged',
         ]);
 
         $results = new backup_nested_element('results');
         $result = new backup_nested_element('result', ['id'], [
-            'testsuite', 'testname', 'status', 'durationms', 'message', 'stacktracehash',
+            'testsuite', 'testname', 'status', 'durationms', 'message',
             'timecreated', 'feedback', 'feedbackformat', 'feedbackby', 'feedbackmodified',
+            'sourcekind', 'sourcefilepath', 'sourcestartline', 'sourceendline',
+            'sourcecode', 'sourcetruncated', 'sourcecodehash',
+        ]);
+
+        $files = new backup_nested_element('files');
+        $file = new backup_nested_element('file', ['id'], [
+            'path', 'sha256', 'content', 'truncated', 'timecreated',
         ]);
 
         $idetestfeedback->add_child($runs);
         $runs->add_child($run);
         $run->add_child($results);
         $results->add_child($result);
+        $run->add_child($files);
+        $files->add_child($file);
 
         $idetestfeedback->set_source_table('idetestfeedback', ['id' => backup::VAR_ACTIVITYID]);
 
-        // A run and its results are the students' data, so they only travel with user info.
+        // A run, its results and its files are the students' data, so they only
+        // travel with user info.
         if ($userinfo) {
             $run->set_source_table('idetestfeedback_run', ['idetestfeedbackid' => backup::VAR_PARENTID], 'id ASC');
             $result->set_source_table('idetestfeedback_result', ['runid' => backup::VAR_PARENTID], 'id ASC');
+            $file->set_source_table('idetestfeedback_file', ['runid' => backup::VAR_PARENTID], 'id ASC');
         }
 
         $run->annotate_ids('user', 'userid');

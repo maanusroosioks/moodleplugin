@@ -58,6 +58,8 @@ class provider implements
                 'skippedcount' => 'privacy:metadata:run:skippedcount',
                 'errorcount'   => 'privacy:metadata:run:errorcount',
                 'timecreated'  => 'privacy:metadata:run:timecreated',
+                'capturedisabled'     => 'privacy:metadata:run:capturedisabled',
+                'warningacknowledged' => 'privacy:metadata:run:warningacknowledged',
             ],
             'privacy:metadata:run'
         );
@@ -70,14 +72,32 @@ class provider implements
                 'status'         => 'privacy:metadata:result:status',
                 'durationms'       => 'privacy:metadata:result:durationms',
                 'message'          => 'privacy:metadata:result:message',
-                'stacktracehash'   => 'privacy:metadata:result:stacktracehash',
                 'timecreated'      => 'privacy:metadata:result:timecreated',
                 'feedback'         => 'privacy:metadata:result:feedback',
                 'feedbackformat'   => 'privacy:metadata:result:feedbackformat',
                 'feedbackby'       => 'privacy:metadata:result:feedbackby',
                 'feedbackmodified' => 'privacy:metadata:result:feedbackmodified',
+                'sourcekind'       => 'privacy:metadata:result:sourcekind',
+                'sourcefilepath'   => 'privacy:metadata:result:sourcefilepath',
+                'sourcestartline'  => 'privacy:metadata:result:sourcestartline',
+                'sourceendline'    => 'privacy:metadata:result:sourceendline',
+                'sourcecode'       => 'privacy:metadata:result:sourcecode',
+                'sourcetruncated'  => 'privacy:metadata:result:sourcetruncated',
+                'sourcecodehash'   => 'privacy:metadata:result:sourcecodehash',
             ],
             'privacy:metadata:result'
+        );
+
+        $collection->add_database_table(
+            'idetestfeedback_file',
+            [
+                'path'        => 'privacy:metadata:file:path',
+                'sha256'      => 'privacy:metadata:file:sha256',
+                'content'     => 'privacy:metadata:file:content',
+                'truncated'   => 'privacy:metadata:file:truncated',
+                'timecreated' => 'privacy:metadata:file:timecreated',
+            ],
+            'privacy:metadata:file'
         );
 
         // Students are notified when a teacher leaves feedback on one of their runs.
@@ -174,14 +194,18 @@ class provider implements
                     'ide'          => $run->ide,
                     'projectname'  => $run->projectname,
                     'commithash'   => $run->commithash,
-                    'startedat'    => $run->startedat ? transform::datetime($run->startedat) : null,
-                    'finishedat'   => $run->finishedat ? transform::datetime($run->finishedat) : null,
+                    // Stored in milliseconds, as the IDE reports them.
+                    'startedat'    => $run->startedat ? transform::datetime(intdiv((int) $run->startedat, 1000)) : null,
+                    'finishedat'   => $run->finishedat
+                        ? transform::datetime(intdiv((int) $run->finishedat, 1000)) : null,
                     'status'       => $run->status,
                     'passedcount'  => $run->passedcount,
                     'failedcount'  => $run->failedcount,
                     'skippedcount' => $run->skippedcount,
                     'errorcount'   => $run->errorcount,
                     'timecreated'  => transform::datetime($run->timecreated),
+                    'capturedisabled'     => transform::yesno($run->capturedisabled),
+                    'warningacknowledged' => transform::yesno($run->warningacknowledged),
                     'results'      => array_values(array_map(
                         fn($r) => [
                             'testsuite'        => $r->testsuite,
@@ -189,13 +213,29 @@ class provider implements
                             'status'           => $r->status,
                             'durationms'       => $r->durationms,
                             'message'          => $r->message,
-                            'stacktracehash'   => $r->stacktracehash,
                             'timecreated'      => transform::datetime($r->timecreated),
                             'feedback'         => $r->feedback,
                             'feedbackmodified' => $r->feedbackmodified
                                 ? transform::datetime($r->feedbackmodified) : null,
+                            'sourcekind'       => $r->sourcekind,
+                            'sourcefilepath'   => $r->sourcefilepath,
+                            'sourcestartline'  => $r->sourcestartline,
+                            'sourceendline'    => $r->sourceendline,
+                            'sourcecode'       => $r->sourcecode,
+                            'sourcetruncated'  => transform::yesno($r->sourcetruncated),
+                            'sourcecodehash'   => $r->sourcecodehash,
                         ],
                         $results
+                    )),
+                    'testfiles'    => array_values(array_map(
+                        fn($f) => [
+                            'path'        => $f->path,
+                            'sha256'      => $f->sha256,
+                            'content'     => $f->content,
+                            'truncated'   => transform::yesno($f->truncated),
+                            'timecreated' => transform::datetime($f->timecreated),
+                        ],
+                        $repository->get_files((int) $run->id)
                     )),
                 ];
                 writer::with_context($context)->export_data(

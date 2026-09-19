@@ -33,3 +33,21 @@
     font-size: 1em;
     word-break: break-all;
 }
+
+.idetestfeedback-source summary,
+.idetestfeedback-file summary {
+    cursor: pointer;
+}
+
+details.idetestfeedback-source pre,
+details.idetestfeedback-file pre {
+    max-height: 240px;
+    overflow: auto;
+    margin: 0.5rem 0 0;
+    font-size: 0.78em;
+    white-space: pre;
+}
+
+.idetestfeedback-filepath {
+    word-break: break-all;
+}
