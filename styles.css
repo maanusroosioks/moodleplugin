@@ -34,14 +34,21 @@
     word-break: break-all;
 }
 
-.idetestfeedback-source summary,
 .idetestfeedback-file summary {
     cursor: pointer;
 }
 
-details.idetestfeedback-source pre,
+.idetestfeedback-source-toggle::before {
+    content: "\25b8\a0";
+}
+
+.idetestfeedback-source-toggle[aria-expanded="true"]::before {
+    content: "\25be\a0";
+}
+
+.idetestfeedback-source pre,
 details.idetestfeedback-file pre {
-    max-height: 240px;
+    max-height: 400px;
     overflow: auto;
     margin: 0.5rem 0 0;
     font-size: 0.78em;
