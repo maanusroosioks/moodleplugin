@@ -65,6 +65,7 @@ class run_detail implements renderable, templatable {
     public function export_for_template(renderer_base $output): array {
         $entries = required_tests::parse($this->instance->requiredtests ?? null);
         $showrequired = $entries !== [];
+        $showfeedback = $this->cancomment || $this->has_feedback();
 
         return [
             'backurl' => (new moodle_url('/mod/idetestfeedback/view.php', ['id' => $this->cmid]))->out(false),
@@ -75,8 +76,9 @@ class run_detail implements renderable, templatable {
             'meta' => $this->meta_rows($output, $entries, $showrequired),
             'hasresults' => $this->results !== [],
             'showrequired' => $showrequired,
-            'showfeedback' => $this->cancomment || $this->has_feedback(),
+            'showfeedback' => $showfeedback,
             'cancomment' => $this->cancomment,
+            'colspan' => 6 + (int) $showrequired + (int) $showfeedback,
             'rows' => $this->result_rows($output, $entries, $showrequired),
             'hasfiles' => $this->files !== [],
             'files' => $this->file_rows(),
@@ -310,6 +312,7 @@ class run_detail implements renderable, templatable {
                 'rowclass' => status_badge::row_class($result->status),
                 'hassource' => $source !== null,
                 'source' => $source,
+                'sourceid' => 'idetestfeedback-source-' . $result->id,
                 'testsuite' => (string) ($result->testsuite ?? ''),
                 'testname' => $result->testname,
                 'required' => $showrequired && required_tests::is_required(
@@ -339,7 +342,7 @@ class run_detail implements renderable, templatable {
     }
 
     /**
-     * The code one test case ran, for the collapsible cell in the results table.
+     * The code one test case ran, for the collapsible row beneath its result.
      *
      * @param stdClass $result one test case result
      * @return array|null null when the IDE captured nothing for this test
