@@ -18,6 +18,8 @@ namespace mod_idetestfeedback\output;
 
 use context;
 use mod_idetestfeedback\local\required_tests;
+use mod_idetestfeedback\local\source_code;
+use mod_idetestfeedback\local\source_kind;
 use moodle_url;
 use renderable;
 use renderer_base;
@@ -32,6 +34,9 @@ use templatable;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class run_detail implements renderable, templatable {
+
+    /** @var array<string, stdClass>|null The run's files by path, built on first use. */
+    protected ?array $filesbypath = null;
 
     /**
      * @param stdClass $instance the activity instance
@@ -345,26 +350,81 @@ class run_detail implements renderable, templatable {
      * The code one test case ran, for the collapsible row beneath its result.
      *
      * @param stdClass $result one test case result
-     * @return array|null null when the IDE captured nothing for this test
+     * @return array|null null when the IDE said nothing at all about this test
      */
     protected function source_block(stdClass $result): ?array {
-        $code = (string) ($result->sourcecode ?? '');
+        $kind = source_kind::resolve($result->sourcekind ?? null);
         $path = (string) ($result->sourcefilepath ?? '');
+        $hash = (string) ($result->sourcecodehash ?? '');
 
-        if ($code === '' && $path === '') {
+        [$code, $truncated] = $this->test_source($result, $kind);
+
+        if ($kind === null && $code === '' && $path === '') {
             return null;
         }
 
         return [
-            'summary' => $this->source_summary($result, $path),
-            'kind' => (string) ($result->sourcekind ?? ''),
+            'summary' => $this->source_summary($result, $path, $kind),
+            'kind' => $kind?->value ?? '',
+            'expandable' => $code !== '' || $hash !== '',
+            'wholefile' => $kind === source_kind::FILE,
             'code' => $code,
             'hascode' => $code !== '',
             'language' => self::language_of($path),
             'linenumbers' => $code === '' ? '' : self::line_numbers($code, $result->sourcestartline),
-            'hash' => (string) ($result->sourcecodehash ?? ''),
-            'truncated' => !empty($result->sourcetruncated),
+            'hash' => $hash,
+            'hashlabel' => get_string(
+                $kind === source_kind::FILE ? 'sourcehashfile' : 'sourcehash',
+                'mod_idetestfeedback'
+            ),
+            'truncated' => $truncated,
         ];
+    }
+
+    /**
+     * The lines one test case occupies, wherever this run happens to carry them.
+     *
+     * A test's body normally travels once, in the run's copy of its file, and is
+     * repeated on the result only when the file could not carry it. So the
+     * result's own copy wins where there is one, and otherwise the excerpt is
+     * cut out of the file at the line range the IDE recorded.
+     *
+     * @param stdClass $result one test case result
+     * @param source_kind|null $kind what the result's source block describes
+     * @return array{0:string,1:bool} [the code, whether it is cut short]
+     */
+    protected function test_source(stdClass $result, ?source_kind $kind): array {
+        $code = (string) ($result->sourcecode ?? '');
+        if ($code !== '') {
+            return [source_code::strip_marker($code), !empty($result->sourcetruncated)];
+        }
+
+        if ($kind === source_kind::NONE || $kind === source_kind::FILE
+                || $result->sourcestartline === null || $result->sourceendline === null) {
+            return ['', false];
+        }
+
+        $file = $this->files_by_path()[(string) ($result->sourcefilepath ?? '')] ?? null;
+        $content = (string) ($file->content ?? '');
+        if ($content === '') {
+            return ['', false];
+        }
+
+        return source_code::excerpt($content, (int) $result->sourcestartline, (int) $result->sourceendline);
+    }
+
+    /**
+     * @return array<string, stdClass> the run's files, by the path results join to them on
+     */
+    protected function files_by_path(): array {
+        if ($this->filesbypath === null) {
+            $this->filesbypath = [];
+            foreach ($this->files as $file) {
+                $this->filesbypath[(string) $file->path] = $file;
+            }
+        }
+
+        return $this->filesbypath;
     }
 
     /**
@@ -386,9 +446,14 @@ class run_detail implements renderable, templatable {
      *
      * @param stdClass $result one test case result
      * @param string $path the file the code came from, possibly empty
+     * @param source_kind|null $kind what the result's source block describes
      * @return string
      */
-    protected function source_summary(stdClass $result, string $path): string {
+    protected function source_summary(stdClass $result, string $path, ?source_kind $kind): string {
+        if ($kind === source_kind::NONE) {
+            return get_string('sourcenotfound', 'mod_idetestfeedback');
+        }
+
         $label = $path !== '' ? $path : get_string('sourcecode', 'mod_idetestfeedback');
 
         if ($result->sourcestartline === null) {
@@ -412,7 +477,7 @@ class run_detail implements renderable, templatable {
         $rows = [];
 
         foreach ($this->files as $file) {
-            $content = (string) ($file->content ?? '');
+            $content = source_code::strip_marker((string) ($file->content ?? ''));
 
             $rows[] = [
                 'path' => $file->path,

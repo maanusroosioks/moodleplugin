@@ -1,0 +1,159 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+namespace mod_idetestfeedback\output;
+
+/**
+ * Exposes the protected source block so one result can be exported on its own.
+ */
+class testable_run_detail_source extends run_detail {
+
+    /**
+     * @param \stdClass $result one test case result
+     * @return array|null the exported source block
+     */
+    public function block(\stdClass $result): ?array {
+        return $this->source_block($result);
+    }
+}
+
+/**
+ * Tests for how the run detail finds the code a test case ran.
+ *
+ * @package    mod_idetestfeedback
+ * @category   test
+ * @copyright  2026 Maanus Roosioks
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \mod_idetestfeedback\output\run_detail
+ */
+final class run_detail_source_test extends \advanced_testcase {
+
+    /** @var string A file whose test declaration sits on lines 3 and 4. */
+    private const FILE = "import pytest\n\ndef test_add():\n    assert add(2, 3) == 5\n";
+
+    /**
+     * @param array $source the stored source columns of one result
+     * @return \stdClass a result row
+     */
+    private function testresult(array $source = []): \stdClass {
+        return (object) array_merge([
+            'id' => 1,
+            'testname' => 'test_add',
+            'sourcekind' => 'TEST',
+            'sourcefilepath' => 'tests/test_calculator.py',
+            'sourcestartline' => 3,
+            'sourceendline' => 4,
+            'sourcecode' => null,
+            'sourcetruncated' => 0,
+            'sourcecodehash' => 'b1946ac92492d234',
+        ], $source);
+    }
+
+    /**
+     * @param array $files the stored file rows of the run
+     * @return testable_run_detail_source
+     */
+    private function detail(array $files): testable_run_detail_source {
+        return new testable_run_detail_source(
+            (object) ['requiredtests' => null],
+            (object) [],
+            [],
+            $files,
+            null,
+            \context_system::instance(),
+            1,
+            false
+        );
+    }
+
+    /**
+     * @param array $file the stored columns of one file row
+     * @return \stdClass a file row
+     */
+    private function file(array $file = []): \stdClass {
+        return (object) array_merge([
+            'path' => 'tests/test_calculator.py',
+            'content' => self::FILE,
+            'truncated' => 0,
+        ], $file);
+    }
+
+    public function test_a_test_body_is_cut_out_of_the_run_file_it_lives_in(): void {
+        $block = $this->detail([$this->file()])->block($this->testresult());
+
+        $this->assertSame("def test_add():\n    assert add(2, 3) == 5", $block['code']);
+        $this->assertSame("3\n4", $block['linenumbers']);
+        $this->assertFalse($block['truncated']);
+        $this->assertTrue($block['expandable']);
+    }
+
+    public function test_the_copy_on_the_result_wins_when_the_file_could_not_carry_it(): void {
+        $block = $this->detail([$this->file(['content' => null])])
+            ->block($this->testresult(['sourcecode' => "def test_add():\n    pass", 'sourcetruncated' => 1]));
+
+        $this->assertSame("def test_add():\n    pass", $block['code']);
+        $this->assertTrue($block['truncated']);
+    }
+
+    public function test_a_body_below_the_cut_in_a_truncated_file_shows_nothing(): void {
+        $block = $this->detail([$this->file(['content' => "import pytest\n", 'truncated' => 1])])
+            ->block($this->testresult());
+
+        $this->assertSame('', $block['code']);
+        $this->assertFalse($block['hascode']);
+    }
+
+    public function test_a_run_with_capture_off_still_says_where_the_test_lives(): void {
+        $block = $this->detail([])->block($this->testresult());
+
+        $this->assertSame('tests/test_calculator.py:3-4', $block['summary']);
+        $this->assertSame('b1946ac92492d234', $block['hash']);
+        $this->assertTrue($block['expandable']);
+        $this->assertFalse($block['hascode']);
+    }
+
+    public function test_a_test_that_was_never_found_has_nothing_to_open(): void {
+        $block = $this->detail([$this->file()])->block($this->testresult([
+            'sourcekind' => 'NONE',
+            'sourcefilepath' => null,
+            'sourcestartline' => null,
+            'sourceendline' => null,
+            'sourcecodehash' => null,
+        ]));
+
+        $this->assertFalse($block['expandable']);
+        $this->assertSame(get_string('sourcenotfound', 'mod_idetestfeedback'), $block['summary']);
+    }
+
+    public function test_a_file_the_test_could_not_be_picked_out_of_is_not_excerpted(): void {
+        $block = $this->detail([$this->file()])->block($this->testresult([
+            'sourcekind' => 'FILE',
+            'sourcestartline' => null,
+            'sourceendline' => null,
+        ]));
+
+        $this->assertSame('', $block['code']);
+        $this->assertTrue($block['wholefile']);
+        $this->assertSame(get_string('sourcehashfile', 'mod_idetestfeedback'), $block['hashlabel']);
+    }
+
+    public function test_a_result_the_ide_said_nothing_about_has_no_block(): void {
+        $this->assertNull($this->detail([])->block($this->testresult([
+            'sourcekind' => null,
+            'sourcefilepath' => null,
+            'sourcestartline' => null,
+            'sourceendline' => null,
+            'sourcecodehash' => null,
+        ])));
+    }
+}

@@ -3,9 +3,10 @@
 
     The individual test case results of one run.
 
-    A result that carries source code is followed by a second row spanning the
+    A result with something to show is followed by a second row spanning the
     whole table, so the code opens underneath its result rather than inside the
-    narrow source cell.
+    narrow source cell. A result whose test was never found in the project has
+    nothing to open, and says so in the cell itself.
 
     When the viewer may comment, each row carries a feedback textarea and this
     template is included as a partial by mod_idetestfeedback/run_feedback_form,
@@ -32,11 +33,14 @@
                 "source": {
                     "summary": "tests/test_calculator.py:12-13",
                     "kind": "TEST",
+                    "expandable": true,
+                    "wholefile": false,
                     "code": "def test_add_returns_sum():\n    assert add(2, 3) == 5",
                     "hascode": true,
                     "language": "python",
                     "linenumbers": "12\n13",
                     "hash": "b1946ac92492d234",
+                    "hashlabel": "Normalised code hash",
                     "truncated": false
                 },
                 "feedbackname": "feedback_7",
@@ -85,11 +89,16 @@
                     <td>{{#message}}<pre class="idetestfeedback-message">{{.}}</pre>{{/message}}</td>
                     <td>
                         {{#hassource}}
-                            <button type="button" class="btn btn-link p-0 text-start idetestfeedback-source-toggle"
-                                data-bs-toggle="collapse" data-bs-target="#{{sourceid}}"
-                                aria-expanded="false" aria-controls="{{sourceid}}">
-                                <span class="idetestfeedback-filepath">{{source.summary}}</span>
-                            </button>
+                            {{#source.expandable}}
+                                <button type="button" class="btn btn-link p-0 text-start idetestfeedback-source-toggle"
+                                    data-bs-toggle="collapse" data-bs-target="#{{sourceid}}"
+                                    aria-expanded="false" aria-controls="{{sourceid}}">
+                                    <span class="idetestfeedback-filepath">{{source.summary}}</span>
+                                </button>
+                            {{/source.expandable}}
+                            {{^source.expandable}}
+                                <span class="idetestfeedback-filepath text-muted">{{source.summary}}</span>
+                            {{/source.expandable}}
                             {{#source.truncated}}
                                 <span class="badge bg-warning text-dark">
                                     {{#str}} truncated, mod_idetestfeedback {{/str}}
@@ -112,7 +121,7 @@
                         </td>
                     {{/showfeedback}}
                 </tr>
-                {{#hassource}}
+                {{#source.expandable}}
                     <tr class="idetestfeedback-source-row">
                         <td colspan="{{colspan}}" class="p-0 border-0">
                             <div class="collapse idetestfeedback-source" id="{{sourceid}}">
@@ -120,7 +129,7 @@
                                     <div class="p-2">
                                         {{#hash}}
                                             <div class="text-muted small">
-                                                {{#str}} sourcehash, mod_idetestfeedback {{/str}}: <code>{{.}}</code>
+                                                {{hashlabel}}: <code>{{hash}}</code>
                                             </div>
                                         {{/hash}}
                                         {{#hascode}}
@@ -133,7 +142,12 @@
                                         {{/hascode}}
                                         {{^hascode}}
                                             <p class="text-muted mb-0">
-                                                {{#str}} sourcenotcaptured, mod_idetestfeedback {{/str}}
+                                                {{#wholefile}}
+                                                    {{#str}} sourcewholefile, mod_idetestfeedback {{/str}}
+                                                {{/wholefile}}
+                                                {{^wholefile}}
+                                                    {{#str}} sourcenotcaptured, mod_idetestfeedback {{/str}}
+                                                {{/wholefile}}
                                             </p>
                                         {{/hascode}}
                                     </div>
@@ -141,7 +155,7 @@
                             </div>
                         </td>
                     </tr>
-                {{/hassource}}
+                {{/source.expandable}}
             {{/rows}}
         </tbody>
     </table>

@@ -26,6 +26,7 @@ use context_course;
 use context_module;
 use mod_idetestfeedback\event\test_run_submitted;
 use mod_idetestfeedback\local\repository;
+use mod_idetestfeedback\local\source_kind;
 use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\local\validation_exception;
 
@@ -87,12 +88,16 @@ class submit_test_run extends external_api {
                     'durationms' => new external_value(PARAM_INT, 'Duration ms', VALUE_DEFAULT, null),
                     'message'    => new external_value(PARAM_RAW, 'Failure message', VALUE_DEFAULT, null),
                     'source'     => new external_single_structure([
-                        'kind'      => new external_value(PARAM_ALPHANUMEXT, 'What the code is, e.g. TEST',
-                            VALUE_DEFAULT, null),
+                        'kind'      => new external_value(PARAM_ALPHANUMEXT,
+                            'NONE, FILE or TEST; decides which fields below are set', VALUE_DEFAULT, null),
                         'filepath'  => new external_value(PARAM_RAW, 'File the test lives in', VALUE_DEFAULT, null),
-                        'startline' => new external_value(PARAM_INT, 'First line', VALUE_DEFAULT, null),
-                        'endline'   => new external_value(PARAM_INT, 'Last line', VALUE_DEFAULT, null),
-                        'code'      => new external_value(PARAM_RAW, 'The captured source', VALUE_DEFAULT, null),
+                        'startline' => new external_value(PARAM_INT, 'First line, 1-based inclusive',
+                            VALUE_DEFAULT, null),
+                        'endline'   => new external_value(PARAM_INT, 'Last line, 1-based inclusive',
+                            VALUE_DEFAULT, null),
+                        'code'      => new external_value(PARAM_RAW,
+                            'The captured source, sent only when the run\'s file could not carry these lines',
+                            VALUE_DEFAULT, null),
                         'truncated' => new external_value(PARAM_BOOL, 'The code was cut short', VALUE_DEFAULT, 0),
                         'normalizedcodehash' => new external_value(PARAM_ALPHANUMEXT,
                             'Hash of the normalised source', VALUE_DEFAULT, null),
@@ -249,6 +254,9 @@ class submit_test_run extends external_api {
         }
 
         foreach ($params['results'] as $result) {
+            if (trim($result['testname']) === '') {
+                throw new validation_exception('validation_notestname');
+            }
             if (status::tryFrom(self::normalise_status($result['status'])) === null) {
                 throw new validation_exception('validation_invalidstatus', $result['status']);
             }
@@ -276,7 +284,11 @@ class submit_test_run extends external_api {
     }
 
     /**
-     * Rejects a line range that cannot describe a real excerpt.
+     * Rejects a source block that does not match the kind it declares.
+     *
+     * The kind is a discriminator, not a label: a TEST names a line range in a
+     * file, a FILE names only the file, and a NONE says the test was never
+     * found. A block that cannot be read that way is not stored as if it could.
      *
      * @param array|null $source the source block of one result, absent when the IDE sent none
      */
@@ -285,23 +297,90 @@ class submit_test_run extends external_api {
             return;
         }
 
-        foreach (['startline', 'endline'] as $field) {
-            if ($source[$field] !== null && $source[$field] < 0) {
-                throw new validation_exception('validation_invalidsourcelines');
-            }
+        $kind = self::resolve_source_kind($source);
+
+        if ($kind !== source_kind::NONE && trim((string) $source['filepath']) === '') {
+            throw new validation_exception('validation_nosourcefilepath', $kind->value);
         }
 
-        if ($source['startline'] !== null && $source['endline'] !== null
-                && $source['endline'] < $source['startline']) {
+        if ($kind !== source_kind::TEST) {
+            return;
+        }
+
+        if ($source['startline'] === null || $source['endline'] === null
+                || $source['startline'] < 1 || $source['endline'] < $source['startline']) {
             throw new validation_exception('validation_invalidsourcelines');
         }
     }
 
     /**
+     * The kind a source block declares, inferred from its shape when it declares none.
+     *
+     * @param array $source the source block of one result
+     * @return source_kind
+     */
+    private static function resolve_source_kind(array $source): source_kind {
+        $declared = $source['kind'] ?? null;
+
+        if ($declared !== null && trim($declared) !== '') {
+            $kind = source_kind::resolve($declared);
+            if ($kind === null) {
+                throw new validation_exception('validation_invalidsourcekind', $declared);
+            }
+
+            return $kind;
+        }
+
+        if ($source['startline'] !== null && $source['endline'] !== null) {
+            return source_kind::TEST;
+        }
+
+        return trim((string) $source['filepath']) === '' ? source_kind::NONE : source_kind::FILE;
+    }
+
+    /**
+     * Reduces a source block to the fields its kind gives meaning to.
+     *
+     * Line numbers without a located declaration, or anything at all on a test
+     * that was never found, describe nothing, so they are not carried into
+     * storage where a reader would have to guess at them.
+     *
+     * @param array|null $source the source block of one result
+     * @return array{kind:string,filepath:?string,startline:?int,endline:?int,code:?string,
+     *     truncated:bool,normalizedcodehash:?string}|null
+     */
+    private static function normalise_source(?array $source): ?array {
+        if ($source === null) {
+            return null;
+        }
+
+        $kind = self::resolve_source_kind($source);
+        $source['kind'] = $kind->value;
+
+        if ($kind === source_kind::NONE) {
+            return array_merge($source, [
+                'filepath' => null, 'startline' => null, 'endline' => null,
+                'code' => null, 'truncated' => false, 'normalizedcodehash' => null,
+            ]);
+        }
+
+        if ($kind === source_kind::FILE) {
+            return array_merge($source, ['startline' => null, 'endline' => null]);
+        }
+
+        return $source;
+    }
+
+    /**
      * Drops the code a run claims not to have captured.
      *
+     * Only the bodies go. The hashes and line numbers are sent precisely
+     * because they survive a run that carries no source, and they are what
+     * answers "did this test change since last time" for such a run, so
+     * discarding them here would throw away the only signal it has.
+     *
      * @param array $params the validated call parameters
-     * @return array the parameters, with every captured body and its hash removed
+     * @return array the parameters, with every captured body removed
      */
     private static function strip_captured_code(array $params): array {
         if (empty($params['capturedisabled'])) {
@@ -315,12 +394,38 @@ class submit_test_run extends external_api {
 
             $params['results'][$index]['source']['code'] = null;
             $params['results'][$index]['source']['truncated'] = false;
-            $params['results'][$index]['source']['normalizedcodehash'] = null;
         }
 
-        $params['testfiles'] = [];
+        foreach ($params['testfiles'] as $index => $file) {
+            $params['testfiles'][$index]['content'] = null;
+            $params['testfiles'][$index]['truncated'] = false;
+        }
 
         return $params;
+    }
+
+    /**
+     * The run's test files, one per path and in path order.
+     *
+     * Results are joined back to files by path, so a path carrying two
+     * different bodies would make that join ambiguous; the first wins.
+     *
+     * @param array $testfiles the submitted test files
+     * @return array[] the files, keyed by path
+     */
+    private static function unique_files(array $testfiles): array {
+        $files = [];
+
+        foreach ($testfiles as $file) {
+            $path = self::clip($file['path'], 'filepath');
+            if (!isset($files[$path])) {
+                $files[$path] = $file;
+            }
+        }
+
+        ksort($files);
+
+        return $files;
     }
 
     /**
@@ -355,7 +460,7 @@ class submit_test_run extends external_api {
 
         $results = [];
         foreach ($params['results'] as $r) {
-            $source = $r['source'] ?? null;
+            $source = self::normalise_source($r['source'] ?? null);
             [$code, $truncated] = self::clip_code(
                 $source['code'] ?? null,
                 !empty($source['truncated']),
@@ -380,11 +485,11 @@ class submit_test_run extends external_api {
         }
 
         $files = [];
-        foreach ($params['testfiles'] as $f) {
+        foreach (self::unique_files($params['testfiles']) as $path => $f) {
             [$content, $truncated] = self::clip_code($f['content'], !empty($f['truncated']), self::MAX_FILE_BYTES);
 
             $file              = new \stdClass();
-            $file->path        = self::clip($f['path'], 'filepath');
+            $file->path        = (string) $path;
             $file->sha256      = self::clip($f['sha256'], 'filesha256');
             $file->content     = $content;
             $file->truncated   = $truncated;
@@ -505,10 +610,15 @@ class submit_test_run extends external_api {
             return [null, (int) $truncated];
         }
 
-        if (\core_text::strlen($code) > $max) {
-            return [\core_text::substr($code, 0, $max), 1];
+        if (\core_text::strlen($code) <= $max) {
+            return [$code, (int) $truncated];
         }
 
-        return [$code, (int) $truncated];
+        // Cut on a line boundary where there is one, so the line numbers a
+        // result carries still land on the right lines of what was kept.
+        $kept = \core_text::substr($code, 0, $max);
+        $break = \core_text::strrpos($kept, "\n");
+
+        return [$break ? \core_text::substr($kept, 0, $break) : $kept, 1];
     }
 }

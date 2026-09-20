@@ -1,0 +1,74 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+namespace mod_idetestfeedback\local;
+
+/**
+ * Reading the source code an IDE captured with a run.
+ *
+ * A test's body is normally carried once, in the run's file, and a result only
+ * repeats it when the file could not: the excerpt is cut out here rather than
+ * stored twice.
+ *
+ * @package    mod_idetestfeedback
+ * @copyright  2026 Maanus Roosioks
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class source_code {
+
+    /**
+     * @var string Matches the line an IDE appends to a string it cut short.
+     * The marker is not source, so it is dropped before anything is counted.
+     */
+    private const MARKER = '/\n?\x{2026} \[truncated[^\]\n]*\]\s*$/u';
+
+    /**
+     * @param string $code source as it was received
+     * @return string the same source with CRLF and CR line endings as LF
+     */
+    public static function normalise_endings(string $code): string {
+        return str_replace(["\r\n", "\r"], "\n", $code);
+    }
+
+    /**
+     * @param string $code source as it was received
+     * @return string the same source without the trailing truncation marker, if it had one
+     */
+    public static function strip_marker(string $code): string {
+        return (string) preg_replace(self::MARKER, '', self::normalise_endings($code));
+    }
+
+    /**
+     * Cuts a test's declaration out of the file it was found in.
+     *
+     * Line numbers are 1-based and inclusive, and hold for whatever a truncated
+     * file retained, since a file is only ever cut from the bottom.
+     *
+     * @param string $content the file's captured contents
+     * @param int $startline the declaration's first line
+     * @param int $endline the declaration's last line
+     * @return array{0:string,1:bool} [the excerpt, whether the file ended before $endline]
+     */
+    public static function excerpt(string $content, int $startline, int $endline): array {
+        $lines = explode("\n", self::strip_marker($content));
+        $first = max(1, $startline);
+
+        if ($first > count($lines)) {
+            return ['', true];
+        }
+
+        $excerpt = array_slice($lines, $first - 1, max(1, $endline - $first + 1));
+
+        return [implode("\n", $excerpt), $endline > count($lines)];
+    }
+}

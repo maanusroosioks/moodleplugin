@@ -322,11 +322,43 @@ final class submit_test_run_test extends \advanced_testcase {
 
         $repository = new repository($DB);
         $results = array_values($repository->get_results($returned['runid']));
+        $files = array_values($repository->get_files($returned['runid']));
 
         $this->assertNull($results[0]->sourcecode);
-        $this->assertNull($results[0]->sourcecodehash);
         $this->assertSame(0, (int) $results[0]->sourcetruncated);
-        $this->assertSame([], $repository->get_files($returned['runid']));
+        $this->assertCount(1, $files);
+        $this->assertNull($files[0]->content);
+        $this->assertSame(0, (int) $files[0]->truncated);
+    }
+
+    public function test_capture_disabled_keeps_the_hashes_that_outlive_the_code(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params([
+            'capturedisabled' => true,
+            'results' => [[
+                'testname' => 'test_add_returns_sum',
+                'status' => 'PASSED',
+                'testsuite' => 'test_calculator',
+                'durationms' => 12,
+                'message' => null,
+                'source' => $this->source(),
+            ]],
+            'testfiles' => [[
+                'path' => 'tests/test_calculator.py',
+                'sha256' => 'c7be1ed902fb8dd4',
+                'content' => "import pytest\n",
+                'truncated' => false,
+            ]],
+        ]));
+
+        $repository = new repository($DB);
+        $results = array_values($repository->get_results($returned['runid']));
+        $files = array_values($repository->get_files($returned['runid']));
+
+        $this->assertSame('b1946ac92492d234', $results[0]->sourcecodehash);
+        $this->assertSame('tests/test_calculator.py', $files[0]->path);
+        $this->assertSame('c7be1ed902fb8dd4', $files[0]->sha256);
     }
 
     public function test_capture_disabled_keeps_where_a_test_lives(): void {
@@ -483,6 +515,149 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame($returned['runid'], (int) $event->objectid);
         $this->assertSame((int) $this->student->id, (int) $event->relateduserid);
         $this->assertSame(status::PASSED->value, $event->other['status']);
+    }
+
+    public function test_a_source_of_kind_none_stores_nothing_about_where_the_test_lives(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['results' => [[
+            'testname' => 'testAdd',
+            'status' => 'PASSED',
+            'testsuite' => null,
+            'durationms' => null,
+            'message' => null,
+            'source' => $this->source(['kind' => 'NONE']),
+        ]]]));
+
+        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $this->assertSame('NONE', $results[0]->sourcekind);
+        $this->assertNull($results[0]->sourcefilepath);
+        $this->assertNull($results[0]->sourcestartline);
+        $this->assertNull($results[0]->sourceendline);
+        $this->assertNull($results[0]->sourcecode);
+        $this->assertNull($results[0]->sourcecodehash);
+    }
+
+    public function test_a_source_of_kind_file_drops_line_numbers_it_cannot_mean(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['results' => [[
+            'testname' => 'testAdd',
+            'status' => 'PASSED',
+            'testsuite' => null,
+            'durationms' => null,
+            'message' => null,
+            'source' => $this->source(['kind' => 'FILE']),
+        ]]]));
+
+        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $this->assertSame('FILE', $results[0]->sourcekind);
+        $this->assertSame('tests/test_calculator.py', $results[0]->sourcefilepath);
+        $this->assertNull($results[0]->sourcestartline);
+        $this->assertNull($results[0]->sourceendline);
+        $this->assertSame('b1946ac92492d234', $results[0]->sourcecodehash);
+    }
+
+    public function test_it_stores_a_source_kind_in_upper_case(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['results' => [[
+            'testname' => 'testAdd',
+            'status' => 'PASSED',
+            'testsuite' => null,
+            'durationms' => null,
+            'message' => null,
+            'source' => $this->source(['kind' => 'test']),
+        ]]]));
+
+        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $this->assertSame('TEST', $results[0]->sourcekind);
+    }
+
+    public function test_it_rejects_an_unknown_source_kind(): void {
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(
+            get_string('validation_invalidsourcekind', 'mod_idetestfeedback', 'SNIPPET')
+        );
+
+        $this->submit($this->params(['results' => [[
+            'testname' => 'testAdd',
+            'status' => 'PASSED',
+            'testsuite' => null,
+            'durationms' => null,
+            'message' => null,
+            'source' => $this->source(['kind' => 'SNIPPET']),
+        ]]]));
+    }
+
+    public function test_it_rejects_a_located_source_without_a_file(): void {
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(
+            get_string('validation_nosourcefilepath', 'mod_idetestfeedback', 'TEST')
+        );
+
+        $this->submit($this->params(['results' => [[
+            'testname' => 'testAdd',
+            'status' => 'PASSED',
+            'testsuite' => null,
+            'durationms' => null,
+            'message' => null,
+            'source' => $this->source(['filepath' => '']),
+        ]]]));
+    }
+
+    public function test_it_rejects_a_test_source_without_a_line_range(): void {
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_invalidsourcelines', 'mod_idetestfeedback'));
+
+        $this->submit($this->params(['results' => [[
+            'testname' => 'testAdd',
+            'status' => 'PASSED',
+            'testsuite' => null,
+            'durationms' => null,
+            'message' => null,
+            'source' => $this->source(['startline' => null, 'endline' => null]),
+        ]]]));
+    }
+
+    public function test_it_rejects_a_result_without_a_test_name(): void {
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_notestname', 'mod_idetestfeedback'));
+
+        $this->submit($this->params(['results' => [
+            ['testname' => '  ', 'status' => 'PASSED', 'testsuite' => null,
+                'durationms' => null, 'message' => null],
+        ]]));
+    }
+
+    public function test_it_stores_one_row_per_test_file_path(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['testfiles' => [
+            ['path' => 'tests/test_calculator.py', 'sha256' => 'aaaa', 'content' => "import pytest\n",
+                'truncated' => false],
+            ['path' => 'tests/test_calculator.py', 'sha256' => 'bbbb', 'content' => "import sys\n",
+                'truncated' => false],
+        ]]));
+
+        $files = array_values((new repository($DB))->get_files($returned['runid']));
+        $this->assertCount(1, $files);
+        $this->assertSame('aaaa', $files[0]->sha256);
+    }
+
+    public function test_clipping_a_file_keeps_whole_lines(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['testfiles' => [[
+            'path' => 'tests/big.py',
+            'sha256' => null,
+            'content' => str_repeat("assert True\n", 60000),
+            'truncated' => false,
+        ]]]));
+
+        $files = array_values((new repository($DB))->get_files($returned['runid']));
+        $this->assertSame(1, (int) $files[0]->truncated);
+        $this->assertStringEndsWith('assert True', $files[0]->content);
     }
 
     public function test_it_rejects_an_empty_results_array(): void {

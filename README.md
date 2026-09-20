@@ -66,7 +66,7 @@ no role by default)
 | `finishedat` | int | no | Epoch **milliseconds**. |
 | `results` | list | yes | Non-empty list of result objects (see below). |
 | `testfiles` | list | no | Test files captured with the run (see below). At most 200. |
-| `capturedisabled` | bool | no | The student turned off sending source code. Any code posted alongside it is dropped (see Validation). |
+| `capturedisabled` | bool | no | The student turned off sending source code. Any code posted alongside it is dropped, but the hashes are not (see Validation). |
 | `warningacknowledged` | bool | no | The student was warned that some tests are empty and submitted anyway. |
 
 The parameter names are lowercase: a middleware posting the IDE's camelCase
@@ -77,30 +77,48 @@ Each `results` entry:
 
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `testname` | text | yes | |
+| `testname` | text | yes | Must not be blank. |
 | `status` | alpha | yes | One of `PASSED`, `FAILED`, `SKIPPED`, `ERROR`. |
 | `testsuite` | text | no | |
 | `durationms` | int | no | |
 | `message` | text | no | Failure / error message. |
 | `source` | object | no | Where the test case came from (see below). |
 
-Each `results[].source` object:
+Each `results[].source` object. `kind` is a discriminator, not a label: it
+decides which of the other fields mean anything, and what the hash covers. The
+fields a kind does not give meaning to are dropped rather than stored.
 
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `kind` | alphanumext | no | What the captured code is, e.g. `TEST`. |
-| `filepath` | text | no | Path of the file the test is defined in. |
-| `startline` | int | no | |
-| `endline` | int | no | Must not be below `startline`. |
+| `kind` | alphanumext | no | `NONE`, `FILE` or `TEST`, case insensitive. Inferred from the other fields when absent. |
+| `filepath` | text | `FILE`, `TEST` | Repo-relative path of the file the test is defined in. Joins to `testfiles[].path`. |
+| `startline` | int | `TEST` | 1-based, inclusive. |
+| `endline` | int | `TEST` | 1-based, inclusive. Must not be below `startline`. |
 | `code` | text | no | Clipped to 64 KB, setting `truncated`. |
 | `truncated` | bool | no | The code is not the whole thing. |
-| `normalizedcodehash` | alphanumext | no | Hash of the normalised source, for grouping identical test bodies. |
+| `normalizedcodehash` | alphanumext | no | Hash of the normalised source, for telling a rewritten test from a reformatted one. |
+
+- `NONE` — the test was not found in the project's source at all. Nothing else
+  about it is stored.
+- `FILE` — the file was found but the test could not be picked out of it. The
+  hash covers the whole file, so no line range is stored.
+- `TEST` — the declaration was located. The line range and the hash cover just it.
+
+A `FILE` hash and a `TEST` hash describe different things, so `kind` is stored
+beside the hash and the two are never compared with each other.
+
+`code` is a fallback, not the normal path. A test's body normally travels once,
+in `testfiles`, and is repeated on the result only when the file could not carry
+it &mdash; because the file's `content` was dropped, or because the file was cut
+above that test's `endline`. The run detail page reads it that way: the result's
+own copy wins where there is one, and otherwise the excerpt is cut out of the
+run's copy of the file at `startline`&ndash;`endline`.
 
 Each `testfiles` entry:
 
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `path` | text | yes | Repo-relative path. Must not be blank. |
+| `path` | text | yes | Repo-relative path. Must not be blank. One row per path: a repeated path keeps the first entry. |
 | `sha256` | alphanumext | no | |
 | `content` | text | no | Clipped to 512 KB, setting `truncated`. |
 | `truncated` | bool | no | The content is not the whole file. |
@@ -124,20 +142,26 @@ The submission is rejected (with a localised message) when:
 - `ide` is blank;
 - `startedat`, `finishedat` or any `durationms` is negative, or the run finishes
   before it starts;
+- any result has a blank `testname`;
 - `testfiles` holds more than 200 entries, or any entry has a blank `path`;
-- any `source` has a negative line number, or ends before it starts.
+- any `source` declares a `kind` outside `NONE`, `FILE` and `TEST`;
+- a `FILE` or `TEST` source names no `filepath`;
+- a `TEST` source has no line range, starts below line 1, or ends before it starts.
 
 Oversized `source.code` or `testfiles[].content` does not reject the submission:
 it is clipped and stored with `truncated` set, which is what the run detail page
-then flags.
+then flags. The clip falls back to the last line boundary it kept, so the line
+numbers a result carries still land on the right lines of what remains.
 
 `capturedisabled` is enforced rather than taken on trust. A submission that sets
-it is stored without any `source.code`, without any `normalizedcodehash`, and
-without `testfiles`, whatever the client sent. The run detail page badges such a
-run as having no captured code, so the badge and the stored data cannot disagree.
-Where each test lives is kept: `source.filepath`, `startline`, `endline` and
-`kind` are not the code, and the results table still names the file a test ran
-from.
+it is stored without any `source.code` and without any `testfiles[].content`,
+whatever the client sent. The run detail page badges such a run as having no
+captured code, so the badge and the stored data cannot disagree.
+
+What is *not* dropped is everything that is not the code: `source.filepath`,
+`startline`, `endline`, `kind`, `normalizedcodehash` and `testfiles[].sha256`.
+Those are sent precisely because they outlive a run that carries no source, and
+they are what answers "did this test change since last time" for such a run.
 
 The stored run's overall `status` is derived from its results: `ERROR` if any
 result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least
