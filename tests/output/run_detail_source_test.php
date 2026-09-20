@@ -147,6 +147,16 @@ final class run_detail_source_test extends \advanced_testcase {
         $this->assertSame(get_string('sourcehashfile', 'mod_idetestfeedback'), $block['hashlabel']);
     }
 
+    public function test_a_file_kind_with_capture_off_does_not_promise_a_file_below(): void {
+        $block = $this->detail([$this->file(['content' => null])])->block($this->testresult([
+            'sourcekind' => 'FILE',
+            'sourcestartline' => null,
+            'sourceendline' => null,
+        ]));
+
+        $this->assertFalse($block['wholefile']);
+    }
+
     public function test_a_result_the_ide_said_nothing_about_has_no_block(): void {
         $this->assertNull($this->detail([])->block($this->testresult([
             'sourcekind' => null,

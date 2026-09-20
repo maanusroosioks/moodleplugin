@@ -367,7 +367,7 @@ class run_detail implements renderable, templatable {
             'summary' => $this->source_summary($result, $path, $kind),
             'kind' => $kind?->value ?? '',
             'expandable' => $code !== '' || $hash !== '',
-            'wholefile' => $kind === source_kind::FILE,
+            'wholefile' => $kind === source_kind::FILE && $this->has_file_content($path),
             'code' => $code,
             'hascode' => $code !== '',
             'language' => self::language_of($path),
@@ -411,6 +411,19 @@ class run_detail implements renderable, templatable {
         }
 
         return source_code::excerpt($content, (int) $result->sourcestartline, (int) $result->sourceendline);
+    }
+
+    /**
+     * Whether this run carries the contents of one of its files, rather than
+     * just the fact that the file was there.
+     *
+     * @param string $path the path a result names
+     * @return bool
+     */
+    protected function has_file_content(string $path): bool {
+        $file = $this->files_by_path()[$path] ?? null;
+
+        return trim((string) ($file->content ?? '')) !== '';
     }
 
     /**
