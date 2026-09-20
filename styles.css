@@ -46,13 +46,39 @@
     content: "\25be\a0";
 }
 
-.idetestfeedback-source pre,
-details.idetestfeedback-file pre {
+.idetestfeedback-code {
+    display: flex;
     max-height: 400px;
     overflow: auto;
     margin: 0.5rem 0 0;
+    background: #f5f2f0;
+}
+
+.idetestfeedback-code pre[class*="language-"],
+.idetestfeedback-code pre {
+    margin: 0;
+    padding: 0.75rem;
+    overflow: visible;
+    background: none;
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
     font-size: 0.78em;
+    line-height: 1.5;
     white-space: pre;
+}
+
+.idetestfeedback-code code {
+    font-size: inherit;
+}
+
+.idetestfeedback-code pre.idetestfeedback-gutter {
+    position: sticky;
+    left: 0;
+    flex: none;
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
+    background: inherit;
+    text-align: right;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .idetestfeedback-filepath {

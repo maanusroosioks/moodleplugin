@@ -35,6 +35,7 @@
                     "code": "def test_add_returns_sum():\n    assert add(2, 3) == 5",
                     "hascode": true,
                     "language": "python",
+                    "linenumbers": "12\n13",
                     "hash": "b1946ac92492d234",
                     "truncated": false
                 },
@@ -123,8 +124,12 @@
                                             </div>
                                         {{/hash}}
                                         {{#hascode}}
-                                            {{#language}}<pre class="language-{{.}}"><code>{{code}}</code></pre>{{/language}}
-                                            {{^language}}<pre><code>{{code}}</code></pre>{{/language}}
+                                            <div class="idetestfeedback-code">
+                                                <pre class="idetestfeedback-gutter text-muted"
+                                                    aria-hidden="true">{{linenumbers}}</pre>
+                                                {{#language}}<pre class="language-{{.}}"><code>{{code}}</code></pre>{{/language}}
+                                                {{^language}}<pre><code>{{code}}</code></pre>{{/language}}
+                                            </div>
                                         {{/hascode}}
                                         {{^hascode}}
                                             <p class="text-muted mb-0">

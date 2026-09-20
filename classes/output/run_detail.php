@@ -361,9 +361,24 @@ class run_detail implements renderable, templatable {
             'code' => $code,
             'hascode' => $code !== '',
             'language' => self::language_of($path),
+            'linenumbers' => $code === '' ? '' : self::line_numbers($code, $result->sourcestartline),
             'hash' => (string) ($result->sourcecodehash ?? ''),
             'truncated' => !empty($result->sourcetruncated),
         ];
+    }
+
+    /**
+     * The gutter beside a source block, numbering its lines as the file numbers them.
+     *
+     * @param string $code the captured source, never empty
+     * @param int|null $startline the line the capture began at, null when the IDE did not say
+     * @return string one number per line of code, newline separated
+     */
+    protected static function line_numbers(string $code, ?int $startline): string {
+        $first = $startline !== null ? max(1, (int) $startline) : 1;
+        $body = str_replace(["\r\n", "\r"], "\n", rtrim($code, "\r\n"));
+
+        return implode("\n", range($first, $first + substr_count($body, "\n")));
     }
 
     /**
@@ -405,6 +420,7 @@ class run_detail implements renderable, templatable {
                 'content' => $content,
                 'hascontent' => $content !== '',
                 'language' => self::language_of((string) $file->path),
+                'linenumbers' => $content === '' ? '' : self::line_numbers($content, 1),
                 'truncated' => !empty($file->truncated),
             ];
         }
