@@ -66,7 +66,7 @@ no role by default)
 | `finishedat` | int | no | Epoch **milliseconds**. |
 | `results` | list | yes | Non-empty list of result objects (see below). |
 | `testfiles` | list | no | Test files captured with the run (see below). At most 200. |
-| `capturedisabled` | bool | no | The student turned off sending source code. |
+| `capturedisabled` | bool | no | The student turned off sending source code. Any code posted alongside it is dropped (see Validation). |
 | `warningacknowledged` | bool | no | The student was warned that some tests are empty and submitted anyway. |
 
 The parameter names are lowercase: a middleware posting the IDE's camelCase
@@ -130,6 +130,14 @@ The submission is rejected (with a localised message) when:
 Oversized `source.code` or `testfiles[].content` does not reject the submission:
 it is clipped and stored with `truncated` set, which is what the run detail page
 then flags.
+
+`capturedisabled` is enforced rather than taken on trust. A submission that sets
+it is stored without any `source.code`, without any `normalizedcodehash`, and
+without `testfiles`, whatever the client sent. The run detail page badges such a
+run as having no captured code, so the badge and the stored data cannot disagree.
+Where each test lives is kept: `source.filepath`, `startline`, `endline` and
+`kind` are not the code, and the results table still names the file a test ran
+from.
 
 The stored run's overall `status` is derived from its results: `ERROR` if any
 result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least

@@ -299,6 +299,86 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame(1, (int) $run->warningacknowledged);
     }
 
+    public function test_a_run_with_capture_disabled_stores_no_code(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params([
+            'capturedisabled' => true,
+            'results' => [[
+                'testname' => 'test_add_returns_sum',
+                'status' => 'PASSED',
+                'testsuite' => 'test_calculator',
+                'durationms' => 12,
+                'message' => null,
+                'source' => $this->source(['truncated' => true]),
+            ]],
+            'testfiles' => [[
+                'path' => 'tests/test_calculator.py',
+                'sha256' => 'c7be1ed902fb8dd4',
+                'content' => "import pytest\n",
+                'truncated' => false,
+            ]],
+        ]));
+
+        $repository = new repository($DB);
+        $results = array_values($repository->get_results($returned['runid']));
+
+        $this->assertNull($results[0]->sourcecode);
+        $this->assertNull($results[0]->sourcecodehash);
+        $this->assertSame(0, (int) $results[0]->sourcetruncated);
+        $this->assertSame([], $repository->get_files($returned['runid']));
+    }
+
+    public function test_capture_disabled_keeps_where_a_test_lives(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params([
+            'capturedisabled' => true,
+            'results' => [[
+                'testname' => 'test_add_returns_sum',
+                'status' => 'PASSED',
+                'testsuite' => 'test_calculator',
+                'durationms' => 12,
+                'message' => null,
+                'source' => $this->source(),
+            ]],
+        ]));
+
+        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $this->assertSame('TEST', $results[0]->sourcekind);
+        $this->assertSame('tests/test_calculator.py', $results[0]->sourcefilepath);
+        $this->assertSame(12, (int) $results[0]->sourcestartline);
+        $this->assertSame(13, (int) $results[0]->sourceendline);
+    }
+
+    public function test_a_run_with_capture_enabled_keeps_its_code(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params([
+            'results' => [[
+                'testname' => 'test_add_returns_sum',
+                'status' => 'PASSED',
+                'testsuite' => 'test_calculator',
+                'durationms' => 12,
+                'message' => null,
+                'source' => $this->source(),
+            ]],
+            'testfiles' => [[
+                'path' => 'tests/test_calculator.py',
+                'sha256' => 'c7be1ed902fb8dd4',
+                'content' => "import pytest\n",
+                'truncated' => false,
+            ]],
+        ]));
+
+        $repository = new repository($DB);
+        $results = array_values($repository->get_results($returned['runid']));
+
+        $this->assertSame("def test_add_returns_sum():\n    assert add(2, 3) == 5", $results[0]->sourcecode);
+        $this->assertSame('b1946ac92492d234', $results[0]->sourcecodehash);
+        $this->assertCount(1, $repository->get_files($returned['runid']));
+    }
+
     public function test_the_capture_flags_default_to_off(): void {
         global $DB;
 

@@ -171,7 +171,7 @@ class submit_test_run extends external_api {
         [$userid, $instance] = self::validate_submission($repository, $params);
         $cm = get_coursemodule_from_instance('idetestfeedback', $instance->id, $instance->course, false, MUST_EXIST);
 
-        $run = self::store_run($repository, $instance, $userid, $params);
+        $run = self::store_run($repository, $instance, $userid, self::strip_captured_code($params));
 
         self::update_completion($repository, $instance, $cm, $userid);
         self::log_submission($cm, $run, $userid);
@@ -295,6 +295,32 @@ class submit_test_run extends external_api {
                 && $source['endline'] < $source['startline']) {
             throw new validation_exception('validation_invalidsourcelines');
         }
+    }
+
+    /**
+     * Drops the code a run claims not to have captured.
+     *
+     * @param array $params the validated call parameters
+     * @return array the parameters, with every captured body and its hash removed
+     */
+    private static function strip_captured_code(array $params): array {
+        if (empty($params['capturedisabled'])) {
+            return $params;
+        }
+
+        foreach ($params['results'] as $index => $result) {
+            if (!isset($result['source'])) {
+                continue;
+            }
+
+            $params['results'][$index]['source']['code'] = null;
+            $params['results'][$index]['source']['truncated'] = false;
+            $params['results'][$index]['source']['normalizedcodehash'] = null;
+        }
+
+        $params['testfiles'] = [];
+
+        return $params;
     }
 
     /**
