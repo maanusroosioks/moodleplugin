@@ -18,7 +18,9 @@ namespace mod_idetestfeedback\output;
 
 use context;
 use mod_idetestfeedback\local\required_tests;
+use mod_idetestfeedback\local\source_change;
 use mod_idetestfeedback\local\source_code;
+use mod_idetestfeedback\local\source_history;
 use mod_idetestfeedback\local\source_kind;
 use moodle_url;
 use renderable;
@@ -47,6 +49,7 @@ class run_detail implements renderable, templatable {
      * @param context $context the activity context, for formatting feedback
      * @param int $cmid the course module id
      * @param bool $cancomment whether the viewer may edit feedback
+     * @param source_history $history the same tests as the student's earlier runs reported them
      */
     public function __construct(
         protected readonly stdClass $instance,
@@ -56,7 +59,8 @@ class run_detail implements renderable, templatable {
         protected readonly ?string $studentname,
         protected readonly context $context,
         protected readonly int $cmid,
-        protected readonly bool $cancomment
+        protected readonly bool $cancomment,
+        protected readonly source_history $history
     ) {
     }
 
@@ -315,6 +319,7 @@ class run_detail implements renderable, templatable {
 
             $rows[] = [
                 'rowclass' => status_badge::row_class($result->status),
+                'badges' => $this->history_badges($result),
                 'hassource' => $source !== null,
                 'source' => $source,
                 'sourceid' => 'idetestfeedback-source-' . $result->id,
@@ -344,6 +349,55 @@ class run_detail implements renderable, templatable {
         }
 
         return $rows;
+    }
+
+    /**
+     * How this test's code has moved since the student's earlier runs.
+     *
+     * The feedback axis wins where it has an answer, being the one a reader
+     * acts on. An unchanged TEST body only rules out the declaration, so the
+     * file it lives in decides how much the label may claim.
+     *
+     * @param stdClass $result one test case result
+     * @return array[] zero or one badge
+     */
+    protected function history_badges(stdClass $result): array {
+        $badge = match ($this->history->since_feedback($result)) {
+            source_change::CHANGED => $this->badge('sourcefeedbackchanged', 'bg-info text-dark'),
+            source_change::UNCHANGED => $this->unchanged_badge($result),
+            source_change::UNKNOWN => $this->history->since_last_run($result) === source_change::CHANGED
+                ? $this->badge('sourcechanged', 'bg-info text-dark')
+                : null,
+        };
+
+        return $badge === null ? [] : [$badge];
+    }
+
+    /**
+     * @param stdClass $result a test case whose body has not changed since it was commented on
+     * @return array the widest badge the captured hashes support
+     */
+    protected function unchanged_badge(stdClass $result): array {
+        $kind = source_kind::resolve($result->sourcekind ?? null);
+        if ($kind === source_kind::FILE) {
+            return $this->badge('sourcefeedbackunchangedfile', 'bg-warning text-dark');
+        }
+
+        $file = $this->files_by_path()[(string) ($result->sourcefilepath ?? '')] ?? null;
+        $samefile = $this->history->file_since_feedback($result, (string) ($file->sha256 ?? ''));
+
+        return $samefile === source_change::UNCHANGED
+            ? $this->badge('sourcefeedbackunchangedfile', 'bg-warning text-dark')
+            : $this->badge('sourcefeedbackunchanged', 'bg-secondary text-white');
+    }
+
+    /**
+     * @param string $identifier the label's string identifier
+     * @param string $classes the Bootstrap classes the badge carries
+     * @return array
+     */
+    protected function badge(string $identifier, string $classes): array {
+        return ['label' => get_string($identifier, 'mod_idetestfeedback'), 'classes' => $classes];
     }
 
     /**

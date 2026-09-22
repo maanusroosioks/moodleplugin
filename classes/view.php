@@ -26,6 +26,7 @@ use mod_idetestfeedback\event\course_module_viewed;
 use mod_idetestfeedback\local\feedback_notifier;
 use mod_idetestfeedback\local\feedback_saver;
 use mod_idetestfeedback\local\repository;
+use mod_idetestfeedback\local\source_history;
 use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\output\renderer;
 use mod_idetestfeedback\output\run_detail;
@@ -294,6 +295,13 @@ class view {
             );
         }
 
+        $priorids = $this->repository->get_prior_run_ids(
+            (int) $this->instance->id,
+            (int) $this->run->userid,
+            $this->runid,
+            source_history::LOOKBACK_RUNS
+        );
+
         return $this->renderer->render(new run_detail(
             $this->instance,
             $this->run,
@@ -302,7 +310,12 @@ class view {
             $this->canviewall ? $this->student_name($this->run) : null,
             $this->context,
             $this->cmid,
-            $this->cancomment
+            $this->cancomment,
+            new source_history(
+                $this->repository->get_source_history($priorids),
+                $this->repository->get_file_history($priorids),
+                (int) $this->run->timecreated
+            )
         ));
     }
 

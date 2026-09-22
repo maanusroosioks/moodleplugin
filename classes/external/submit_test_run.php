@@ -379,6 +379,7 @@ class submit_test_run extends external_api {
      * answers "did this test change since last time" for such a run, so
      * discarding them here would throw away the only signal it has.
      *
+     * @see \mod_idetestfeedback\local\source_history for what reads them back
      * @param array $params the validated call parameters
      * @return array the parameters, with every captured body removed
      */

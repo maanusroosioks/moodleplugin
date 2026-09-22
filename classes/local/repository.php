@@ -103,6 +103,75 @@ class repository {
     }
 
     /**
+     * The ids of the runs a user submitted before a given one, newest first.
+     *
+     * @param int $instanceid the activity instance id
+     * @param int $userid the student
+     * @param int $runid the run to look back from
+     * @param int $limit how many earlier runs to return at most
+     * @return int[] run ids, newest first, empty when the run is not this user's
+     */
+    public function get_prior_run_ids(int $instanceid, int $userid, int $runid, int $limit): array {
+        $ids = $this->get_run_ids_for_user($instanceid, $userid);
+        $position = array_search($runid, $ids, true);
+
+        if ($position === false) {
+            return [];
+        }
+
+        return array_slice($ids, $position + 1, $limit);
+    }
+
+    /**
+     * The columns {@see source_history} compares, across several of one user's runs.
+     *
+     * Narrow on purpose: this reads many runs at once, and the captured bodies
+     * are the largest columns on the table and are not compared. Ordered so
+     * that one pass can keep the first row it sees for each test.
+     *
+     * @param int[] $runids the runs to read
+     * @return \stdClass[] result rows keyed by id, newest run first
+     */
+    public function get_source_history(array $runids): array {
+        if (!$runids) {
+            return [];
+        }
+
+        [$insql, $params] = $this->db->get_in_or_equal($runids, SQL_PARAMS_NAMED, 'hrun');
+
+        return $this->db->get_records_sql(
+            "SELECT res.id, res.runid, res.testsuite, res.testname, res.sourcekind,
+                    res.sourcefilepath, res.sourcecodehash, res.feedback, res.feedbackmodified
+               FROM {idetestfeedback_result} res
+               JOIN {idetestfeedback_run} run ON run.id = res.runid
+              WHERE res.runid {$insql}
+              ORDER BY run.timecreated DESC, run.id DESC, res.id ASC",
+            $params
+        );
+    }
+
+    /**
+     * The file hashes of several of one user's runs, without the file bodies.
+     *
+     * @param int[] $runids the runs to read
+     * @return \stdClass[] file rows keyed by id
+     */
+    public function get_file_history(array $runids): array {
+        if (!$runids) {
+            return [];
+        }
+
+        [$insql, $params] = $this->db->get_in_or_equal($runids, SQL_PARAMS_NAMED, 'frun');
+
+        return $this->db->get_records_sql(
+            "SELECT id, runid, path, sha256
+               FROM {idetestfeedback_file}
+              WHERE runid {$insql}",
+            $params
+        );
+    }
+
+    /**
      * The feedback one user wrote on results in this activity, without the runs' owners.
      *
      * @param int $instanceid the activity instance id

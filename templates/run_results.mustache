@@ -24,6 +24,9 @@
                 "rowclass": "table-success",
                 "testsuite": "CalculatorTest",
                 "testname": "testAddition",
+                "badges": [
+                    {"label": "Body unchanged since feedback", "classes": "bg-secondary text-white"}
+                ],
                 "required": true,
                 "badge": {"label": "PASSED", "classes": "bg-success text-white"},
                 "duration": "12 ms",
@@ -73,7 +76,10 @@
             {{#rows}}
                 <tr class="{{rowclass}}">
                     <td>{{testsuite}}</td>
-                    <td>{{testname}}</td>
+                    <td>
+                        {{testname}}
+                        {{#badges}} {{> mod_idetestfeedback/status_badge }}{{/badges}}
+                    </td>
                     {{#showrequired}}
                         <td>
                             {{#required}}

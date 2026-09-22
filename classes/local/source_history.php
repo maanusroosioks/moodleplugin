@@ -1,0 +1,180 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+namespace mod_idetestfeedback\local;
+
+/**
+ * Compares a run's test case results against the same tests on earlier runs.
+ *
+ * Two caveats bound every verdict. A TEST hash covers the declaration alone,
+ * not the helpers it calls nor the code under test, so an unchanged body does
+ * not mean nothing was edited. And no hash is computed here: they are equality
+ * tokens the IDE asserts, so a verdict reports what the IDE said and nothing
+ * may be graded on it.
+ *
+ * @package    mod_idetestfeedback
+ * @copyright  2026 Maanus Roosioks
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class source_history {
+
+    /** @var int How many of the student's earlier runs are compared against. */
+    public const LOOKBACK_RUNS = 20;
+
+    /** @var string Separates the suite from the name in a lookup key. */
+    private const QUALIFIER = '#';
+
+    /** @var array<string, \stdClass> The most recent earlier occurrence of each test. */
+    protected array $lastrun = [];
+
+    /** @var array<string, \stdClass> The most recent earlier occurrence carrying usable feedback. */
+    protected array $lastfeedback = [];
+
+    /** @var array<int, array<string, string>> The captured file hashes of each earlier run, by path. */
+    protected array $filehashes = [];
+
+    /**
+     * @param \stdClass[] $priorresults earlier result rows, newest run first
+     * @param \stdClass[] $priorfiles the file rows of those same runs
+     * @param int $runtimecreated when the run being shown was submitted
+     */
+    public function __construct(array $priorresults, array $priorfiles, int $runtimecreated) {
+        foreach ($priorresults as $row) {
+            $key = self::key($row->testsuite ?? null, (string) ($row->testname ?? ''));
+
+            if (!isset($this->lastrun[$key])) {
+                $this->lastrun[$key] = $row;
+            }
+
+            // Feedback written after this run was submitted cannot be what the
+            // student was answering, so it is not treated as an anchor.
+            if (!isset($this->lastfeedback[$key])
+                    && trim((string) ($row->feedback ?? '')) !== ''
+                    && (int) ($row->feedbackmodified ?? 0) < $runtimecreated) {
+                $this->lastfeedback[$key] = $row;
+            }
+        }
+
+        foreach ($priorfiles as $file) {
+            $this->filehashes[(int) $file->runid][(string) $file->path] = self::normalise($file->sha256 ?? null);
+        }
+    }
+
+    /**
+     * @param \stdClass $result one test case result of the run being shown
+     * @return source_change against the last earlier run that reported this test
+     */
+    public function since_last_run(\stdClass $result): source_change {
+        return self::compare($result, $this->anchor($this->lastrun, $result));
+    }
+
+    /**
+     * @param \stdClass $result one test case result of the run being shown
+     * @return source_change against the occurrence a teacher last commented on
+     */
+    public function since_feedback(\stdClass $result): source_change {
+        if (trim((string) ($result->feedback ?? '')) !== '') {
+            return source_change::UNKNOWN;
+        }
+
+        return self::compare($result, $this->anchor($this->lastfeedback, $result));
+    }
+
+    /**
+     * Whether the whole file a test lives in has moved since it was commented on.
+     *
+     * Widens what an unchanged TEST body can be said to cover, since that hash
+     * stops at the declaration.
+     *
+     * @param \stdClass $result one test case result of the run being shown
+     * @param string $currenthash the sha256 this run captured for that file
+     * @return source_change
+     */
+    public function file_since_feedback(\stdClass $result, string $currenthash): source_change {
+        $anchor = $this->anchor($this->lastfeedback, $result);
+        if ($anchor === null) {
+            return source_change::UNKNOWN;
+        }
+
+        $path = (string) ($anchor->sourcefilepath ?? '');
+        if ($path === '') {
+            return source_change::UNKNOWN;
+        }
+
+        $now = self::normalise($currenthash);
+        $then = $this->filehashes[(int) $anchor->runid][$path] ?? '';
+        if ($now === '' || $then === '') {
+            return source_change::UNKNOWN;
+        }
+
+        return $now === $then ? source_change::UNCHANGED : source_change::CHANGED;
+    }
+
+    /**
+     * @param array<string, \stdClass> $index one of the folded lookups
+     * @param \stdClass $result one test case result of the run being shown
+     * @return \stdClass|null the earlier occurrence, if this index holds one
+     */
+    protected function anchor(array $index, \stdClass $result): ?\stdClass {
+        return $index[self::key($result->testsuite ?? null, (string) ($result->testname ?? ''))] ?? null;
+    }
+
+    /**
+     * @param \stdClass $current a result of the run being shown
+     * @param \stdClass|null $earlier the occurrence to compare it against
+     * @return source_change
+     */
+    protected static function compare(\stdClass $current, ?\stdClass $earlier): source_change {
+        if ($earlier === null) {
+            return source_change::UNKNOWN;
+        }
+
+        // A TEST hash and a FILE hash describe different things, so a result
+        // whose kind moved between runs says nothing about the code.
+        $kind = source_kind::resolve($current->sourcekind ?? null);
+        if ($kind === null || $kind === source_kind::NONE
+                || $kind !== source_kind::resolve($earlier->sourcekind ?? null)) {
+            return source_change::UNKNOWN;
+        }
+
+        $now = self::normalise($current->sourcecodehash ?? null);
+        $then = self::normalise($earlier->sourcecodehash ?? null);
+        if ($now === '' || $then === '') {
+            return source_change::UNKNOWN;
+        }
+
+        return $now === $then ? source_change::UNCHANGED : source_change::CHANGED;
+    }
+
+    /**
+     * @param string|null $hash a hash as the IDE asserted it
+     * @return string the form hashes are compared in
+     */
+    protected static function normalise(?string $hash): string {
+        return \core_text::strtolower(trim((string) $hash));
+    }
+
+    /**
+     * @param string|null $testsuite the suite the IDE reported, if any
+     * @param string $testname the test name the IDE reported
+     * @return string the key an occurrence of this test is held under
+     */
+    protected static function key(?string $testsuite, string $testname): string {
+        return \core_text::strtolower(trim((string) $testsuite))
+            . self::QUALIFIER
+            . \core_text::strtolower(trim($testname));
+    }
+}

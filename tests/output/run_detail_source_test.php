@@ -72,7 +72,8 @@ final class run_detail_source_test extends \advanced_testcase {
             null,
             \context_system::instance(),
             1,
-            false
+            false,
+            new \mod_idetestfeedback\local\source_history([], [], 0)
         );
     }
 

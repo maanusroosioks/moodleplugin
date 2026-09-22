@@ -75,7 +75,7 @@
                 <FIELD NAME="sourceendline"   TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="sourcecode"      TYPE="text" NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="sourcetruncated" TYPE="int"  LENGTH="1"    NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="sourcecodehash"  TYPE="char" LENGTH="64"   NOTNULL="false" SEQUENCE="false" COMMENT="Hash of the normalised source, for grouping identical test bodies"/>
+                <FIELD NAME="sourcecodehash"  TYPE="char" LENGTH="64"   NOTNULL="false" SEQUENCE="false" COMMENT="Hash of the normalised source, for telling whether a test changed between the student's runs; covers the declaration only when sourcekind is TEST"/>
                 <FIELD NAME="feedback"         TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional teacher feedback on this test case result"/>
                 <FIELD NAME="feedbackformat"   TYPE="int"  LENGTH="4"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="feedbackby"       TYPE="int"  LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User id of the teacher who last edited the feedback"/>

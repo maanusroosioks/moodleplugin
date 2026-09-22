@@ -517,4 +517,104 @@ final class repository_test extends \advanced_testcase {
         [$result] = array_values($this->repository->get_results($run->id));
         $this->assertSame((int) $teacher->id, (int) $result->feedbackby);
     }
+
+    public function test_get_prior_run_ids_returns_only_earlier_runs_newest_first(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $first = $this->create_run($student->id, overrides: ['timecreated' => 100]);
+        $second = $this->create_run($student->id, overrides: ['timecreated' => 200]);
+        $third = $this->create_run($student->id, overrides: ['timecreated' => 300]);
+
+        $this->assertSame(
+            [(int) $second->id, (int) $first->id],
+            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $third->id, 20)
+        );
+        $this->assertSame(
+            [],
+            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $first->id, 20)
+        );
+    }
+
+    public function test_get_prior_run_ids_honours_the_limit(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $this->create_run($student->id, overrides: ['timecreated' => 100]);
+        $second = $this->create_run($student->id, overrides: ['timecreated' => 200]);
+        $third = $this->create_run($student->id, overrides: ['timecreated' => 300]);
+
+        $this->assertSame(
+            [(int) $second->id],
+            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $third->id, 1)
+        );
+    }
+
+    public function test_get_prior_run_ids_breaks_ties_on_the_same_second_by_id(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $first = $this->create_run($student->id, overrides: ['timecreated' => 100]);
+        $second = $this->create_run($student->id, overrides: ['timecreated' => 100]);
+        $third = $this->create_run($student->id, overrides: ['timecreated' => 100]);
+
+        $this->assertSame(
+            [(int) $second->id, (int) $first->id],
+            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $third->id, 20)
+        );
+    }
+
+    public function test_get_prior_run_ids_is_scoped_to_the_user_and_instance(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $this->create_run($other->id, overrides: ['timecreated' => 100]);
+        $run = $this->create_run($student->id, overrides: ['timecreated' => 200]);
+
+        $this->assertSame(
+            [],
+            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $run->id, 20)
+        );
+        $this->assertSame(
+            [],
+            $this->repository->get_prior_run_ids($this->instance->id, $student->id, 0, 20)
+        );
+    }
+
+    public function test_the_history_lookups_take_an_empty_run_list(): void {
+        $this->assertSame([], $this->repository->get_source_history([]));
+        $this->assertSame([], $this->repository->get_file_history([]));
+    }
+
+    public function test_get_source_history_returns_newest_run_first(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $older = $this->create_run($student->id, [['testname' => 'testOlder', 'status' => 'PASSED']],
+            ['timecreated' => 100]);
+        $newer = $this->create_run($student->id, [
+            ['testname' => 'testNewerA', 'status' => 'PASSED'],
+            ['testname' => 'testNewerB', 'status' => 'PASSED'],
+        ], ['timecreated' => 200]);
+
+        $rows = array_values($this->repository->get_source_history([(int) $older->id, (int) $newer->id]));
+
+        $this->assertSame(['testNewerA', 'testNewerB', 'testOlder'], array_column($rows, 'testname'));
+    }
+
+    public function test_get_source_history_carries_the_hash_without_the_body(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $run = $this->create_run($student->id, [
+            ['testname' => 'testAdd', 'status' => 'PASSED', 'sourcecodehash' => 'aaaa', 'sourcecode' => 'assert x'],
+        ]);
+
+        [$row] = array_values($this->repository->get_source_history([(int) $run->id]));
+
+        $this->assertSame('aaaa', $row->sourcecodehash);
+        $this->assertFalse(property_exists($row, 'sourcecode'));
+    }
+
+    public function test_get_file_history_carries_the_hash_without_the_content(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $run = $this->create_run($student->id, overrides: ['files' => [
+            ['path' => 'tests/test_calculator.py', 'sha256' => 'eeee', 'content' => 'import pytest'],
+        ]]);
+
+        [$row] = array_values($this->repository->get_file_history([(int) $run->id]));
+
+        $this->assertSame('tests/test_calculator.py', $row->path);
+        $this->assertSame('eeee', $row->sha256);
+        $this->assertFalse(property_exists($row, 'content'));
+    }
 }

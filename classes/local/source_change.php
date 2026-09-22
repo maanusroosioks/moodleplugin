@@ -14,18 +14,26 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace mod_idetestfeedback\local;
+
 /**
- * Version details for the activity.
+ * How a hash compares against the same hash on an earlier run.
+ *
+ * CHANGED is a strong verdict and UNCHANGED a weak one: a difference is always
+ * a real difference, but a match only rules out the region the hash covers.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+enum source_change: string {
 
-defined('MOODLE_INTERNAL') || die();
+    /** Nothing to compare: no earlier occurrence, a missing hash, or mismatched kinds. */
+    case UNKNOWN = 'UNKNOWN';
 
-$plugin->component = 'mod_idetestfeedback';
-$plugin->version   = 2026092001;
-$plugin->requires  = 2024100700;
-$plugin->release   = '1.0.0';
-$plugin->maturity  = MATURITY_STABLE;
+    /** Both hashes are present and equal. */
+    case UNCHANGED = 'UNCHANGED';
+
+    /** Both hashes are present and differ. */
+    case CHANGED = 'CHANGED';
+}
