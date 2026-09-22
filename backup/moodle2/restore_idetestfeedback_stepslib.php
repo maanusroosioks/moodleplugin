@@ -30,6 +30,12 @@ defined('MOODLE_INTERNAL') || die();
  */
 class restore_idetestfeedback_activity_structure_step extends restore_activity_structure_step {
 
+    /** @var array<string, int> Blobs already stored in this restore, by content hash. */
+    private array $blobs = [];
+
+    /** @var int[] The runs this restore created, whose hashes are rebuilt at the end. */
+    private array $restoredruns = [];
+
     /**
      * @return array the paths to restore, wrapped for restore
      */
@@ -100,6 +106,7 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
 
         $newitemid = $DB->insert_record('idetestfeedback_run', $data);
         $this->set_mapping('idetestfeedback_run', $oldid, $newitemid);
+        $this->restoredruns[] = (int) $newitemid;
     }
 
     /**
@@ -123,7 +130,7 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
     }
 
     /**
-     * Restores one captured test file.
+     * Restores one captured test file, storing its body once per activity.
      *
      * @param array $data the backed up test file
      */
@@ -131,16 +138,72 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
         global $DB;
 
         $data = (object) $data;
+        $instanceid = $this->get_new_parentid('idetestfeedback');
 
-        $data->runid = $this->get_new_parentid('idetestfeedback_run');
+        $content = \mod_idetestfeedback\local\source_code::canonicalise((string) ($data->content ?? ''));
+        $blobid = $content === '' ? null : $this->blob_id($instanceid, $content);
 
-        $DB->insert_record('idetestfeedback_file', $data);
+        $DB->insert_record('idetestfeedback_file', (object) [
+            'runid'       => $this->get_new_parentid('idetestfeedback_run'),
+            'path'        => $data->path,
+            'blobid'      => $blobid,
+            'truncated'   => (int) ($data->truncated ?? 0),
+            'timecreated' => $data->timecreated,
+        ]);
     }
 
     /**
-     * Reattaches the intro files.
+     * @param int $instanceid the activity being restored into
+     * @param string $content the canonical body
+     * @return int the blob holding it
+     */
+    private function blob_id(int $instanceid, string $content) {
+        global $DB;
+
+        $hash = \mod_idetestfeedback\local\source_code::hash($content);
+        if (isset($this->blobs[$hash])) {
+            return $this->blobs[$hash];
+        }
+
+        $existing = $DB->get_field('idetestfeedback_blob', 'id',
+            ['idetestfeedbackid' => $instanceid, 'contenthash' => $hash]);
+
+        $this->blobs[$hash] = $existing ?: $DB->insert_record('idetestfeedback_blob', (object) [
+            'idetestfeedbackid' => $instanceid,
+            'contenthash'       => $hash,
+            'content'           => $content,
+            'timecreated'       => time(),
+        ]);
+
+        return $this->blobs[$hash];
+    }
+
+    /**
+     * Reattaches the intro files and rebuilds the hashes results are compared
+     * by, a result being restored before the files of its own run.
      */
     protected function after_execute() {
+        global $DB;
+
         $this->add_related_files('mod_idetestfeedback', 'intro', null);
+
+        $repository = new \mod_idetestfeedback\local\repository($DB);
+
+        foreach ($this->restoredruns as $runid) {
+            $files = [];
+            foreach ($repository->get_files($runid) as $file) {
+                $file->contenthash = $file->sha256;
+                $files[(string) $file->path] = $file;
+            }
+
+            foreach ($repository->get_results($runid) as $result) {
+                $DB->set_field(
+                    'idetestfeedback_result',
+                    'sourcecodehash',
+                    \mod_idetestfeedback\local\capture::result_hash($result, $files),
+                    ['id' => $result->id]
+                );
+            }
+        }
     }
 }

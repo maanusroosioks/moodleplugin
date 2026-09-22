@@ -19,11 +19,12 @@ namespace mod_idetestfeedback\local;
 /**
  * Compares a run's test case results against the same tests on earlier runs.
  *
- * Two caveats bound every verdict. A TEST hash covers the declaration alone,
+ * One caveat bounds every verdict: a TEST hash covers the declaration alone,
  * not the helpers it calls nor the code under test, so an unchanged body does
- * not mean nothing was edited. And no hash is computed here: they are equality
- * tokens the IDE asserts, so a verdict reports what the IDE said and nothing
- * may be graded on it.
+ * not mean nothing was edited.
+ *
+ * Two runs holding one blob captured identical bytes, the blob table being
+ * unique on (activity, hash).
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
@@ -43,8 +44,8 @@ class source_history {
     /** @var array<string, \stdClass> The most recent earlier occurrence carrying usable feedback. */
     protected array $lastfeedback = [];
 
-    /** @var array<int, array<string, string>> The captured file hashes of each earlier run, by path. */
-    protected array $filehashes = [];
+    /** @var array<int, array<string, int>> The body each earlier run captured at each path. */
+    protected array $fileblobs = [];
 
     /**
      * @param \stdClass[] $priorresults earlier result rows, newest run first
@@ -69,7 +70,7 @@ class source_history {
         }
 
         foreach ($priorfiles as $file) {
-            $this->filehashes[(int) $file->runid][(string) $file->path] = self::normalise($file->sha256 ?? null);
+            $this->fileblobs[(int) $file->runid][(string) $file->path] = (int) ($file->blobid ?? 0);
         }
     }
 
@@ -100,10 +101,10 @@ class source_history {
      * stops at the declaration.
      *
      * @param \stdClass $result one test case result of the run being shown
-     * @param string $currenthash the sha256 this run captured for that file
+     * @param int|null $currentblobid the body this run captured for that file
      * @return source_change
      */
-    public function file_since_feedback(\stdClass $result, string $currenthash): source_change {
+    public function file_since_feedback(\stdClass $result, ?int $currentblobid): source_change {
         $anchor = $this->anchor($this->lastfeedback, $result);
         if ($anchor === null) {
             return source_change::UNKNOWN;
@@ -114,9 +115,9 @@ class source_history {
             return source_change::UNKNOWN;
         }
 
-        $now = self::normalise($currenthash);
-        $then = $this->filehashes[(int) $anchor->runid][$path] ?? '';
-        if ($now === '' || $then === '') {
+        $now = (int) $currentblobid;
+        $then = $this->fileblobs[(int) $anchor->runid][$path] ?? 0;
+        if ($now === 0 || $then === 0) {
             return source_change::UNKNOWN;
         }
 
@@ -144,9 +145,8 @@ class source_history {
 
         // A TEST hash and a FILE hash describe different things, so a result
         // whose kind moved between runs says nothing about the code.
-        $kind = source_kind::resolve($current->sourcekind ?? null);
-        if ($kind === null || $kind === source_kind::NONE
-                || $kind !== source_kind::resolve($earlier->sourcekind ?? null)) {
+        $kind = source_kind::of($current);
+        if ($kind === source_kind::NONE || $kind !== source_kind::of($earlier)) {
             return source_change::UNKNOWN;
         }
 
@@ -160,7 +160,7 @@ class source_history {
     }
 
     /**
-     * @param string|null $hash a hash as the IDE asserted it
+     * @param string|null $hash a stored hash
      * @return string the form hashes are compared in
      */
     protected static function normalise(?string $hash): string {

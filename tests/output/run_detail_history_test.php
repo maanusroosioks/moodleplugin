@@ -59,8 +59,9 @@ final class run_detail_history_test extends \advanced_testcase {
             'runid' => 1,
             'testsuite' => 'CalcTest',
             'testname' => 'testAdd',
-            'sourcekind' => 'TEST',
             'sourcefilepath' => self::PATH,
+            'sourcestartline' => 1,
+            'sourceendline' => 2,
             'sourcecodehash' => 'aaaa',
             'feedback' => null,
             'feedbackmodified' => null,
@@ -70,16 +71,16 @@ final class run_detail_history_test extends \advanced_testcase {
     /**
      * @param array $priorresults earlier result rows, newest run first
      * @param array $priorfiles the file rows of those runs
-     * @param string $currentsha the hash this run captured for the file
+     * @param int|null $currentblobid the body this run captured for the file
      * @return testable_run_detail_history
      */
     private function detail(array $priorresults, array $priorfiles = [],
-                            string $currentsha = ''): testable_run_detail_history {
+                            ?int $currentblobid = null): testable_run_detail_history {
         return new testable_run_detail_history(
             (object) ['requiredtests' => null],
             (object) [],
             [],
-            [(object) ['path' => self::PATH, 'sha256' => $currentsha, 'content' => null]],
+            [(object) ['path' => self::PATH, 'blobid' => $currentblobid, 'content' => null]],
             null,
             \context_system::instance(),
             1,
@@ -90,11 +91,11 @@ final class run_detail_history_test extends \advanced_testcase {
 
     /**
      * @param int $runid the run the file was captured with
-     * @param string $sha256 the hash the IDE asserted
+     * @param int $blobid the body it captured there
      * @return \stdClass
      */
-    private static function file(int $runid, string $sha256): \stdClass {
-        return (object) ['id' => $runid, 'runid' => $runid, 'path' => self::PATH, 'sha256' => $sha256];
+    private static function file(int $runid, int $blobid): \stdClass {
+        return (object) ['id' => $runid, 'runid' => $runid, 'path' => self::PATH, 'blobid' => $blobid];
     }
 
     /**
@@ -133,8 +134,8 @@ final class run_detail_history_test extends \advanced_testcase {
     public function test_an_untouched_file_earns_the_wider_claim(): void {
         $detail = $this->detail(
             [self::testresult(['feedback' => 'A note', 'feedbackmodified' => 900])],
-            [self::file(1, 'eeee')],
-            'eeee'
+            [self::file(1, 88)],
+            88
         );
 
         $this->assert_badge('sourcefeedbackunchangedfile', $detail->badges(self::testresult()));
@@ -143,8 +144,8 @@ final class run_detail_history_test extends \advanced_testcase {
     public function test_an_edited_file_keeps_the_claim_to_the_body(): void {
         $detail = $this->detail(
             [self::testresult(['feedback' => 'A note', 'feedbackmodified' => 900])],
-            [self::file(1, 'eeee')],
-            'ffff'
+            [self::file(1, 88)],
+            77
         );
 
         $this->assert_badge('sourcefeedbackunchanged', $detail->badges(self::testresult()));
@@ -158,16 +159,17 @@ final class run_detail_history_test extends \advanced_testcase {
 
     public function test_a_file_kind_result_needs_no_second_hash(): void {
         $detail = $this->detail([
-            self::testresult(['sourcekind' => 'FILE', 'feedback' => 'A note', 'feedbackmodified' => 900]),
+            self::testresult(['sourcestartline' => null, 'sourceendline' => null,
+                'feedback' => 'A note', 'feedbackmodified' => 900]),
         ]);
 
         $this->assert_badge(
             'sourcefeedbackunchangedfile',
-            $detail->badges(self::testresult(['sourcekind' => 'FILE']))
+            $detail->badges(self::testresult(['sourcestartline' => null, 'sourceendline' => null]))
         );
     }
 
-    public function test_the_badge_survives_the_round_trip_through_the_database(): void {
+    public function test_an_edit_elsewhere_in_the_file_leaves_an_untouched_test_unchanged(): void {
         global $DB;
         $this->resetAfterTest();
 
@@ -178,22 +180,19 @@ final class run_detail_history_test extends \advanced_testcase {
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
         $generator = $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback');
 
-        $source = [
-            'status' => 'FAILED',
-            'sourcekind' => 'TEST',
-            'sourcefilepath' => self::PATH,
-        ];
-        $files = [['path' => self::PATH, 'sha256' => 'eeee', 'content' => 'import pytest']];
+        $before = "def testStill():\n    assert add(1, 2) == 3\n\ndef testMoved():\n    assert sub(2, 1) == 1\n";
+        $after  = "def testStill():\n    assert add(1, 2) == 3\n\ndef testMoved():\n    assert sub(5, 1) == 4\n";
+
+        $source = ['status' => 'FAILED', 'sourcefilepath' => self::PATH];
+        $still = array_merge($source, ['testname' => 'testStill', 'sourcestartline' => 1, 'sourceendline' => 2]);
+        $moved = array_merge($source, ['testname' => 'testMoved', 'sourcestartline' => 4, 'sourceendline' => 5]);
 
         $commented = $generator->create_run([
             'idetestfeedbackid' => $instance->id,
             'userid' => $student->id,
             'timecreated' => 100,
-            'results' => [
-                array_merge($source, ['testname' => 'testStill', 'sourcecodehash' => 'aaaa']),
-                array_merge($source, ['testname' => 'testMoved', 'sourcecodehash' => 'bbbb']),
-            ],
-            'files' => $files,
+            'results' => [$still, $moved],
+            'files' => [['path' => self::PATH, 'content' => $before]],
         ]);
 
         foreach ($repository->get_results((int) $commented->id) as $result) {
@@ -205,11 +204,8 @@ final class run_detail_history_test extends \advanced_testcase {
             'idetestfeedbackid' => $instance->id,
             'userid' => $student->id,
             'timecreated' => 200,
-            'results' => [
-                array_merge($source, ['testname' => 'testStill', 'sourcecodehash' => 'aaaa']),
-                array_merge($source, ['testname' => 'testMoved', 'sourcecodehash' => 'cccc']),
-            ],
-            'files' => $files,
+            'results' => [$still, $moved],
+            'files' => [['path' => self::PATH, 'content' => $after]],
         ]);
 
         $priorids = $repository->get_prior_run_ids(
@@ -243,15 +239,25 @@ final class run_detail_history_test extends \advanced_testcase {
             $badges[$result->testname] = $detail->badges($result);
         }
 
-        $this->assert_badge('sourcefeedbackunchangedfile', $badges['testStill']);
+        $this->assert_badge('sourcefeedbackunchanged', $badges['testStill']);
         $this->assert_badge('sourcefeedbackchanged', $badges['testMoved']);
+    }
+
+    public function test_a_run_that_captured_nothing_is_no_anchor_for_a_later_one(): void {
+        $detail = $this->detail(
+            [self::testresult(['sourcecodehash' => null, 'feedback' => 'A note', 'feedbackmodified' => 900])],
+            [self::file(1, 0)],
+            88
+        );
+
+        $this->assertSame([], $detail->badges(self::testresult()));
     }
 
     public function test_the_feedback_axis_wins_over_the_run_to_run_one(): void {
         $detail = $this->detail([
             self::testresult(['runid' => 3, 'sourcecodehash' => 'bbbb']),
             self::testresult(['runid' => 2, 'sourcecodehash' => 'aaaa', 'feedback' => 'A note', 'feedbackmodified' => 900]),
-        ], [self::file(2, 'eeee')], 'eeee');
+        ], [self::file(2, 88)], 88);
 
         $this->assert_badge('sourcefeedbackunchangedfile', $detail->badges(self::testresult()));
     }

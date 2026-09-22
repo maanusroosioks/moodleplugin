@@ -77,12 +77,9 @@ class provider implements
                 'feedbackformat'   => 'privacy:metadata:result:feedbackformat',
                 'feedbackby'       => 'privacy:metadata:result:feedbackby',
                 'feedbackmodified' => 'privacy:metadata:result:feedbackmodified',
-                'sourcekind'       => 'privacy:metadata:result:sourcekind',
                 'sourcefilepath'   => 'privacy:metadata:result:sourcefilepath',
                 'sourcestartline'  => 'privacy:metadata:result:sourcestartline',
                 'sourceendline'    => 'privacy:metadata:result:sourceendline',
-                'sourcecode'       => 'privacy:metadata:result:sourcecode',
-                'sourcetruncated'  => 'privacy:metadata:result:sourcetruncated',
                 'sourcecodehash'   => 'privacy:metadata:result:sourcecodehash',
             ],
             'privacy:metadata:result'
@@ -92,12 +89,21 @@ class provider implements
             'idetestfeedback_file',
             [
                 'path'        => 'privacy:metadata:file:path',
-                'sha256'      => 'privacy:metadata:file:sha256',
-                'content'     => 'privacy:metadata:file:content',
+                'blobid'      => 'privacy:metadata:file:blobid',
                 'truncated'   => 'privacy:metadata:file:truncated',
                 'timecreated' => 'privacy:metadata:file:timecreated',
             ],
             'privacy:metadata:file'
+        );
+
+        $collection->add_database_table(
+            'idetestfeedback_blob',
+            [
+                'contenthash' => 'privacy:metadata:blob:contenthash',
+                'content'     => 'privacy:metadata:blob:content',
+                'timecreated' => 'privacy:metadata:blob:timecreated',
+            ],
+            'privacy:metadata:blob'
         );
 
         // Students are notified when a teacher leaves feedback on one of their runs.
@@ -217,12 +223,9 @@ class provider implements
                             'feedback'         => $r->feedback,
                             'feedbackmodified' => $r->feedbackmodified
                                 ? transform::datetime($r->feedbackmodified) : null,
-                            'sourcekind'       => $r->sourcekind,
                             'sourcefilepath'   => $r->sourcefilepath,
                             'sourcestartline'  => $r->sourcestartline,
                             'sourceendline'    => $r->sourceendline,
-                            'sourcecode'       => $r->sourcecode,
-                            'sourcetruncated'  => transform::yesno($r->sourcetruncated),
                             'sourcecodehash'   => $r->sourcecodehash,
                         ],
                         $results

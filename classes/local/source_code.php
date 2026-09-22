@@ -49,6 +49,27 @@ class source_code {
     }
 
     /**
+     * The form source is compared in: line endings, trailing whitespace and the
+     * final newline only. Anything needing a parser per language is left alone.
+     *
+     * @param string $code source as it was received
+     * @return string the same source in the form it is hashed in
+     */
+    public static function canonicalise(string $code): string {
+        $lines = array_map('rtrim', explode("\n", self::strip_marker($code)));
+
+        return rtrim(implode("\n", $lines), "\n");
+    }
+
+    /**
+     * @param string $code source as it was received
+     * @return string the sha256 of its canonical form
+     */
+    public static function hash(string $code): string {
+        return \hash('sha256', self::canonicalise($code));
+    }
+
+    /**
      * Cuts a test's declaration out of the file it was found in.
      *
      * Line numbers are 1-based and inclusive, and hold for whatever a truncated

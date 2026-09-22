@@ -49,12 +49,9 @@ final class run_detail_source_test extends \advanced_testcase {
         return (object) array_merge([
             'id' => 1,
             'testname' => 'test_add',
-            'sourcekind' => 'TEST',
             'sourcefilepath' => 'tests/test_calculator.py',
             'sourcestartline' => 3,
             'sourceendline' => 4,
-            'sourcecode' => null,
-            'sourcetruncated' => 0,
             'sourcecodehash' => 'b1946ac92492d234',
         ], $source);
     }
@@ -98,12 +95,11 @@ final class run_detail_source_test extends \advanced_testcase {
         $this->assertTrue($block['expandable']);
     }
 
-    public function test_the_copy_on_the_result_wins_when_the_file_could_not_carry_it(): void {
-        $block = $this->detail([$this->file(['content' => null])])
-            ->block($this->testresult(['sourcecode' => "def test_add():\n    pass", 'sourcetruncated' => 1]));
+    public function test_a_body_the_run_did_not_capture_shows_nothing(): void {
+        $block = $this->detail([$this->file(['content' => null])])->block($this->testresult());
 
-        $this->assertSame("def test_add():\n    pass", $block['code']);
-        $this->assertTrue($block['truncated']);
+        $this->assertSame('', $block['code']);
+        $this->assertFalse($block['hascode']);
     }
 
     public function test_a_body_below_the_cut_in_a_truncated_file_shows_nothing(): void {
@@ -125,7 +121,6 @@ final class run_detail_source_test extends \advanced_testcase {
 
     public function test_a_test_that_was_never_found_has_nothing_to_open(): void {
         $block = $this->detail([$this->file()])->block($this->testresult([
-            'sourcekind' => 'NONE',
             'sourcefilepath' => null,
             'sourcestartline' => null,
             'sourceendline' => null,
@@ -138,7 +133,6 @@ final class run_detail_source_test extends \advanced_testcase {
 
     public function test_a_file_the_test_could_not_be_picked_out_of_is_not_excerpted(): void {
         $block = $this->detail([$this->file()])->block($this->testresult([
-            'sourcekind' => 'FILE',
             'sourcestartline' => null,
             'sourceendline' => null,
         ]));
@@ -150,7 +144,6 @@ final class run_detail_source_test extends \advanced_testcase {
 
     public function test_a_file_kind_with_capture_off_does_not_promise_a_file_below(): void {
         $block = $this->detail([$this->file(['content' => null])])->block($this->testresult([
-            'sourcekind' => 'FILE',
             'sourcestartline' => null,
             'sourceendline' => null,
         ]));
@@ -160,7 +153,6 @@ final class run_detail_source_test extends \advanced_testcase {
 
     public function test_a_result_the_ide_said_nothing_about_has_no_block(): void {
         $this->assertNull($this->detail([])->block($this->testresult([
-            'sourcekind' => null,
             'sourcefilepath' => null,
             'sourcestartline' => null,
             'sourceendline' => null,

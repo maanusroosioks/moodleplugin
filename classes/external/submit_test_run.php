@@ -26,7 +26,6 @@ use context_course;
 use context_module;
 use mod_idetestfeedback\event\test_run_submitted;
 use mod_idetestfeedback\local\repository;
-use mod_idetestfeedback\local\source_kind;
 use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\local\validation_exception;
 
@@ -48,9 +47,6 @@ class submit_test_run extends external_api {
     /** @var int Most test files accepted in one submission. */
     private const MAX_FILES = 200;
 
-    /** @var int Most bytes of captured source kept per test case result. */
-    private const MAX_SOURCE_BYTES = 65536;
-
     /** @var int Most bytes of content kept per test file. */
     private const MAX_FILE_BYTES = 524288;
 
@@ -61,11 +57,8 @@ class submit_test_run extends external_api {
         'commithash'     => 100,
         'testsuite'      => 255,
         'testname'       => 255,
-        'sourcekind'     => 20,
         'sourcefilepath' => 1024,
-        'sourcecodehash' => 64,
         'filepath'       => 1024,
-        'filesha256'     => 64,
     ];
 
     /**
@@ -88,27 +81,18 @@ class submit_test_run extends external_api {
                     'durationms' => new external_value(PARAM_INT, 'Duration ms', VALUE_DEFAULT, null),
                     'message'    => new external_value(PARAM_RAW, 'Failure message', VALUE_DEFAULT, null),
                     'source'     => new external_single_structure([
-                        'kind'      => new external_value(PARAM_ALPHANUMEXT,
-                            'NONE, FILE or TEST; decides which fields below are set', VALUE_DEFAULT, null),
                         'filepath'  => new external_value(PARAM_RAW, 'File the test lives in', VALUE_DEFAULT, null),
                         'startline' => new external_value(PARAM_INT, 'First line, 1-based inclusive',
                             VALUE_DEFAULT, null),
                         'endline'   => new external_value(PARAM_INT, 'Last line, 1-based inclusive',
                             VALUE_DEFAULT, null),
-                        'code'      => new external_value(PARAM_RAW,
-                            'The captured source, sent only when the run\'s file could not carry these lines',
-                            VALUE_DEFAULT, null),
-                        'truncated' => new external_value(PARAM_BOOL, 'The code was cut short', VALUE_DEFAULT, 0),
-                        'normalizedcodehash' => new external_value(PARAM_ALPHANUMEXT,
-                            'Hash of the normalised source', VALUE_DEFAULT, null),
-                    ], 'Where the test case came from', VALUE_OPTIONAL),
+                    ], 'Where in the run\'s files the test case came from', VALUE_OPTIONAL),
                 ]),
                 'The test case results of the run, at least one'
             ),
             'testfiles'     => new external_multiple_structure(
                 new external_single_structure([
                     'path'      => new external_value(PARAM_RAW, 'Repo-relative path'),
-                    'sha256'    => new external_value(PARAM_ALPHANUMEXT, 'SHA-256 of the file', VALUE_DEFAULT, null),
                     'content'   => new external_value(PARAM_RAW, 'File contents', VALUE_DEFAULT, null),
                     'truncated' => new external_value(PARAM_BOOL, 'The content was cut short', VALUE_DEFAULT, 0),
                 ]),
@@ -287,8 +271,8 @@ class submit_test_run extends external_api {
      * Rejects a source block that does not match the kind it declares.
      *
      * The kind is a discriminator, not a label: a TEST names a line range in a
-     * file, a FILE names only the file, and a NONE says the test was never
-     * found. A block that cannot be read that way is not stored as if it could.
+     * file and a blank one says the test was never found in any of them. A
+     * block that cannot be read that way is not stored as if it could.
      *
      * @param array|null $source the source block of one result, absent when the IDE sent none
      */
@@ -297,75 +281,34 @@ class submit_test_run extends external_api {
             return;
         }
 
-        $kind = self::resolve_source_kind($source);
+        $located = $source['startline'] !== null || $source['endline'] !== null;
 
-        if ($kind !== source_kind::NONE && trim((string) $source['filepath']) === '') {
-            throw new validation_exception('validation_nosourcefilepath', $kind->value);
+        if ($located && trim((string) $source['filepath']) === '') {
+            throw new validation_exception('validation_nosourcefilepath');
         }
 
-        if ($kind !== source_kind::TEST) {
-            return;
-        }
-
-        if ($source['startline'] === null || $source['endline'] === null
-                || $source['startline'] < 1 || $source['endline'] < $source['startline']) {
+        if ($located && ($source['startline'] === null || $source['endline'] === null
+                || $source['startline'] < 1 || $source['endline'] < $source['startline'])) {
             throw new validation_exception('validation_invalidsourcelines');
         }
     }
 
     /**
-     * The kind a source block declares, inferred from its shape when it declares none.
+     * Reduces a source block to the fields the rest of it gives meaning to.
      *
-     * @param array $source the source block of one result
-     * @return source_kind
-     */
-    private static function resolve_source_kind(array $source): source_kind {
-        $declared = $source['kind'] ?? null;
-
-        if ($declared !== null && trim($declared) !== '') {
-            $kind = source_kind::resolve($declared);
-            if ($kind === null) {
-                throw new validation_exception('validation_invalidsourcekind', $declared);
-            }
-
-            return $kind;
-        }
-
-        if ($source['startline'] !== null && $source['endline'] !== null) {
-            return source_kind::TEST;
-        }
-
-        return trim((string) $source['filepath']) === '' ? source_kind::NONE : source_kind::FILE;
-    }
-
-    /**
-     * Reduces a source block to the fields its kind gives meaning to.
-     *
-     * Line numbers without a located declaration, or anything at all on a test
-     * that was never found, describe nothing, so they are not carried into
-     * storage where a reader would have to guess at them.
+     * Line numbers on a test that was never found describe nothing, so they are
+     * not carried into storage where a reader would have to guess at them.
      *
      * @param array|null $source the source block of one result
-     * @return array{kind:string,filepath:?string,startline:?int,endline:?int,code:?string,
-     *     truncated:bool,normalizedcodehash:?string}|null
+     * @return array{filepath:?string,startline:?int,endline:?int}|null
      */
     private static function normalise_source(?array $source): ?array {
         if ($source === null) {
             return null;
         }
 
-        $kind = self::resolve_source_kind($source);
-        $source['kind'] = $kind->value;
-
-        if ($kind === source_kind::NONE) {
-            return array_merge($source, [
-                'filepath' => null, 'startline' => null, 'endline' => null,
-                'code' => null, 'truncated' => false, 'normalizedcodehash' => null,
-            ]);
-        }
-
-        if ($kind === source_kind::FILE) {
-            return array_merge($source, ['startline' => null, 'endline' => null]);
+        if (trim((string) $source['filepath']) === '') {
+            return ['filepath' => null, 'startline' => null, 'endline' => null];
         }
 
         return $source;
@@ -374,10 +317,8 @@ class submit_test_run extends external_api {
     /**
      * Drops the code a run claims not to have captured.
      *
-     * Only the bodies go. The hashes and line numbers are sent precisely
-     * because they survive a run that carries no source, and they are what
-     * answers "did this test change since last time" for such a run, so
-     * discarding them here would throw away the only signal it has.
+     * Every hash is taken from the bytes that are stored, so a run that keeps
+     * none has nothing to compare and is no anchor for a later one.
      *
      * @see \mod_idetestfeedback\local\source_history for what reads them back
      * @param array $params the validated call parameters
@@ -386,15 +327,6 @@ class submit_test_run extends external_api {
     private static function strip_captured_code(array $params): array {
         if (empty($params['capturedisabled'])) {
             return $params;
-        }
-
-        foreach ($params['results'] as $index => $result) {
-            if (!isset($result['source'])) {
-                continue;
-            }
-
-            $params['results'][$index]['source']['code'] = null;
-            $params['results'][$index]['source']['truncated'] = false;
         }
 
         foreach ($params['testfiles'] as $index => $file) {
@@ -462,11 +394,6 @@ class submit_test_run extends external_api {
         $results = [];
         foreach ($params['results'] as $r) {
             $source = self::normalise_source($r['source'] ?? null);
-            [$code, $truncated] = self::clip_code(
-                $source['code'] ?? null,
-                !empty($source['truncated']),
-                self::MAX_SOURCE_BYTES
-            );
 
             $result                  = new \stdClass();
             $result->testsuite       = self::clip($r['testsuite'], 'testsuite');
@@ -475,13 +402,9 @@ class submit_test_run extends external_api {
             $result->durationms      = $r['durationms'];
             $result->message         = $r['message'];
             $result->timecreated     = $now;
-            $result->sourcekind      = self::clip($source['kind'] ?? null, 'sourcekind');
             $result->sourcefilepath  = self::clip($source['filepath'] ?? null, 'sourcefilepath');
             $result->sourcestartline = $source['startline'] ?? null;
             $result->sourceendline   = $source['endline'] ?? null;
-            $result->sourcecode      = $code;
-            $result->sourcetruncated = $truncated;
-            $result->sourcecodehash  = self::clip($source['normalizedcodehash'] ?? null, 'sourcecodehash');
             $results[] = $result;
         }
 
@@ -491,7 +414,6 @@ class submit_test_run extends external_api {
 
             $file              = new \stdClass();
             $file->path        = (string) $path;
-            $file->sha256      = self::clip($f['sha256'], 'filesha256');
             $file->content     = $content;
             $file->truncated   = $truncated;
             $file->timecreated = $now;

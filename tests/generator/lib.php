@@ -41,9 +41,11 @@ class mod_idetestfeedback_generator extends testing_module_generator {
     /**
      * Stores a run and its results, the way the web service would.
      *
+     * Hashes are derived from the content, so a record cannot assert one.
+     *
      * @param array $record 'idetestfeedbackid', 'userid' and 'results', where each
      *        result is ['testname' => …, 'status' => …, 'testsuite' => …]; optional
-     *        'files', each ['path' => …, 'sha256' => …, 'content' => …]
+     *        'files', each ['path' => …, 'content' => …]
      * @return stdClass the stored run, carrying its new id
      */
     public function create_run(array $record): stdClass {
@@ -65,14 +67,13 @@ class mod_idetestfeedback_generator extends testing_module_generator {
                 'feedbackformat' => 0,
                 'feedbackby' => null,
                 'feedbackmodified' => null,
-                'sourcekind' => $r['sourcekind'] ?? null,
                 'sourcefilepath' => $r['sourcefilepath'] ?? null,
                 'sourcestartline' => $r['sourcestartline'] ?? null,
                 'sourceendline' => $r['sourceendline'] ?? null,
-                'sourcecode' => $r['sourcecode'] ?? null,
-                'sourcetruncated' => (int) ($r['sourcetruncated'] ?? 0),
-                'sourcecodehash' => $r['sourcecodehash'] ?? null,
             ];
+            if (array_key_exists('sourcecodehash', $r)) {
+                throw new coding_exception('sourcecodehash is derived from the stored code, not set by a caller');
+            }
             $counts[$result->status]++;
             $results[] = $result;
         }
@@ -97,9 +98,11 @@ class mod_idetestfeedback_generator extends testing_module_generator {
 
         $files = [];
         foreach ($record['files'] ?? [] as $f) {
+            if (array_key_exists('sha256', $f)) {
+                throw new coding_exception('sha256 is derived from the stored content, not set by a caller');
+            }
             $files[] = (object) [
                 'path' => $f['path'],
-                'sha256' => $f['sha256'] ?? null,
                 'content' => $f['content'] ?? null,
                 'truncated' => (int) ($f['truncated'] ?? 0),
                 'timecreated' => $now,

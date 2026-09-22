@@ -21,6 +21,7 @@ use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use mod_idetestfeedback\local\repository;
+use mod_idetestfeedback\local\source_code;
 
 /**
  * Tests for the privacy API implementation.
@@ -163,7 +164,6 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
             'results' => [['testname' => 'testAdd', 'status' => 'PASSED']],
             'files' => [[
                 'path' => 'tests/test_calculator.py',
-                'sha256' => 'c7be1ed902fb8dd4',
                 'content' => "import pytest\n",
             ]],
         ]);
@@ -176,7 +176,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         );
         $this->assertCount(1, $data->testfiles);
         $this->assertSame('tests/test_calculator.py', $data->testfiles[0]['path']);
-        $this->assertSame('c7be1ed902fb8dd4', $data->testfiles[0]['sha256']);
+        $this->assertSame(source_code::hash("import pytest\n"), $data->testfiles[0]['sha256']);
     }
 
     public function test_export_user_data_writes_feedback_the_user_gave_on_others_runs(): void {

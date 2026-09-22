@@ -101,11 +101,6 @@ class run_detail implements renderable, templatable {
      * @return bool
      */
     protected function has_code(): bool {
-        foreach ($this->results as $result) {
-            if (trim((string) ($result->sourcecode ?? '')) !== '') {
-                return true;
-            }
-        }
         foreach ($this->files as $file) {
             if (trim((string) ($file->content ?? '')) !== '') {
                 return true;
@@ -378,13 +373,12 @@ class run_detail implements renderable, templatable {
      * @return array the widest badge the captured hashes support
      */
     protected function unchanged_badge(stdClass $result): array {
-        $kind = source_kind::resolve($result->sourcekind ?? null);
-        if ($kind === source_kind::FILE) {
+        if (source_kind::of($result) === source_kind::FILE) {
             return $this->badge('sourcefeedbackunchangedfile', 'bg-warning text-dark');
         }
 
         $file = $this->files_by_path()[(string) ($result->sourcefilepath ?? '')] ?? null;
-        $samefile = $this->history->file_since_feedback($result, (string) ($file->sha256 ?? ''));
+        $samefile = $this->history->file_since_feedback($result, isset($file->blobid) ? (int) $file->blobid : null);
 
         return $samefile === source_change::UNCHANGED
             ? $this->badge('sourcefeedbackunchangedfile', 'bg-warning text-dark')
@@ -407,19 +401,21 @@ class run_detail implements renderable, templatable {
      * @return array|null null when the IDE said nothing at all about this test
      */
     protected function source_block(stdClass $result): ?array {
-        $kind = source_kind::resolve($result->sourcekind ?? null);
+        $kind = source_kind::of($result);
         $path = (string) ($result->sourcefilepath ?? '');
         $hash = (string) ($result->sourcecodehash ?? '');
 
         [$code, $truncated] = $this->test_source($result, $kind);
 
-        if ($kind === null && $code === '' && $path === '') {
+        // Naming no file is only a report that the test was not found when the
+        // run looked; a run carrying no files at all says nothing either way.
+        if ($kind === source_kind::NONE && !$this->files) {
             return null;
         }
 
         return [
             'summary' => $this->source_summary($result, $path, $kind),
-            'kind' => $kind?->value ?? '',
+            'kind' => $kind->value,
             'expandable' => $code !== '' || $hash !== '',
             'wholefile' => $kind === source_kind::FILE && $this->has_file_content($path),
             'code' => $code,
@@ -436,7 +432,7 @@ class run_detail implements renderable, templatable {
     }
 
     /**
-     * The lines one test case occupies, wherever this run happens to carry them.
+     * The lines one test case occupies, cut out of the run's copy of its file.
      *
      * A test's body normally travels once, in the run's copy of its file, and is
      * repeated on the result only when the file could not carry it. So the
@@ -447,14 +443,8 @@ class run_detail implements renderable, templatable {
      * @param source_kind|null $kind what the result's source block describes
      * @return array{0:string,1:bool} [the code, whether it is cut short]
      */
-    protected function test_source(stdClass $result, ?source_kind $kind): array {
-        $code = (string) ($result->sourcecode ?? '');
-        if ($code !== '') {
-            return [source_code::strip_marker($code), !empty($result->sourcetruncated)];
-        }
-
-        if ($kind === source_kind::NONE || $kind === source_kind::FILE
-                || $result->sourcestartline === null || $result->sourceendline === null) {
+    protected function test_source(stdClass $result, source_kind $kind): array {
+        if ($kind !== source_kind::TEST) {
             return ['', false];
         }
 
@@ -513,10 +503,10 @@ class run_detail implements renderable, templatable {
      *
      * @param stdClass $result one test case result
      * @param string $path the file the code came from, possibly empty
-     * @param source_kind|null $kind what the result's source block describes
+     * @param source_kind $kind how much of that file the result names
      * @return string
      */
-    protected function source_summary(stdClass $result, string $path, ?source_kind $kind): string {
+    protected function source_summary(stdClass $result, string $path, source_kind $kind): string {
         if ($kind === source_kind::NONE) {
             return get_string('sourcenotfound', 'mod_idetestfeedback');
         }

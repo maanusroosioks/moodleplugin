@@ -125,14 +125,98 @@ final class repository_test extends \advanced_testcase {
     public function test_get_files_are_returned_by_path(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $run = $this->create_run($student->id, overrides: ['files' => [
-            ['path' => 'tests/test_zeta.py', 'sha256' => 'zzz', 'content' => 'z'],
-            ['path' => 'tests/test_alpha.py', 'sha256' => 'aaa', 'content' => 'a'],
+            ['path' => 'tests/test_zeta.py', 'content' => 'z'],
+            ['path' => 'tests/test_alpha.py', 'content' => 'a'],
         ]]);
 
         $files = array_values($this->repository->get_files($run->id));
 
         $this->assertSame(['tests/test_alpha.py', 'tests/test_zeta.py'], array_column($files, 'path'));
-        $this->assertSame('aaa', $files[0]->sha256);
+        $this->assertSame(source_code::hash('a'), $files[0]->sha256);
+        $this->assertSame('a', $files[0]->content);
+    }
+
+    public function test_one_student_running_twice_stores_the_body_once(): void {
+        global $DB;
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
+
+        $first = $this->create_run($student->id, overrides: $files);
+        $second = $this->create_run($student->id, overrides: $files);
+
+        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(
+            array_values($this->repository->get_files($first->id))[0]->blobid,
+            array_values($this->repository->get_files($second->id))[0]->blobid
+        );
+    }
+
+    public function test_two_students_submitting_the_same_body_share_one_row(): void {
+        global $DB;
+        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
+        $one = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $two = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+
+        $this->create_run($one->id, overrides: $files);
+        $this->create_run($two->id, overrides: $files);
+
+        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+    }
+
+    public function test_the_same_body_in_two_activities_is_stored_once_each(): void {
+        global $DB;
+        $other = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $this->course->id]);
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
+
+        $this->create_run($student->id, overrides: $files);
+        $this->create_run($student->id, overrides: array_merge($files, ['idetestfeedbackid' => $other->id]));
+
+        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $other->id]));
+    }
+
+    public function test_a_body_outlives_the_run_that_stored_it_while_another_points_at_it(): void {
+        global $DB;
+        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
+        $one = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $two = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+
+        $this->create_run($one->id, overrides: $files);
+        $this->create_run($two->id, overrides: $files);
+
+        $this->repository->delete_runs($this->instance->id, [$one->id]);
+        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+
+        $this->repository->delete_runs($this->instance->id, [$two->id]);
+        $this->assertSame(0, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+    }
+
+    public function test_deleting_an_instance_reclaims_its_bodies(): void {
+        global $DB;
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $this->create_run($student->id, overrides: [
+            'files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']],
+        ]);
+
+        $this->repository->delete_instance($this->instance->id);
+
+        $this->assertSame(0, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+    }
+
+    public function test_the_sweep_leaves_another_activitys_bodies_alone(): void {
+        global $DB;
+        $other = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $this->course->id]);
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
+
+        $this->create_run($student->id, overrides: $files);
+        $this->create_run($student->id, overrides: array_merge($files, ['idetestfeedbackid' => $other->id]));
+
+        $this->repository->delete_runs($this->instance->id);
+
+        $this->assertSame(0, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $other->id]));
     }
 
     public function test_get_files_is_empty_for_a_run_with_none(): void {
@@ -596,25 +680,26 @@ final class repository_test extends \advanced_testcase {
     public function test_get_source_history_carries_the_hash_without_the_body(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $run = $this->create_run($student->id, [
-            ['testname' => 'testAdd', 'status' => 'PASSED', 'sourcecodehash' => 'aaaa', 'sourcecode' => 'assert x'],
-        ]);
+            ['testname' => 'testAdd', 'status' => 'PASSED', 'sourcefilepath' => 'tests/t.py',
+                'sourcestartline' => 1, 'sourceendline' => 1],
+        ], ['files' => [['path' => 'tests/t.py', 'content' => 'assert x']]]);
 
         [$row] = array_values($this->repository->get_source_history([(int) $run->id]));
 
-        $this->assertSame('aaaa', $row->sourcecodehash);
-        $this->assertFalse(property_exists($row, 'sourcecode'));
+        $this->assertSame(source_code::hash('assert x'), $row->sourcecodehash);
+        $this->assertFalse(property_exists($row, 'message'));
     }
 
-    public function test_get_file_history_carries_the_hash_without_the_content(): void {
+    public function test_get_file_history_carries_the_body_without_its_content(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $run = $this->create_run($student->id, overrides: ['files' => [
-            ['path' => 'tests/test_calculator.py', 'sha256' => 'eeee', 'content' => 'import pytest'],
+            ['path' => 'tests/test_calculator.py', 'content' => 'import pytest'],
         ]]);
 
         [$row] = array_values($this->repository->get_file_history([(int) $run->id]));
 
         $this->assertSame('tests/test_calculator.py', $row->path);
-        $this->assertSame('eeee', $row->sha256);
+        $this->assertNotEmpty($row->blobid);
         $this->assertFalse(property_exists($row, 'content'));
     }
 }

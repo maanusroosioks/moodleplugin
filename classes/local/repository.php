@@ -78,11 +78,22 @@ class repository {
     }
 
     /**
+     * The test files captured with a run, each with the body it points at.
+     * The body columns keep the names they had before the body moved out.
+     *
      * @param int $runid the run id
      * @return \stdClass[] the test files captured with the run, by path
      */
     public function get_files(int $runid): array {
-        return $this->db->get_records('idetestfeedback_file', ['runid' => $runid], 'path ASC');
+        return $this->db->get_records_sql(
+            "SELECT f.id, f.runid, f.path, f.blobid, b.contenthash AS sha256,
+                    b.content AS content, f.truncated, f.timecreated
+               FROM {idetestfeedback_file} f
+          LEFT JOIN {idetestfeedback_blob} b ON b.id = f.blobid
+              WHERE f.runid = :runid
+           ORDER BY f.path ASC",
+            ['runid' => $runid]
+        );
     }
 
     /**
@@ -140,8 +151,9 @@ class repository {
         [$insql, $params] = $this->db->get_in_or_equal($runids, SQL_PARAMS_NAMED, 'hrun');
 
         return $this->db->get_records_sql(
-            "SELECT res.id, res.runid, res.testsuite, res.testname, res.sourcekind,
-                    res.sourcefilepath, res.sourcecodehash, res.feedback, res.feedbackmodified
+            "SELECT res.id, res.runid, res.testsuite, res.testname, res.sourcefilepath,
+                    res.sourcestartline, res.sourceendline, res.sourcecodehash,
+                    res.feedback, res.feedbackmodified
                FROM {idetestfeedback_result} res
                JOIN {idetestfeedback_run} run ON run.id = res.runid
               WHERE res.runid {$insql}
@@ -151,7 +163,8 @@ class repository {
     }
 
     /**
-     * The file hashes of several of one user's runs, without the file bodies.
+     * What several of one user's runs captured at each path, without the bodies.
+     * Two runs pointing at one blob captured the same bytes.
      *
      * @param int[] $runids the runs to read
      * @return \stdClass[] file rows keyed by id
@@ -164,7 +177,7 @@ class repository {
         [$insql, $params] = $this->db->get_in_or_equal($runids, SQL_PARAMS_NAMED, 'frun');
 
         return $this->db->get_records_sql(
-            "SELECT id, runid, path, sha256
+            "SELECT id, runid, path, blobid
                FROM {idetestfeedback_file}
               WHERE runid {$insql}",
             $params
@@ -364,9 +377,11 @@ class repository {
      * Stores a run and its results atomically, so a rejected result cannot
      * leave behind a run whose counts describe rows that were never written.
      *
+     * Every hash is derived here, so no caller can supply one of its own.
+     *
      * @param \stdClass $run the run to insert
-     * @param \stdClass[] $results its results; runid is filled in here
-     * @param \stdClass[] $files its captured test files; runid is filled in here
+     * @param \stdClass[] $results its results; runid and sourcecodehash are filled in here
+     * @param \stdClass[] $files its captured test files; runid and blobid are filled in here
      * @return int the new run id
      */
     public function insert_run_with_results(\stdClass $run, array $results, array $files = []): int {
@@ -374,16 +389,28 @@ class repository {
 
         try {
             $runid = $this->db->insert_record('idetestfeedback_run', $run);
+
+            $bodies = capture::canonicalise_files($files);
+            $blobs = $this->store_blobs((int) $run->idetestfeedbackid, $bodies, (int) $run->timecreated);
+
             foreach ($results as $result) {
                 $result->runid = $runid;
+                $result->sourcecodehash = capture::result_hash($result, $bodies);
             }
             $this->db->insert_records('idetestfeedback_result', $results);
 
-            if ($files) {
-                foreach ($files as $file) {
-                    $file->runid = $runid;
+            if ($bodies) {
+                $links = [];
+                foreach ($bodies as $path => $file) {
+                    $links[] = (object) [
+                        'runid'       => $runid,
+                        'path'        => $path,
+                        'blobid'      => $blobs[$file->contenthash] ?? null,
+                        'truncated'   => (int) ($file->truncated ?? 0),
+                        'timecreated' => $file->timecreated,
+                    ];
                 }
-                $this->db->insert_records('idetestfeedback_file', $files);
+                $this->db->insert_records('idetestfeedback_file', $links);
             }
 
             $transaction->allow_commit();
@@ -394,6 +421,37 @@ class repository {
 
             throw $e;
         }
+    }
+
+    /**
+     * Finds or stores one blob per distinct body, within the activity.
+     *
+     * @param int $instanceid the activity the bodies belong to
+     * @param array<string, \stdClass> $bodies canonicalised files by path
+     * @param int $now when the run was submitted
+     * @return array<string, int> blob id by content hash
+     */
+    private function store_blobs(int $instanceid, array $bodies, int $now): array {
+        $blobs = [];
+
+        foreach ($bodies as $file) {
+            $hash = $file->contenthash;
+            if ($hash === null || isset($blobs[$hash])) {
+                continue;
+            }
+
+            $existing = $this->db->get_field('idetestfeedback_blob', 'id',
+                ['idetestfeedbackid' => $instanceid, 'contenthash' => $hash]);
+
+            $blobs[$hash] = $existing ?: $this->db->insert_record('idetestfeedback_blob', (object) [
+                'idetestfeedbackid' => $instanceid,
+                'contenthash'       => $hash,
+                'content'           => $file->content,
+                'timecreated'       => $now,
+            ]);
+        }
+
+        return $blobs;
     }
 
     /**
@@ -418,6 +476,8 @@ class repository {
 
     /**
      * Deletes runs and their results, optionally limited to specific users.
+     *
+     * A body outlives the run that stored it while another run points at it.
      *
      * @param int $instanceid the activity instance id
      * @param int[]|null $userids null for every user, otherwise only these users
@@ -446,6 +506,15 @@ class repository {
                 );
             }
             $this->db->delete_records_select('idetestfeedback_run', $select, $params);
+
+            $this->db->delete_records_select(
+                'idetestfeedback_blob',
+                "idetestfeedbackid = :binstanceid
+                 AND NOT EXISTS (SELECT 1
+                                   FROM {idetestfeedback_file} f
+                                  WHERE f.blobid = {idetestfeedback_blob}.id)",
+                ['binstanceid' => $instanceid]
+            );
 
             $transaction->allow_commit();
         } catch (\Throwable $e) {

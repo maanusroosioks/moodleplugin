@@ -22,7 +22,7 @@ middleware that authenticates the student via OAuth and forwards the test run.
 
 ## Data model
 
-Three tables (see [db/install.xml](db/install.xml) for the full schema):
+Five tables (see [db/install.xml](db/install.xml) for the full schema):
 
 - **`idetestfeedback`** — the activity instance, including the unique
   `assignmentkey`, the optional `timeopen` / `timeclose` submission window, and
@@ -33,6 +33,17 @@ Three tables (see [db/install.xml](db/install.xml) for the full schema):
 - **`idetestfeedback_result`** — one row per test case within a run. Also holds
   the optional per-test teacher feedback (`feedback`, `feedbackformat`,
   `feedbackby`, `feedbackmodified`; see *Teacher feedback* below).
+- **`idetestfeedback_file`** — one row per path a run captured. It records
+  *that* the run captured something there, not what: the body itself is a
+  reference, and is null when the run captured the path without content.
+- **`idetestfeedback_blob`** — the bodies, stored once per distinct content per
+  activity and keyed by their hash. A student running the same tests twenty
+  times stores those files once, and two students who submit an identical file
+  share the row.
+
+A body is reclaimed when the last file row pointing at it goes, so erasing one
+student leaves a file two students submitted standing until the second is erased
+too. There is no reference count to drift: the sweep asks the file table.
 
 Deleting an activity instance cascades to its runs and results, and **Course
 reset** can clear the submitted runs while keeping the activities. The plugin
@@ -66,12 +77,13 @@ no role by default)
 | `finishedat` | int | no | Epoch **milliseconds**. |
 | `results` | list | yes | Non-empty list of result objects (see below). |
 | `testfiles` | list | no | Test files captured with the run (see below). At most 200. |
-| `capturedisabled` | bool | no | The student turned off sending source code. Any code posted alongside it is dropped, but the hashes are not (see Validation). |
+| `capturedisabled` | bool | no | The student turned off sending source code. Any code posted alongside it is dropped, and with it every hash taken from it (see Validation). |
 | `warningacknowledged` | bool | no | The student was warned that some tests are empty and submitted anyway. |
 
 The parameter names are lowercase: a middleware posting the IDE's camelCase
-payload maps `assignmentKey` → `assignmentkey`, `testFiles` → `testfiles`,
-`normalizedCodeHash` → `normalizedcodehash`, and so on.
+payload maps `assignmentKey` → `assignmentkey`, `testFiles` → `testfiles`, and
+so on. A payload carrying a hash of its own is **rejected**: Moodle computes
+every hash it stores, and an unexpected parameter fails validation outright.
 
 Each `results` entry:
 
@@ -84,43 +96,56 @@ Each `results` entry:
 | `message` | text | no | Failure / error message. |
 | `source` | object | no | Where the test case came from (see below). |
 
-Each `results[].source` object. `kind` is a discriminator, not a label: it
-decides which of the other fields mean anything, and what the hash covers. The
-fields a kind does not give meaning to are dropped rather than stored.
+Each `results[].source` object says where in the run's `testfiles` the test came
+from. It carries no code of its own: a body travels once, in `testfiles`, and a
+result points into it.
 
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `kind` | alphanumext | no | `NONE`, `FILE` or `TEST`, case insensitive. Inferred from the other fields when absent. |
-| `filepath` | text | `FILE`, `TEST` | Repo-relative path of the file the test is defined in. Joins to `testfiles[].path`. |
-| `startline` | int | `TEST` | 1-based, inclusive. |
-| `endline` | int | `TEST` | 1-based, inclusive. Must not be below `startline`. |
-| `code` | text | no | Clipped to 64 KB, setting `truncated`. |
-| `truncated` | bool | no | The code is not the whole thing. |
-| `normalizedcodehash` | alphanumext | no | Hash of the normalised source, for telling a rewritten test from a reformatted one. |
+| `filepath` | text | with a line range | Repo-relative path of the file the test is defined in. Joins to `testfiles[].path`. |
+| `startline` | int | no | 1-based, inclusive. Send both line numbers or neither. |
+| `endline` | int | no | 1-based, inclusive. Must not be below `startline`. |
 
-- `NONE` — the test was not found in the project's source at all. Nothing else
-  about it is stored.
-- `FILE` — the file was found but the test could not be picked out of it. The
-  hash covers the whole file, so no line range is stored.
-- `TEST` — the declaration was located. The line range and the hash cover just it.
+What the block names is what the IDE found, so no kind is sent or stored — it is
+read back off those three fields:
 
-A `FILE` hash and a `TEST` hash describe different things, so `kind` is stored
-beside the hash and the two are never compared with each other.
+| `filepath` | line range | means |
+| --- | --- | --- |
+| absent | — | the test was not found in the project's source at all |
+| present | absent | the file was found but the test could not be picked out of it; the hash covers the whole file |
+| present | present | the declaration was located; the line range and the hash cover just it |
 
-`code` is a fallback, not the normal path. A test's body normally travels once,
-in `testfiles`, and is repeated on the result only when the file could not carry
-it &mdash; because the file's `content` was dropped, or because the file was cut
-above that test's `endline`. The run detail page reads it that way: the result's
-own copy wins where there is one, and otherwise the excerpt is cut out of the
-run's copy of the file at `startline`&ndash;`endline`.
+A whole-file hash and a declaration hash describe different things, so the two
+are never compared with each other.
+
+### Hashing
+
+Moodle computes every stored hash itself, over the bytes it is about to store.
+Nothing a client sends is taken on trust, and the two hash parameters earlier
+versions accepted have been removed.
+
+Before hashing, a body is canonicalised: CRLF and CR become LF, trailing
+whitespace goes from each line, and the trailing newline is dropped. Nothing
+else. Comments, tokens and indentation are **not** folded away, because doing
+that needs a parser per language and Moodle has no business owning one.
+
+The cost of that is a weaker `CHANGED`: reformatting a test now reads as
+changed, where an IDE-side normalised hash could have told a reformat from a
+rewrite. The gain is that `UNCHANGED` means byte-identical, that a verdict can
+no longer contradict the code shown beside it, and that the rule behind a hash
+is one function on the server rather than whatever IDE version wrote the run.
+
+A test's body is always cut out of the run's copy of its file at
+`startline`&ndash;`endline`. A test declared below the point a large file was
+clipped at therefore has no body and no hash: nothing is stored twice to rescue
+it.
 
 Each `testfiles` entry:
 
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `path` | text | yes | Repo-relative path. Must not be blank. One row per path: a repeated path keeps the first entry. |
-| `sha256` | alphanumext | no | |
-| `content` | text | no | Clipped to 512 KB, setting `truncated`. |
+| `content` | text | no | Clipped to 512 KB, setting `truncated`. Stored canonicalised, so it may differ from what was posted by its line endings and trailing whitespace. |
 | `truncated` | bool | no | The content is not the whole file. |
 
 ### Returns
@@ -144,24 +169,27 @@ The submission is rejected (with a localised message) when:
   before it starts;
 - any result has a blank `testname`;
 - `testfiles` holds more than 200 entries, or any entry has a blank `path`;
-- any `source` declares a `kind` outside `NONE`, `FILE` and `TEST`;
-- a `FILE` or `TEST` source names no `filepath`;
-- a `TEST` source has no line range, starts below line 1, or ends before it starts.
+- a `source` names a line range but no `filepath`;
+- a `source` sends one line number without the other, starts below line 1, or
+  ends before it starts.
 
-Oversized `source.code` or `testfiles[].content` does not reject the submission:
+Oversized `testfiles[].content` does not reject the submission:
 it is clipped and stored with `truncated` set, which is what the run detail page
 then flags. The clip falls back to the last line boundary it kept, so the line
 numbers a result carries still land on the right lines of what remains.
 
 `capturedisabled` is enforced rather than taken on trust. A submission that sets
-it is stored without any `source.code` and without any `testfiles[].content`,
-whatever the client sent. The run detail page badges such a run as having no
+it is stored without any `testfiles[].content`, whatever the client sent. The run detail page badges such a run as having no
 captured code, so the badge and the stored data cannot disagree.
 
-What is *not* dropped is everything that is not the code: `source.filepath`,
-`startline`, `endline`, `kind`, `normalizedcodehash` and `testfiles[].sha256`.
-Those are sent precisely because they outlive a run that carries no source, and
-they are what answers "did this test change since last time" for such a run.
+What is *not* dropped is everything that describes where the code was, rather
+than what it was: `source.filepath`, `startline` and `endline`.
+
+The hashes do not survive, because there are no bytes left to take them from. A
+run submitted with `capturedisabled` therefore gets no changed/unchanged verdict,
+and is no anchor for the runs that follow it either. That is the price of turning
+capture off, and it is preferred to keeping a hash nobody can check on precisely
+the runs where there is no code to check it against.
 
 The stored run's overall `status` is derived from its results: `ERROR` if any
 result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least

@@ -65,4 +65,50 @@ final class source_code_test extends \basic_testcase {
     public function test_the_range_counts_lines_after_line_endings_are_normalised(): void {
         $this->assertSame(["two\nthree", false], source_code::excerpt("one\r\ntwo\r\nthree\r\nfour", 2, 3));
     }
+
+    public function test_the_same_code_under_three_line_endings_hashes_alike(): void {
+        $hash = source_code::hash("one\ntwo\nthree");
+
+        $this->assertSame($hash, source_code::hash("one\r\ntwo\r\nthree"));
+        $this->assertSame($hash, source_code::hash("one\rtwo\rthree"));
+    }
+
+    public function test_trailing_whitespace_does_not_change_the_hash(): void {
+        $this->assertSame(source_code::hash("one\ntwo"), source_code::hash("one   \ntwo\t"));
+    }
+
+    public function test_a_final_newline_does_not_change_the_hash(): void {
+        $this->assertSame(source_code::hash("one\ntwo"), source_code::hash("one\ntwo\n\n"));
+    }
+
+    public function test_a_cut_string_hashes_as_what_the_marker_left(): void {
+        $cut = "one\ntwo\n\u{2026} [truncated by moodle-test-submit: 1234 more characters]";
+
+        $this->assertSame(source_code::hash("one\ntwo"), source_code::hash($cut));
+    }
+
+    public function test_a_blank_line_inside_the_code_is_kept(): void {
+        $this->assertNotSame(source_code::hash("one\ntwo"), source_code::hash("one\n\ntwo"));
+    }
+
+    public function test_an_edited_comment_is_a_different_hash(): void {
+        $this->assertNotSame(
+            source_code::hash("// adds two numbers\nassertEquals(3, add(1, 2));"),
+            source_code::hash("// sums two numbers\nassertEquals(3, add(1, 2));")
+        );
+    }
+
+    public function test_a_renamed_variable_is_a_different_hash(): void {
+        $this->assertNotSame(
+            source_code::hash('int sum = add(1, 2);'),
+            source_code::hash('int total = add(1, 2);')
+        );
+    }
+
+    public function test_reindented_code_is_a_different_hash(): void {
+        $this->assertNotSame(
+            source_code::hash("if (x) {\n    return 1;\n}"),
+            source_code::hash("if (x) {\n\t\treturn 1;\n}")
+        );
+    }
 }

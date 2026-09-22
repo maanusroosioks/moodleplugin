@@ -19,8 +19,8 @@ namespace mod_idetestfeedback\local;
 /**
  * How a hash compares against the same hash on an earlier run.
  *
- * CHANGED is a strong verdict and UNCHANGED a weak one: a difference is always
- * a real difference, but a match only rules out the region the hash covers.
+ * UNCHANGED is the strong verdict and CHANGED the weak one: a match is byte for
+ * byte over the region the hash covers, while a difference can be a reformat.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks

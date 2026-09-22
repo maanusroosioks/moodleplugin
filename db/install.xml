@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026091700" COMMENT="XMLDB file for mod_idetestfeedback"
+<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026092201" COMMENT="XMLDB file for mod_idetestfeedback"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
 
@@ -69,13 +69,10 @@
                 <FIELD NAME="durationms"     TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="message"        TYPE="text" NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="timecreated"    TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
-                <FIELD NAME="sourcekind"      TYPE="char" LENGTH="20"   NOTNULL="false" SEQUENCE="false" COMMENT="What the captured code is, e.g. TEST"/>
-                <FIELD NAME="sourcefilepath"  TYPE="char" LENGTH="1024" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="sourcefilepath"  TYPE="char" LENGTH="1024" NOTNULL="false" SEQUENCE="false" COMMENT="The captured file the test was found in; null when it was not found at all"/>
                 <FIELD NAME="sourcestartline" TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="sourceendline"   TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false"/>
-                <FIELD NAME="sourcecode"      TYPE="text" NOTNULL="false" SEQUENCE="false"/>
-                <FIELD NAME="sourcetruncated" TYPE="int"  LENGTH="1"    NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="sourcecodehash"  TYPE="char" LENGTH="64"   NOTNULL="false" SEQUENCE="false" COMMENT="Hash of the normalised source, for telling whether a test changed between the student's runs; covers the declaration only when sourcekind is TEST"/>
+                <FIELD NAME="sourcecodehash"  TYPE="char" LENGTH="64"   NOTNULL="false" SEQUENCE="false" COMMENT="SHA-256 computed here over the canonical declaration, or over the whole body when no line range was located; null when nothing was captured"/>
                 <FIELD NAME="feedback"         TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional teacher feedback on this test case result"/>
                 <FIELD NAME="feedbackformat"   TYPE="int"  LENGTH="4"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="feedbackby"       TYPE="int"  LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User id of the teacher who last edited the feedback"/>
@@ -88,19 +85,36 @@
             </KEYS>
         </TABLE>
 
-        <TABLE NAME="idetestfeedback_file" COMMENT="Test file contents captured with a run">
+        <TABLE NAME="idetestfeedback_blob" COMMENT="Captured file bodies, stored once per distinct content per activity">
+            <FIELDS>
+                <FIELD NAME="id"                TYPE="int"  LENGTH="10" NOTNULL="true"  SEQUENCE="true"/>
+                <FIELD NAME="idetestfeedbackid" TYPE="int"  LENGTH="10" NOTNULL="true"  SEQUENCE="false"/>
+                <FIELD NAME="contenthash"       TYPE="char" LENGTH="64" NOTNULL="true"  SEQUENCE="false" COMMENT="SHA-256 of content, computed here and never taken from the client"/>
+                <FIELD NAME="content"           TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The canonical bytes the hash was taken over; a body that canonicalises to nothing gets no row"/>
+                <FIELD NAME="timecreated"       TYPE="int"  LENGTH="10" NOTNULL="true"  SEQUENCE="false" COMMENT="When this body was first seen in this activity"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary"              TYPE="primary" FIELDS="id"/>
+                <KEY NAME="idetestfeedbackid_fk" TYPE="foreign" FIELDS="idetestfeedbackid" REFTABLE="idetestfeedback" REFFIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="instance_hash_idx" UNIQUE="true" FIELDS="idetestfeedbackid, contenthash"/>
+            </INDEXES>
+        </TABLE>
+
+        <TABLE NAME="idetestfeedback_file" COMMENT="One row per path a run captured; the body itself lives in idetestfeedback_blob">
             <FIELDS>
                 <FIELD NAME="id"          TYPE="int"  LENGTH="10"   NOTNULL="true"  SEQUENCE="true"/>
                 <FIELD NAME="runid"       TYPE="int"  LENGTH="10"   NOTNULL="true"  SEQUENCE="false"/>
                 <FIELD NAME="path"        TYPE="char" LENGTH="1024" NOTNULL="true"  SEQUENCE="false"/>
-                <FIELD NAME="sha256"      TYPE="char" LENGTH="64"   NOTNULL="false" SEQUENCE="false"/>
-                <FIELD NAME="content"     TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+                <FIELD NAME="blobid"      TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false" COMMENT="The stored body; null when the run captured this path without content"/>
                 <FIELD NAME="truncated"   TYPE="int"  LENGTH="1"    NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="timecreated" TYPE="int"  LENGTH="10"   NOTNULL="true"  SEQUENCE="false"/>
             </FIELDS>
             <KEYS>
-                <KEY NAME="primary"  TYPE="primary" FIELDS="id"/>
-                <KEY NAME="runid_fk" TYPE="foreign" FIELDS="runid" REFTABLE="idetestfeedback_run" REFFIELDS="id"/>
+                <KEY NAME="primary"   TYPE="primary" FIELDS="id"/>
+                <KEY NAME="runid_fk"  TYPE="foreign" FIELDS="runid"  REFTABLE="idetestfeedback_run"  REFFIELDS="id"/>
+                <KEY NAME="blobid_fk" TYPE="foreign" FIELDS="blobid" REFTABLE="idetestfeedback_blob" REFFIELDS="id"/>
             </KEYS>
         </TABLE>
     </TABLES>

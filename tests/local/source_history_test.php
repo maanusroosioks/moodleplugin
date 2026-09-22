@@ -42,8 +42,9 @@ final class source_history_test extends \basic_testcase {
             'runid' => 1,
             'testsuite' => 'CalcTest',
             'testname' => 'testAdd',
-            'sourcekind' => 'TEST',
             'sourcefilepath' => 'tests/test_calculator.py',
+            'sourcestartline' => 12,
+            'sourceendline' => 13,
             'sourcecodehash' => 'aaaa',
             'feedback' => null,
             'feedbackmodified' => null,
@@ -52,12 +53,19 @@ final class source_history_test extends \basic_testcase {
 
     /**
      * @param int $runid the run the file was captured with
-     * @param string $sha256 the hash the IDE asserted
+     * @param int $blobid the body it captured there
      * @param string $path the repo-relative path
      * @return \stdClass
      */
-    private static function build_file(int $runid, string $sha256, string $path = 'tests/test_calculator.py'): \stdClass {
-        return (object) ['id' => $runid, 'runid' => $runid, 'path' => $path, 'sha256' => $sha256];
+    private static function build_file(int $runid, int $blobid, string $path = 'tests/test_calculator.py'): \stdClass {
+        return (object) ['id' => $runid, 'runid' => $runid, 'path' => $path, 'blobid' => $blobid];
+    }
+
+    /**
+     * @return array the columns of a result naming a whole file, not a declaration
+     */
+    private static function wholefile(): array {
+        return ['sourcestartline' => null, 'sourceendline' => null];
     }
 
     /**
@@ -121,46 +129,31 @@ final class source_history_test extends \basic_testcase {
     }
 
     public function test_a_test_hash_is_never_compared_with_a_file_hash(): void {
-        $history = self::history([self::build_result(['sourcekind' => 'FILE'])]);
+        $history = self::history([self::build_result(self::wholefile())]);
 
         $this->assertSame(source_change::UNKNOWN, $history->since_last_run(self::build_result()));
     }
 
     public function test_two_file_hashes_do_compare(): void {
-        $history = self::history([self::build_result(['sourcekind' => 'FILE', 'sourcecodehash' => 'bbbb'])]);
+        $history = self::history([
+            self::build_result(array_merge(self::wholefile(), ['sourcecodehash' => 'bbbb'])),
+        ]);
 
         $this->assertSame(
             source_change::CHANGED,
-            $history->since_last_run(self::build_result(['sourcekind' => 'FILE']))
+            $history->since_last_run(self::build_result(self::wholefile()))
         );
     }
 
-    /**
-     * @return array[] [the kind on both rows]
-     */
-    public static function uncomparable_kind_provider(): array {
-        return [
-            'not found in the source' => ['NONE'],
-            'the IDE sent no kind' => [null],
-            'a kind from a later version' => ['SNIPPET'],
-        ];
+    public function test_a_test_that_was_never_found_is_unknown(): void {
+        $notfound = ['sourcefilepath' => null, 'sourcestartline' => null, 'sourceendline' => null];
+        $history = self::history([self::build_result($notfound)]);
+
+        $this->assertSame(source_change::UNKNOWN, $history->since_last_run(self::build_result($notfound)));
     }
 
-    /**
-     * @dataProvider uncomparable_kind_provider
-     * @param string|null $kind the kind stored on both rows
-     */
-    public function test_a_kind_that_names_no_code_is_unknown(?string $kind): void {
-        $history = self::history([self::build_result(['sourcekind' => $kind])]);
-
-        $this->assertSame(
-            source_change::UNKNOWN,
-            $history->since_last_run(self::build_result(['sourcekind' => $kind]))
-        );
-    }
-
-    public function test_hashes_and_kinds_compare_regardless_of_case_or_padding(): void {
-        $history = self::history([self::build_result(['sourcekind' => ' test ', 'sourcecodehash' => ' AAAA '])]);
+    public function test_hashes_compare_regardless_of_case_or_padding(): void {
+        $history = self::history([self::build_result(['sourcecodehash' => ' AAAA '])]);
 
         $this->assertSame(source_change::UNCHANGED, $history->since_last_run(self::build_result()));
     }
@@ -268,7 +261,7 @@ final class source_history_test extends \basic_testcase {
         );
     }
 
-    public function test_the_file_check_reads_the_hash_the_anchor_run_captured(): void {
+    public function test_the_file_check_reads_the_body_the_anchor_run_captured(): void {
         $history = self::history(
             [
                 self::build_result(['runid' => 3, 'sourcecodehash' => 'aaaa']),
@@ -278,52 +271,43 @@ final class source_history_test extends \basic_testcase {
                     'feedbackmodified' => 900,
                 ]),
             ],
-            [self::build_file(3, 'ffff'), self::build_file(2, 'eeee')]
+            [self::build_file(3, 77), self::build_file(2, 88)]
         );
 
-        $this->assertSame(source_change::UNCHANGED, $history->file_since_feedback(self::build_result(), 'eeee'));
-        $this->assertSame(source_change::CHANGED, $history->file_since_feedback(self::build_result(), 'ffff'));
+        $this->assertSame(source_change::UNCHANGED, $history->file_since_feedback(self::build_result(), 88));
+        $this->assertSame(source_change::CHANGED, $history->file_since_feedback(self::build_result(), 77));
     }
 
-    public function test_the_file_check_ignores_case_and_padding(): void {
-        $history = self::history(
-            [self::build_result(['feedback' => 'A note', 'feedbackmodified' => 900])],
-            [self::build_file(1, ' EEEE ')]
-        );
-
-        $this->assertSame(source_change::UNCHANGED, $history->file_since_feedback(self::build_result(), 'eeee'));
-    }
-
-    public function test_the_file_check_is_unknown_without_both_hashes(): void {
+    public function test_the_file_check_is_unknown_without_a_body_on_either_side(): void {
         $anchor = [self::build_result(['feedback' => 'A note', 'feedbackmodified' => 900])];
 
         $this->assertSame(
             source_change::UNKNOWN,
-            self::history($anchor, [self::build_file(1, 'eeee')])->file_since_feedback(self::build_result(), '')
+            self::history($anchor, [self::build_file(1, 88)])->file_since_feedback(self::build_result(), null)
         );
         $this->assertSame(
             source_change::UNKNOWN,
-            self::history($anchor)->file_since_feedback(self::build_result(), 'eeee')
+            self::history($anchor)->file_since_feedback(self::build_result(), 88)
         );
         $this->assertSame(
             source_change::UNKNOWN,
-            self::history($anchor, [self::build_file(1, 'eeee', 'tests/other.py')])
-                ->file_since_feedback(self::build_result(), 'eeee')
+            self::history($anchor, [self::build_file(1, 88, 'tests/other.py')])
+                ->file_since_feedback(self::build_result(), 88)
         );
     }
 
     public function test_the_file_check_is_unknown_without_a_feedback_anchor(): void {
-        $history = self::history([self::build_result()], [self::build_file(1, 'eeee')]);
+        $history = self::history([self::build_result()], [self::build_file(1, 88)]);
 
-        $this->assertSame(source_change::UNKNOWN, $history->file_since_feedback(self::build_result(), 'eeee'));
+        $this->assertSame(source_change::UNKNOWN, $history->file_since_feedback(self::build_result(), 88));
     }
 
     public function test_the_file_check_is_unknown_when_the_anchor_names_no_file(): void {
         $history = self::history(
             [self::build_result(['sourcefilepath' => null, 'feedback' => 'A note', 'feedbackmodified' => 900])],
-            [self::build_file(1, 'eeee')]
+            [self::build_file(1, 88)]
         );
 
-        $this->assertSame(source_change::UNKNOWN, $history->file_since_feedback(self::build_result(), 'eeee'));
+        $this->assertSame(source_change::UNKNOWN, $history->file_since_feedback(self::build_result(), 88));
     }
 }
