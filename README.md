@@ -75,7 +75,6 @@ no role by default)
 | `finishedat` | int | no | Epoch **milliseconds**. |
 | `payload` | text | yes | JSON object holding `results` and `testfiles` (see below). |
 | `capturedisabled` | bool | no | The student turned off sending source code. Any code posted alongside it is dropped, and with it every hash taken from it (see Validation). |
-| `warningacknowledged` | bool | no | The student was warned that some tests are empty and submitted anyway. |
 
 The parameter names are lowercase: a middleware posting the IDE's camelCase
 payload maps `assignmentKey` → `assignmentkey`, `testFiles` → `testfiles`, and

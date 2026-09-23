@@ -87,7 +87,6 @@ class mod_idetestfeedback_generator extends testing_module_generator {
             'errorcount' => $counts[status::ERROR->value],
             'timecreated' => $now,
             'capturedisabled' => (int) ($record['capturedisabled'] ?? 0),
-            'warningacknowledged' => (int) ($record['warningacknowledged'] ?? 0),
         ];
 
         $files = [];

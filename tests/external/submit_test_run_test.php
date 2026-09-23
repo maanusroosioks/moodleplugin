@@ -75,8 +75,7 @@ final class submit_test_run_test extends \advanced_testcase {
                 ['testname' => 'testAdd', 'status' => 'PASSED', 'testsuite' => null,
                     'durationms' => 5, 'message' => null],
             ],
-            'capturedisabled'     => false,
-            'warningacknowledged' => false,
+            'capturedisabled' => false,
         ], $overrides);
     }
 
@@ -319,17 +318,13 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame([], (new repository($DB))->get_files($returned['runid']));
     }
 
-    public function test_it_stores_the_capture_flags(): void {
+    public function test_it_stores_the_capture_flag(): void {
         global $DB;
 
-        $returned = $this->submit($this->params([
-            'capturedisabled' => true,
-            'warningacknowledged' => true,
-        ]));
+        $returned = $this->submit($this->params(['capturedisabled' => true]));
 
         $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
         $this->assertSame(1, (int) $run->capturedisabled);
-        $this->assertSame(1, (int) $run->warningacknowledged);
     }
 
     public function test_a_run_with_capture_disabled_stores_no_code(): void {
@@ -434,14 +429,13 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertCount(1, $files);
     }
 
-    public function test_the_capture_flags_default_to_off(): void {
+    public function test_the_capture_flag_defaults_to_off(): void {
         global $DB;
 
         $returned = $this->submit($this->params());
 
         $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
         $this->assertSame(0, (int) $run->capturedisabled);
-        $this->assertSame(0, (int) $run->warningacknowledged);
     }
 
     public function test_oversized_file_content_is_clipped_and_marked_truncated(): void {

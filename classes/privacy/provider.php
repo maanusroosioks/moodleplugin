@@ -60,7 +60,6 @@ class provider implements
                 'errorcount'          => 'privacy:metadata:run:errorcount',
                 'timecreated'         => 'privacy:metadata:run:timecreated',
                 'capturedisabled'     => 'privacy:metadata:run:capturedisabled',
-                'warningacknowledged' => 'privacy:metadata:run:warningacknowledged',
             ],
             'privacy:metadata:run'
         );
@@ -209,7 +208,6 @@ class provider implements
                     'errorcount'   => $run->errorcount,
                     'timecreated'  => transform::datetime($run->timecreated),
                     'capturedisabled'     => transform::yesno($run->capturedisabled),
-                    'warningacknowledged' => transform::yesno($run->warningacknowledged),
                     'results'      => array_values(array_map(
                         fn($r) => [
                             'testsuite'        => $r->testsuite,

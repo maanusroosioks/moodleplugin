@@ -84,12 +84,6 @@ class submit_test_run extends external_api {
                 VALUE_DEFAULT,
                 0
             ),
-            'warningacknowledged' => new external_value(
-                PARAM_BOOL,
-                'The student acknowledged the empty-test warning',
-                VALUE_DEFAULT,
-                0
-            ),
         ]);
     }
 
@@ -151,7 +145,6 @@ class submit_test_run extends external_api {
      * @param int|null $finishedat when the run finished, in epoch milliseconds
      * @param string $payload JSON holding the run's results and captured test files
      * @param bool $capturedisabled whether the student turned source capture off
-     * @param bool $warningacknowledged whether the student submitted past the empty-test warning
      * @return array the new run id
      */
     public static function execute(
@@ -163,8 +156,7 @@ class submit_test_run extends external_api {
         ?int $startedat,
         ?int $finishedat,
         string $payload,
-        bool $capturedisabled,
-        bool $warningacknowledged
+        bool $capturedisabled
     ): array {
         global $DB;
 
@@ -172,16 +164,15 @@ class submit_test_run extends external_api {
         require_capability('mod/idetestfeedback:submit', context\system::instance());
 
         $params = self::validate_parameters(self::execute_parameters(), [
-            'email'               => $email,
-            'assignmentkey'       => $assignmentkey,
-            'ide'                 => $ide,
-            'projectname'         => $projectname,
-            'commithash'          => $commithash,
-            'startedat'           => $startedat,
-            'finishedat'          => $finishedat,
-            'payload'             => $payload,
-            'capturedisabled'     => $capturedisabled,
-            'warningacknowledged' => $warningacknowledged,
+            'email'           => $email,
+            'assignmentkey'   => $assignmentkey,
+            'ide'             => $ide,
+            'projectname'     => $projectname,
+            'commithash'      => $commithash,
+            'startedat'       => $startedat,
+            'finishedat'      => $finishedat,
+            'payload'         => $payload,
+            'capturedisabled' => $capturedisabled,
         ]);
         $submission = self::decode_submission($params);
         self::validate_payload($submission);
@@ -248,7 +239,6 @@ class submit_test_run extends external_api {
             results: $results,
             testfiles: $testfiles,
             capturedisabled: $params['capturedisabled'],
-            warningacknowledged: $params['warningacknowledged'],
         );
     }
 
@@ -418,7 +408,6 @@ class submit_test_run extends external_api {
         $run->errorcount          = $counts[status::ERROR->value];
         $run->timecreated         = $now;
         $run->capturedisabled     = (int) $submission->capturedisabled;
-        $run->warningacknowledged = (int) $submission->warningacknowledged;
 
         $results = [];
         foreach ($submission->results as $submitted) {

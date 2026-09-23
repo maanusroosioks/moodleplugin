@@ -62,5 +62,17 @@ function xmldb_idetestfeedback_upgrade($oldversion): bool {
         upgrade_mod_savepoint(true, 2026092303, 'idetestfeedback');
     }
 
+    if ($oldversion < 2026092304) {
+        // Drop the empty-test warning flag.
+        $table = new xmldb_table('idetestfeedback_run');
+        $field = new xmldb_field('warningacknowledged');
+
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026092304, 'idetestfeedback');
+    }
+
     return true;
 }

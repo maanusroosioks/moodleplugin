@@ -44,7 +44,7 @@ class backup_idetestfeedback_activity_structure_step extends backup_activity_str
         $run = new backup_nested_element('run', ['id'], [
             'userid', 'ide', 'projectname', 'commithash', 'startedat', 'finishedat',
             'status', 'passedcount', 'failedcount', 'skippedcount', 'errorcount', 'timecreated',
-            'capturedisabled', 'warningacknowledged',
+            'capturedisabled',
         ]);
 
         $results = new backup_nested_element('results');

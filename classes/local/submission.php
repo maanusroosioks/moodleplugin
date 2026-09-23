@@ -37,7 +37,6 @@ final class submission {
      * @param array[] $results the test case results, statuses uppercased
      * @param array[] $testfiles the captured test files
      * @param bool $capturedisabled whether the student turned source capture off
-     * @param bool $warningacknowledged whether the student submitted past the empty-test warning
      */
     public function __construct(
         /** @var string The student the middleware authenticated */
@@ -60,8 +59,6 @@ final class submission {
         public readonly array $testfiles,
         /** @var bool Whether the student turned source capture off */
         public readonly bool $capturedisabled,
-        /** @var bool Whether the student submitted past the empty-test warning */
-        public readonly bool $warningacknowledged,
     ) {
     }
 }

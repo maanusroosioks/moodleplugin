@@ -243,31 +243,19 @@ class run_detail implements renderable, templatable {
      * What the student chose about code capture, which decides how much of this
      * run can be taken at face value.
      *
-     * @return array[] at most one row, holding a badge per flag that is set
+     * @return array[] at most one row, holding a badge when capture was disabled
      */
     protected function flag_rows(): array {
-        $badges = [];
-
-        if (!empty($this->run->capturedisabled)) {
-            $badges[] = [
-                'label' => get_string('capturedisabled', 'mod_idetestfeedback'),
-                'classes' => 'bg-secondary text-white',
-            ];
-        }
-        if (!empty($this->run->warningacknowledged)) {
-            $badges[] = [
-                'label' => get_string('warningacknowledged', 'mod_idetestfeedback'),
-                'classes' => 'bg-warning text-dark',
-            ];
-        }
-
-        if (!$badges) {
+        if (empty($this->run->capturedisabled)) {
             return [];
         }
 
         return [[
             'label' => get_string('runflags', 'mod_idetestfeedback'),
-            'badges' => $badges,
+            'badges' => [[
+                'label' => get_string('capturedisabled', 'mod_idetestfeedback'),
+                'classes' => 'bg-secondary text-white',
+            ]],
         ]];
     }
 
