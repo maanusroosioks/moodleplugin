@@ -14,25 +14,33 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace mod_idetestfeedback\output;
+
 /**
- * Database upgrade steps for the activity.
+ * Exposes the protected source block so one result can be exported on its own.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-/**
- * Runs the upgrade steps for this activity.
- *
- * @param int $oldversion the currently installed version
- * @return bool
- */
-function xmldb_idetestfeedback_upgrade($oldversion): bool {
-    // Pre-release builds had a different schema and no path forward from it.
-    if ($oldversion < 2026092300) {
-        throw new \core\exception\moodle_exception('upgradefromprerelease', 'mod_idetestfeedback');
+class testable_run_detail_source extends run_detail {
+    /**
+     * Exposes source_block().
+     *
+     * @param \stdClass $result one test case result
+     * @return array|null the exported source block
+     */
+    public function block(\stdClass $result): ?array {
+        return $this->source_block($result);
     }
 
-    return true;
+    /**
+     * Exposes run_duration().
+     *
+     * @param int $ms a run's duration in milliseconds
+     * @return string the duration as shown
+     */
+    public static function duration(int $ms): string {
+        return self::run_duration($ms);
+    }
 }

@@ -26,7 +26,6 @@ namespace mod_idetestfeedback\local;
  * @covers     \mod_idetestfeedback\local\feedback_saver
  */
 final class feedback_saver_test extends \advanced_testcase {
-
     /** @var repository */
     private repository $repository;
 
@@ -64,6 +63,8 @@ final class feedback_saver_test extends \advanced_testcase {
     }
 
     /**
+     * The results of the test run, by test name.
+     *
      * @return array<int, \stdClass> this run's results keyed by testname
      */
     private function results_by_name(): array {

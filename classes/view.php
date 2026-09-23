@@ -42,24 +42,46 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class view {
-
     /** @var int Runs per page of the run list. */
     protected const RUNS_PER_PAGE = 50;
 
     /** @var int Test case results per page of the run detail. */
     protected const RESULTS_PER_PAGE = 50;
 
+    /** @var cm_info The course module. */
     protected cm_info $cm;
+
+    /** @var stdClass The course the activity is in. */
     protected stdClass $course;
+
+    /** @var stdClass The activity instance. */
     protected stdClass $instance;
+
+    /** @var context\module The activity context. */
     protected context\module $context;
+
+    /** @var bool Whether the viewer may see every student's runs. */
     protected bool $canviewall;
+
+    /** @var bool Whether the viewer may leave feedback. */
     protected bool $cancomment;
+
+    /** @var bool Whether the viewer may see full names. */
     protected bool $viewfullnames;
+
+    /** @var repository The activity's database access. */
     protected repository $repository;
+
+    /** @var renderer The activity's renderer. */
     protected renderer $renderer;
+
+    /** @var stdClass The viewer. */
     protected stdClass $user;
+
+    /** @var stdClass|null The run shown in detail, or null for the run list. */
     protected ?stdClass $run = null;
+
+    /** @var status|null The status the run list is filtered by, or null for all. */
     protected ?status $filterstatus = null;
 
     /**
@@ -73,11 +95,16 @@ class view {
      * @param int $listpage the run list page a run was opened from, for the way back
      */
     public function __construct(
+        /** @var int The course module id */
         protected int $cmid,
+        /** @var int The run to show in detail, or 0 for the run list */
         protected int $runid = 0,
+        /** @var int Zero based page number within the run list, or within the run's results */
         protected int $page = 0,
+        /** @var int Show only this student's runs, or 0 for all students */
         protected int $filteruserid = 0,
         string $filterstatus = '',
+        /** @var int The run list page a run was opened from, for the way back */
         protected int $listpage = 0
     ) {
         global $DB, $PAGE, $USER;
@@ -421,8 +448,10 @@ class view {
     protected function active_group(): ?int {
         $groupid = (int) groups_get_activity_group($this->cm, true);
 
-        if ($groupid === 0 && groups_get_activity_groupmode($this->cm) == SEPARATEGROUPS
-                && !has_capability('moodle/site:accessallgroups', $this->context)) {
+        if (
+            $groupid === 0 && groups_get_activity_groupmode($this->cm) == SEPARATEGROUPS
+                && !has_capability('moodle/site:accessallgroups', $this->context)
+        ) {
             return null;
         }
 

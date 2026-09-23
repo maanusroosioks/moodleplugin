@@ -14,25 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace mod_idetestfeedback\event;
+
 /**
- * Database upgrade steps for the activity.
+ * The list of IDE Test Feedback activities in a course was viewed.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-/**
- * Runs the upgrade steps for this activity.
- *
- * @param int $oldversion the currently installed version
- * @return bool
- */
-function xmldb_idetestfeedback_upgrade($oldversion): bool {
-    // Pre-release builds had a different schema and no path forward from it.
-    if ($oldversion < 2026092300) {
-        throw new \core\exception\moodle_exception('upgradefromprerelease', 'mod_idetestfeedback');
-    }
-
-    return true;
+class course_module_instance_list_viewed extends \core\event\course_module_instance_list_viewed {
 }

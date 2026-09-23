@@ -26,7 +26,6 @@ namespace mod_idetestfeedback\event;
  * @covers     \mod_idetestfeedback\event\test_run_submitted
  */
 final class test_run_submitted_test extends \advanced_testcase {
-
     /** @var \stdClass */
     private \stdClass $instance;
 
@@ -49,6 +48,8 @@ final class test_run_submitted_test extends \advanced_testcase {
     }
 
     /**
+     * Creates the event, with valid defaults.
+     *
      * @param array $overrides event data to override the valid defaults with
      * @return test_run_submitted
      */

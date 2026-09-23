@@ -24,7 +24,6 @@ namespace mod_idetestfeedback\event;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class test_run_submitted extends \core\event\base {
-
     /**
      * Initialises the event data.
      */
@@ -36,6 +35,8 @@ class test_run_submitted extends \core\event\base {
     }
 
     /**
+     * Returns the event name.
+     *
      * @return string the event's display name
      */
     #[\Override]
@@ -44,6 +45,8 @@ class test_run_submitted extends \core\event\base {
     }
 
     /**
+     * Returns the event description.
+     *
      * @return string a description of what happened
      */
     #[\Override]
@@ -54,6 +57,8 @@ class test_run_submitted extends \core\event\base {
     }
 
     /**
+     * Returns the URL of the run.
+     *
      * @return \core\url the run this event describes
      */
     #[\Override]
@@ -80,6 +85,8 @@ class test_run_submitted extends \core\event\base {
     }
 
     /**
+     * Maps the objectid for backup and restore.
+     *
      * @return array the backup mapping for this event's objectid
      */
     #[\Override]
@@ -88,6 +95,8 @@ class test_run_submitted extends \core\event\base {
     }
 
     /**
+     * Maps the 'other' data for backup and restore.
+     *
      * @return bool false, because nothing in 'other' needs mapping on restore
      */
     #[\Override]

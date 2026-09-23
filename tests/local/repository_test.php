@@ -26,7 +26,6 @@ namespace mod_idetestfeedback\local;
  * @covers     \mod_idetestfeedback\local\repository
  */
 final class repository_test extends \advanced_testcase {
-
     /** @var repository */
     private repository $repository;
 
@@ -51,13 +50,18 @@ final class repository_test extends \advanced_testcase {
     }
 
     /**
+     * Stores a run through the repository.
+     *
      * @param int $userid the student to attribute the run to
      * @param array $results the test case results, defaults to a single passing test
      * @param array $overrides extra run fields, e.g. 'status' or 'timecreated'
      * @return \stdClass the stored run
      */
-    private function create_run(int $userid, array $results = [['testname' => 'testAdd', 'status' => 'PASSED']],
-                                array $overrides = []): \stdClass {
+    private function create_run(
+        int $userid,
+        array $results = [['testname' => 'testAdd', 'status' => 'PASSED']],
+        array $overrides = []
+    ): \stdClass {
         return $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run(array_merge([
             'idetestfeedbackid' => $this->instance->id,
             'userid' => $userid,
@@ -451,7 +455,7 @@ final class repository_test extends \advanced_testcase {
 
         $this->preventResetByRollback();
 
-        $repository = new class($DB) extends repository {
+        $repository = new class ($DB) extends repository {
             /** @var int */
             public int $attempts = 0;
 
@@ -518,12 +522,15 @@ final class repository_test extends \advanced_testcase {
 
         $before = $DB->count_records('idetestfeedback_run', ['idetestfeedbackid' => $this->instance->id]);
 
+        $thrown = null;
         try {
             $this->repository->insert_run_with_results($run, $results);
-            $this->fail('Expected the oversized result row to raise an exception.');
-        } catch (\Throwable $e) {
-            // Expected; the transaction must have rolled back the run insert too.
+        } catch (\dml_exception $e) {
+            $thrown = $e;
         }
+        $this->assertInstanceOf(\dml_exception::class, $thrown);
+
+        // The transaction must have rolled back the run insert too.
 
         $this->assertSame(
             $before,
@@ -712,8 +719,11 @@ final class repository_test extends \advanced_testcase {
 
     public function test_get_source_history_returns_newest_run_first(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $older = $this->create_run($student->id, [['testname' => 'testOlder', 'status' => 'PASSED']],
-            ['timecreated' => 100]);
+        $older = $this->create_run(
+            $student->id,
+            [['testname' => 'testOlder', 'status' => 'PASSED']],
+            ['timecreated' => 100]
+        );
         $newer = $this->create_run($student->id, [
             ['testname' => 'testNewerA', 'status' => 'PASSED'],
             ['testname' => 'testNewerB', 'status' => 'PASSED'],

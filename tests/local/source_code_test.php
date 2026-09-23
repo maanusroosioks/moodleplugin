@@ -10,6 +10,9 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\local;
 
@@ -23,7 +26,6 @@ namespace mod_idetestfeedback\local;
  * @covers     \mod_idetestfeedback\local\source_code
  */
 final class source_code_test extends \basic_testcase {
-
     /** @var string A file of five numbered lines. */
     private const FILE = "one\ntwo\nthree\nfour\nfive\n";
 

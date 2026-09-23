@@ -22,6 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+// phpcs:ignore moodle.Files.RequireLogin.Missing -- mod_idetestfeedback\view calls require_course_login().
 require('../../config.php');
 require_once(__DIR__ . '/lib.php');
 

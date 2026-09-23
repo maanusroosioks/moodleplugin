@@ -39,7 +39,6 @@ use mod_idetestfeedback\local\validation_exception;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class submit_test_run extends external_api {
-
     /** @var int Most test case results accepted in one submission. */
     private const MAX_RESULTS = 5000;
 
@@ -61,6 +60,8 @@ class submit_test_run extends external_api {
     ];
 
     /**
+     * Describes the web service parameters.
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -72,12 +73,22 @@ class submit_test_run extends external_api {
             'commithash'    => new external_value(PARAM_TEXT, 'Git commit hash', VALUE_DEFAULT, null),
             'startedat'     => new external_value(PARAM_INT, 'Run start (epoch milliseconds)', VALUE_DEFAULT, null),
             'finishedat'    => new external_value(PARAM_INT, 'Run end (epoch milliseconds)', VALUE_DEFAULT, null),
-            'payload'       => new external_value(PARAM_RAW,
-                'JSON object holding the run\'s "results" and "testfiles"; see payload_parameters()'),
-            'capturedisabled' => new external_value(PARAM_BOOL, 'The student disabled code capture',
-                VALUE_DEFAULT, 0),
-            'warningacknowledged' => new external_value(PARAM_BOOL,
-                'The student acknowledged the empty-test warning', VALUE_DEFAULT, 0),
+            'payload'       => new external_value(
+                PARAM_RAW,
+                'JSON object holding the run\'s "results" and "testfiles"; see payload_parameters()'
+            ),
+            'capturedisabled' => new external_value(
+                PARAM_BOOL,
+                'The student disabled code capture',
+                VALUE_DEFAULT,
+                0
+            ),
+            'warningacknowledged' => new external_value(
+                PARAM_BOOL,
+                'The student acknowledged the empty-test warning',
+                VALUE_DEFAULT,
+                0
+            ),
         ]);
     }
 
@@ -98,10 +109,18 @@ class submit_test_run extends external_api {
                     'message'    => new external_value(PARAM_RAW, 'Failure message', VALUE_DEFAULT, null),
                     'source'     => new external_single_structure([
                         'filepath'  => new external_value(PARAM_RAW, 'File the test lives in', VALUE_DEFAULT, null),
-                        'startline' => new external_value(PARAM_INT, 'First line, 1-based inclusive',
-                            VALUE_DEFAULT, null),
-                        'endline'   => new external_value(PARAM_INT, 'Last line, 1-based inclusive',
-                            VALUE_DEFAULT, null),
+                        'startline' => new external_value(
+                            PARAM_INT,
+                            'First line, 1-based inclusive',
+                            VALUE_DEFAULT,
+                            null
+                        ),
+                        'endline'   => new external_value(
+                            PARAM_INT,
+                            'Last line, 1-based inclusive',
+                            VALUE_DEFAULT,
+                            null
+                        ),
                     ], 'Where in the run\'s files the test case came from', VALUE_OPTIONAL),
                 ]),
                 'The test case results of the run, at least one'
@@ -179,6 +198,8 @@ class submit_test_run extends external_api {
     }
 
     /**
+     * Describes the web service return value.
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {
@@ -284,8 +305,10 @@ class submit_test_run extends external_api {
                 throw new validation_exception('validation_invalidtiming');
             }
         }
-        if ($submission->startedat !== null && $submission->finishedat !== null
-                && $submission->finishedat < $submission->startedat) {
+        if (
+            $submission->startedat !== null && $submission->finishedat !== null
+                && $submission->finishedat < $submission->startedat
+        ) {
             throw new validation_exception('validation_invalidtiming');
         }
     }
@@ -304,8 +327,10 @@ class submit_test_run extends external_api {
             throw new validation_exception('validation_nosourcefilepath');
         }
 
-        if ($source['startline'] === null || $source['endline'] === null
-                || $source['startline'] < 1 || $source['endline'] < $source['startline']) {
+        if (
+            $source['startline'] === null || $source['endline'] === null
+                || $source['startline'] < 1 || $source['endline'] < $source['startline']
+        ) {
             throw new validation_exception('validation_invalidsourcelines');
         }
     }
@@ -361,8 +386,12 @@ class submit_test_run extends external_api {
      * @param submission $submission
      * @return \stdClass the stored run, carrying its new id
      */
-    private static function store_run(repository $repository, \stdClass $instance, int $userid,
-                                      submission $submission): \stdClass {
+    private static function store_run(
+        repository $repository,
+        \stdClass $instance,
+        int $userid,
+        submission $submission
+    ): \stdClass {
         $now = time();
         $counts = self::tally_statuses($submission->results);
 
@@ -462,6 +491,8 @@ class submit_test_run extends external_api {
     }
 
     /**
+     * Triggers the test run submitted event.
+     *
      * @param \cm_info $cm the activity's course module
      * @param \stdClass $run the stored run
      * @param int $userid the student the run is attributed to
@@ -477,6 +508,8 @@ class submit_test_run extends external_api {
     }
 
     /**
+     * Counts the results per status.
+     *
      * @param array[] $results the submitted test case results
      * @return array<string, int> result count per status, every status present
      */

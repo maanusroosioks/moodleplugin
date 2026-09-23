@@ -33,7 +33,6 @@ use mod_idetestfeedback\local\source_code;
  * @covers     \mod_idetestfeedback\privacy\provider
  */
 final class provider_test extends \core_privacy\tests\provider_testcase {
-
     /** @var \stdClass */
     private \stdClass $course;
 
@@ -62,6 +61,8 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
+     * The repository under test.
+     *
      * @return repository the activity's database access
      */
     private function repository(): repository {
@@ -71,6 +72,8 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
+     * Stores a run for a user in the test activity.
+     *
      * @param int $userid the run's owner
      * @return \stdClass the stored run, with a single test case result
      */

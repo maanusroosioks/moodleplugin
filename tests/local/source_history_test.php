@@ -26,7 +26,6 @@ namespace mod_idetestfeedback\local;
  * @covers     \mod_idetestfeedback\local\source_history
  */
 final class source_history_test extends \basic_testcase {
-
     /** @var int The run being shown, for feedback written before it. */
     private const NOW = 1000;
 
@@ -52,6 +51,8 @@ final class source_history_test extends \basic_testcase {
     }
 
     /**
+     * Builds a file row.
+     *
      * @param int $runid the run the file was captured with
      * @param int $blobid the body it captured there
      * @param string $path the repo-relative path
@@ -62,6 +63,8 @@ final class source_history_test extends \basic_testcase {
     }
 
     /**
+     * The source columns of a result that names a whole file.
+     *
      * @return array the columns of a result naming a whole file, not a declaration
      */
     private static function wholefile(): array {
@@ -69,6 +72,8 @@ final class source_history_test extends \basic_testcase {
     }
 
     /**
+     * Builds the history under test.
+     *
      * @param \stdClass[] $priorresults earlier result rows, newest run first
      * @param \stdClass[] $priorfiles the file rows of those runs
      * @return source_history

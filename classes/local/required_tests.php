@@ -24,10 +24,12 @@ namespace mod_idetestfeedback\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class required_tests {
-
+    /** @var string Separates a suite from a test name in an entry. */
     private const QUALIFIER = '#';
 
     /**
+     * Rewrites a teacher's list in canonical form.
+     *
      * @param string|null $raw the teacher's list as typed
      * @return string the canonical list, one entry per line
      */
@@ -171,6 +173,8 @@ class required_tests {
     }
 
     /**
+     * Splits an entry into its suite and test name.
+     *
      * @param string $entry a canonical entry
      * @return array{0:?string,1:string} [suite|null, name] for an entry
      */

@@ -16,19 +16,9 @@
 
 namespace mod_idetestfeedback\output;
 
-/**
- * Exposes the protected language mapping so it can be tested on its own.
- */
-class testable_run_detail extends run_detail {
+defined('MOODLE_INTERNAL') || die();
 
-    /**
-     * @param string $path the file the code came from
-     * @return string the Prism language name
-     */
-    public static function language(string $path): string {
-        return self::language_of($path);
-    }
-}
+require_once(__DIR__ . '/../fixtures/testable_run_detail.php');
 
 /**
  * Tests for the run detail renderable.
@@ -40,8 +30,9 @@ class testable_run_detail extends run_detail {
  * @covers     \mod_idetestfeedback\output\run_detail
  */
 final class run_detail_test extends \basic_testcase {
-
     /**
+     * Data provider for test_language_is_taken_from_the_file_extension().
+     *
      * @return array[] [file path, expected Prism language]
      */
     public static function language_provider(): array {
@@ -61,6 +52,8 @@ final class run_detail_test extends \basic_testcase {
     }
 
     /**
+     * The Prism language comes from the file extension.
+     *
      * @dataProvider language_provider
      * @param string $path the file the code came from
      * @param string $expected the Prism language it should be tagged with

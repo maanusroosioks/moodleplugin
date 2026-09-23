@@ -43,7 +43,7 @@ $PAGE->set_title(get_string('modulenameplural', 'mod_idetestfeedback'));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_pagelayout('incourse');
 
-\core\event\course_module_instance_list_viewed::create(['context' => $context])->trigger();
+\mod_idetestfeedback\event\course_module_instance_list_viewed::create(['context' => $context])->trigger();
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('modulenameplural', 'mod_idetestfeedback'));

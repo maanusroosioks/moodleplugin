@@ -23,8 +23,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\status;
 
@@ -37,7 +35,6 @@ use mod_idetestfeedback\local\status;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class mod_idetestfeedback_generator extends testing_module_generator {
-
     /**
      * Stores a run and its results, the way the web service would.
      *
@@ -112,6 +109,8 @@ class mod_idetestfeedback_generator extends testing_module_generator {
     }
 
     /**
+     * The overall run status for a set of result counts.
+     *
      * @param array<string, int> $counts result count per status
      * @return string the worst outcome any test reported
      */

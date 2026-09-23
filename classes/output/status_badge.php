@@ -31,13 +31,13 @@ use mod_idetestfeedback\local\status;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class status_badge implements renderable, templatable {
-
     /**
      * Constructor.
      *
      * @param string $status a status as stored on the run or result row
      */
     public function __construct(
+        /** @var string A status as stored on the run or result row */
         protected readonly string $status
     ) {
     }

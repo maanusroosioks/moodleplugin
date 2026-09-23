@@ -14,6 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace mod_idetestfeedback;
+
+use advanced_testcase;
+use cached_cm_info;
+use completion_info;
+use stdClass;
+
 /**
  * Tests for the activity module callbacks in lib.php.
  *
@@ -29,8 +36,7 @@
  * @covers     ::idetestfeedback_reset_userdata
  * @covers     ::idetestfeedback_view
  */
-final class mod_idetestfeedback_lib_test extends advanced_testcase {
-
+final class lib_test extends advanced_testcase {
     #[\Override]
     protected function setUp(): void {
         parent::setUp();
@@ -38,6 +44,8 @@ final class mod_idetestfeedback_lib_test extends advanced_testcase {
     }
 
     /**
+     * Builds mod_form data for a new instance.
+     *
      * @param array $overrides mod_form-shaped fields to override the defaults with
      * @return stdClass the data as idetestfeedback_add_instance() would receive it
      */
@@ -131,6 +139,8 @@ final class mod_idetestfeedback_lib_test extends advanced_testcase {
     }
 
     /**
+     * Data provider for test_supports().
+     *
      * @return array[] [feature constant, expected value]
      */
     public static function supports_provider(): array {
@@ -148,6 +158,8 @@ final class mod_idetestfeedback_lib_test extends advanced_testcase {
     }
 
     /**
+     * The module reports the features it supports.
+     *
      * @dataProvider supports_provider
      * @param string $feature a FEATURE_* constant, or an unknown string
      * @param string|bool|null $expected the expected support value

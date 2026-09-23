@@ -30,8 +30,9 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class run_list implements renderable, templatable {
-
     /**
+     * Creates the run list.
+     *
      * @param stdClass[] $runs the runs on this page
      * @param url $detailurl the run detail page, carrying the list state; each row adds its run id
      * @param bool $showstudent whether to show the student column
@@ -43,14 +44,23 @@ class run_list implements renderable, templatable {
      * @param string $pagingbar the rendered paging bar
      */
     public function __construct(
+        /** @var stdClass[] The runs on this page */
         protected readonly array $runs,
+        /** @var url The run detail page, carrying the list state; each row adds its run id */
         protected readonly url $detailurl,
+        /** @var bool Whether to show the student column */
         protected readonly bool $showstudent,
+        /** @var bool Whether to tint each row by its status */
         protected readonly bool $colourrows,
+        /** @var bool Whether the viewer may see full names */
         protected readonly bool $viewfullnames = false,
+        /** @var string A pass rate summary shown above the table */
         protected readonly string $summary = '',
+        /** @var string How many runs matched, shown above the table */
         protected readonly string $totaltext = '',
+        /** @var string The rendered filter menus */
         protected readonly string $filters = '',
+        /** @var string The rendered paging bar */
         protected readonly string $pagingbar = ''
     ) {
     }

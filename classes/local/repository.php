@@ -24,14 +24,20 @@ namespace mod_idetestfeedback\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class repository {
-
     /**
+     * Creates the repository.
+     *
      * @param \moodle_database $db the database to read and write through
      */
-    public function __construct(protected \moodle_database $db) {
+    public function __construct(
+        /** @var \moodle_database The database to read and write through */
+        protected \moodle_database $db
+    ) {
     }
 
     /**
+     * Fetches an activity instance.
+     *
      * @param int $instanceid the activity instance id
      * @return \stdClass the activity instance
      */
@@ -40,6 +46,8 @@ class repository {
     }
 
     /**
+     * Fetches the activity instance that uses a key.
+     *
      * @param string $assignmentkey the key the IDE submits under
      * @return \stdClass|null the activity instance, or null when no activity uses that key
      */
@@ -62,6 +70,8 @@ class repository {
     }
 
     /**
+     * Fetches the results of a run.
+     *
      * @param int $runid the run id
      * @return \stdClass[] the run's results, in insertion order
      */
@@ -195,6 +205,8 @@ class repository {
     }
 
     /**
+     * Fetches a user's id and name fields.
+     *
      * @param int $userid the user id
      * @return \stdClass|null id and name fields only, or null when there is no such user
      */
@@ -213,8 +225,12 @@ class repository {
      * @param int $limitnum how many rows to return, 0 for all of them
      * @return \stdClass[] runs, each carrying the submitting user's name fields
      */
-    public function get_runs_for_instance(int $instanceid, array $filters = [],
-                                          int $limitfrom = 0, int $limitnum = 0): array {
+    public function get_runs_for_instance(
+        int $instanceid,
+        array $filters = [],
+        int $limitfrom = 0,
+        int $limitnum = 0
+    ): array {
         $namefields = \core_user\fields::for_name()->get_sql('u')->selects;
         [$where, $params] = $this->run_filter_sql($instanceid, $filters, 'r');
 
@@ -224,11 +240,15 @@ class repository {
                JOIN {user} u ON u.id = r.userid
               WHERE {$where}
               ORDER BY r.timecreated DESC, r.id DESC",
-            $params, $limitfrom, $limitnum
+            $params,
+            $limitfrom,
+            $limitnum
         );
     }
 
     /**
+     * Counts the runs in the activity.
+     *
      * @param int $instanceid the activity instance id
      * @param array $filters optional 'userid', 'status' and/or 'groupid' to narrow the count
      * @return int how many runs match
@@ -261,23 +281,33 @@ class repository {
     }
 
     /**
+     * A page of one user's runs, newest first.
+     *
      * @param int $instanceid the activity instance id
      * @param int $userid the student
      * @param int $limitfrom the first row to return
      * @param int $limitnum how many rows to return, 0 for all of them
      * @return \stdClass[] the user's runs, newest first
      */
-    public function get_runs_for_user(int $instanceid, int $userid,
-                                      int $limitfrom = 0, int $limitnum = 0): array {
+    public function get_runs_for_user(
+        int $instanceid,
+        int $userid,
+        int $limitfrom = 0,
+        int $limitnum = 0
+    ): array {
         return $this->db->get_records(
             'idetestfeedback_run',
             ['idetestfeedbackid' => $instanceid, 'userid' => $userid],
             'timecreated DESC, id DESC',
-            '*', $limitfrom, $limitnum
+            '*',
+            $limitfrom,
+            $limitnum
         );
     }
 
     /**
+     * A user's run count and passing run count.
+     *
      * @param int $instanceid the activity instance id
      * @param int $userid the student
      * @return array [total runs, passing runs] for the user, computed in the DB
@@ -400,6 +430,8 @@ class repository {
     }
 
     /**
+     * Stores a run in one transaction.
+     *
      * @param \stdClass $run the run to insert
      * @param \stdClass[] $results its results
      * @param \stdClass[] $files its captured test files
@@ -461,8 +493,11 @@ class repository {
                 continue;
             }
 
-            $existing = $this->db->get_field('idetestfeedback_blob', 'id',
-                ['idetestfeedbackid' => $instanceid, 'contenthash' => $hash]);
+            $existing = $this->db->get_field(
+                'idetestfeedback_blob',
+                'id',
+                ['idetestfeedbackid' => $instanceid, 'contenthash' => $hash]
+            );
 
             $blobs[$hash] = $existing ?: $this->db->insert_record('idetestfeedback_blob', (object) [
                 'idetestfeedbackid' => $instanceid,
@@ -546,6 +581,8 @@ class repository {
     }
 
     /**
+     * The activity instances in a course.
+     *
      * @param int $courseid the course id
      * @return int[] the ids of every activity instance in the course
      */

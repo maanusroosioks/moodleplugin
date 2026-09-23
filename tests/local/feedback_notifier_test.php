@@ -26,7 +26,6 @@ namespace mod_idetestfeedback\local;
  * @covers     \mod_idetestfeedback\local\feedback_notifier
  */
 final class feedback_notifier_test extends \advanced_testcase {
-
     public function test_notify_sends_a_message_naming_the_run_owner_and_feedback(): void {
         $this->resetAfterTest();
         $sink = $this->redirectMessages();

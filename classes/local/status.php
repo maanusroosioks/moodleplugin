@@ -28,7 +28,6 @@ namespace mod_idetestfeedback\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 enum status: string {
-
     case PASSED = 'PASSED';
     case FAILED = 'FAILED';
     case ERROR = 'ERROR';

@@ -10,6 +10,9 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\local;
 
@@ -25,17 +28,18 @@ namespace mod_idetestfeedback\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 enum source_kind: string {
-
-    /** The test was not found in the project's source at all. */
+    // The test was not found in the project's source at all.
     case NONE = 'NONE';
 
-    /** The file was found but the test could not be picked out of it; the hash covers the whole file. */
+    // The file was found but the test could not be picked out of it; the hash covers the whole file.
     case FILE = 'FILE';
 
-    /** The declaration was located; the line range and the hash cover just it. */
+    // The declaration was located; the line range and the hash cover just it.
     case TEST = 'TEST';
 
     /**
+     * What a result's source columns describe.
+     *
      * @param \stdClass $result a test case result carrying the source columns
      * @return self
      */
@@ -48,6 +52,8 @@ enum source_kind: string {
     }
 
     /**
+     * What a set of source columns describes.
+     *
      * @param string|null $filepath the file the test was found in, if any
      * @param int|null $startline the declaration's first line, if located
      * @param int|null $endline the declaration's last line, if located

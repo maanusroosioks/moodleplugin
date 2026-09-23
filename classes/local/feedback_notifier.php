@@ -30,15 +30,19 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class feedback_notifier {
-
     /**
+     * Sets up a notifier for one activity.
+     *
      * @param stdClass $course the course the activity is in
      * @param stdClass $instance the activity instance
      * @param int $cmid the course module id, for the link back
      */
     public function __construct(
+        /** @var stdClass The course the activity is in */
         protected readonly stdClass $course,
+        /** @var stdClass The activity instance */
         protected readonly stdClass $instance,
+        /** @var int The course module id, for the link back */
         protected readonly int $cmid
     ) {
     }

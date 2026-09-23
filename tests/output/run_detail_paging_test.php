@@ -10,21 +10,15 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\output;
 
-/**
- * Exposes the protected page slice.
- */
-class testable_run_detail_paging extends run_detail {
+defined('MOODLE_INTERNAL') || die();
 
-    /**
-     * @return \stdClass[] the results on the current page
-     */
-    public function page(): array {
-        return $this->page_results();
-    }
-}
+require_once(__DIR__ . '/../fixtures/testable_run_detail_paging.php');
 
 /**
  * Tests for how the run detail pages its results.
@@ -36,8 +30,9 @@ class testable_run_detail_paging extends run_detail {
  * @covers     \mod_idetestfeedback\output\run_detail
  */
 final class run_detail_paging_test extends \advanced_testcase {
-
     /**
+     * The result ids shown on one page.
+     *
      * @param int $page zero based page number
      * @param int $perpage results per page
      * @return int[] the ids of the results on that page, out of five

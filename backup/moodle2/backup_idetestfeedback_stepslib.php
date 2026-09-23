@@ -23,14 +23,13 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Defines the complete idetestfeedback structure for backup.
  */
 class backup_idetestfeedback_activity_structure_step extends backup_activity_structure_step {
-
     /**
+     * Defines the backup structure of the activity.
+     *
      * @return backup_nested_element the activity structure, wrapped for backup
      */
     protected function define_structure() {

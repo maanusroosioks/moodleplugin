@@ -31,7 +31,6 @@ require_once($CFG->dirroot . '/mod/idetestfeedback/backup/moodle2/backup_idetest
  * Provides the steps to perform one complete backup of the activity instance.
  */
 class backup_idetestfeedback_activity_task extends backup_activity_task {
-
     /**
      * No settings of its own.
      */

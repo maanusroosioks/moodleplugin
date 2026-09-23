@@ -22,8 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\required_tests;
 
@@ -38,7 +36,7 @@ function idetestfeedback_add_instance(stdClass $data, $mform = null): int {
     global $DB;
 
     $data->assignmentkey = bin2hex(random_bytes(16));
-    $data->timeopen      = $data->timeopen  ?? 0;
+    $data->timeopen      = $data->timeopen ?? 0;
     $data->timeclose     = $data->timeclose ?? 0;
     $data->requiredtests = required_tests::normalize($data->requiredtests ?? null);
     $data->timecreated   = time();
@@ -59,7 +57,7 @@ function idetestfeedback_update_instance(stdClass $data, $mform = null): bool {
     global $DB;
 
     $data->id            = $data->instance;
-    $data->timeopen      = $data->timeopen  ?? 0;
+    $data->timeopen      = $data->timeopen ?? 0;
     $data->timeclose     = $data->timeclose ?? 0;
     $data->requiredtests = required_tests::normalize($data->requiredtests ?? null);
     $data->timemodified  = time();
@@ -109,8 +107,12 @@ function idetestfeedback_supports(string $feature): string|bool|null {
  * @param cm_info|stdClass $cm the course module
  * @param \core\context\module $context the activity context
  */
-function idetestfeedback_view(stdClass $instance, stdClass $course, cm_info|stdClass $cm,
-                              \core\context\module $context): void {
+function idetestfeedback_view(
+    stdClass $instance,
+    stdClass $course,
+    cm_info|stdClass $cm,
+    \core\context\module $context
+): void {
     global $CFG;
     require_once($CFG->libdir . '/completionlib.php');
 
@@ -169,6 +171,8 @@ function idetestfeedback_reset_course_form_definition(&$mform): void {
 }
 
 /**
+ * The default values of the course reset options.
+ *
  * @param stdClass $course the course being reset
  * @return array the default state of this activity's reset options
  */

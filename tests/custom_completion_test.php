@@ -29,7 +29,6 @@ use mod_idetestfeedback\completion\custom_completion;
  * @covers     \mod_idetestfeedback\completion\custom_completion
  */
 final class custom_completion_test extends \advanced_testcase {
-
     /**
      * Creates an activity with the rule switched on, plus an enrolled student.
      *
@@ -54,6 +53,8 @@ final class custom_completion_test extends \advanced_testcase {
     }
 
     /**
+     * The completion state of the custom rule for a student.
+     *
      * @param cm_info $cm the activity
      * @param int $userid the student
      * @return int the rule's state for that student

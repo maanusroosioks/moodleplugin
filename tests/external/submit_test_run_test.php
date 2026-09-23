@@ -31,7 +31,6 @@ use mod_idetestfeedback\local\validation_exception;
  * @covers     \mod_idetestfeedback\external\submit_test_run
  */
 final class submit_test_run_test extends \advanced_testcase {
-
     /** @var string The declaration the fixture's line range points at. */
     private const DECLARATION = "def test_add_returns_sum():\n    assert add(2, 3) == 5";
 
@@ -58,6 +57,8 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     /**
+     * Builds valid submission parameters.
+     *
      * @param array $overrides parameters to override the happy-path defaults with
      * @return array the parameters {@see submit()} sends
      */
@@ -80,6 +81,8 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     /**
+     * Builds a result's source block.
+     *
      * @param array $overrides fields to override the defaults with
      * @return array one 'source' block, as the IDE sends it
      */
@@ -92,6 +95,8 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     /**
+     * Builds the test file the default source block points at.
+     *
      * @return array one testfile holding the declaration the fixture points at
      */
     private function sourcefile(): array {
@@ -103,6 +108,8 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     /**
+     * Calls the web service with the given parameters.
+     *
      * @param array $params from {@see params()}
      * @return array the return value of execute()
      */
@@ -118,6 +125,8 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     /**
+     * Calls the web service with a raw payload string.
+     *
      * @param array $params from {@see params()}
      * @param string $payload the raw payload string to send in place of the encoded lists
      * @return array the return value of execute()
@@ -153,6 +162,8 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     /**
+     * Data provider for test_run_status_is_the_worst_outcome_reported().
+     *
      * @return array[] [result statuses submitted, expected overall run status]
      */
     public static function run_status_provider(): array {
@@ -166,6 +177,8 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     /**
+     * The run status is the worst status any result reported.
+     *
      * @dataProvider run_status_provider
      * @param string[] $statuses the statuses to submit, one result each
      * @param status $expected the overall run status that should be stored
@@ -291,7 +304,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $files = array_values((new repository($DB))->get_files($returned['runid']));
         $this->assertCount(2, $files);
 
-        // get_files() orders by path, so conftest.py comes first.
+        // Files are ordered by path, so conftest.py comes first.
         $this->assertSame('tests/conftest.py', $files[0]->path);
         $this->assertSame(1, (int) $files[0]->truncated);
         $this->assertSame('tests/test_calculator.py', $files[1]->path);
@@ -486,6 +499,8 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     /**
+     * Data provider for test_it_rejects_an_impossible_source_line_range().
+     *
      * @return array[] [the source line numbers to submit]
      */
     public static function invalid_source_lines_provider(): array {
@@ -497,6 +512,8 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     /**
+     * An impossible source line range is rejected.
+     *
      * @dataProvider invalid_source_lines_provider
      * @param int $startline the first line to submit
      * @param int $endline the last line to submit

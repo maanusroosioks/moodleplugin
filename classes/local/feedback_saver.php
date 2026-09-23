@@ -26,11 +26,15 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class feedback_saver {
-
     /**
+     * Creates the saver.
+     *
      * @param repository $repository the activity's database access
      */
-    public function __construct(protected readonly repository $repository) {
+    public function __construct(
+        /** @var repository The activity's database access */
+        protected readonly repository $repository
+    ) {
     }
 
     /**

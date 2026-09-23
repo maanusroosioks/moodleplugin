@@ -25,6 +25,8 @@ namespace mod_idetestfeedback\local;
  */
 class validation_exception extends \core\exception\moodle_exception {
     /**
+     * Creates the exception from one of this plugin's language strings.
+     *
      * @param string $errorcode the language string naming the reason
      * @param mixed $a the placeholder value that string takes, if any
      */

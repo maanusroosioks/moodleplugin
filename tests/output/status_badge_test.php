@@ -26,8 +26,9 @@ namespace mod_idetestfeedback\output;
  * @covers     \mod_idetestfeedback\output\status_badge
  */
 final class status_badge_test extends \basic_testcase {
-
     /**
+     * Data provider for test_row_class().
+     *
      * @return array[] [status, expected row class]
      */
     public static function row_class_provider(): array {
@@ -41,6 +42,8 @@ final class status_badge_test extends \basic_testcase {
     }
 
     /**
+     * Each status maps to its table row class.
+     *
      * @dataProvider row_class_provider
      * @param string $status a status as stored on the run or result row
      * @param string $expected the expected row class
@@ -50,6 +53,8 @@ final class status_badge_test extends \basic_testcase {
     }
 
     /**
+     * A renderer for export_for_template().
+     *
      * @return \renderer_base a renderer double; export_for_template() never touches it
      */
     private function renderer(): \renderer_base {
@@ -63,6 +68,8 @@ final class status_badge_test extends \basic_testcase {
     }
 
     /**
+     * Data provider for test_export_for_template_classes().
+     *
      * @return array[] [status, expected classes]
      */
     public static function classes_provider(): array {
@@ -75,6 +82,8 @@ final class status_badge_test extends \basic_testcase {
     }
 
     /**
+     * Each status maps to its badge classes.
+     *
      * @dataProvider classes_provider
      * @param string $status a status as stored on the run or result row
      * @param string $expected the expected CSS classes

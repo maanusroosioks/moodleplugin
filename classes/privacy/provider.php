@@ -34,10 +34,11 @@ use mod_idetestfeedback\local\repository;
  */
 class provider implements
     \core_privacy\local\metadata\provider,
-    \core_privacy\local\request\plugin\provider,
-    \core_privacy\local\request\core_userlist_provider {
-
+    \core_privacy\local\request\core_userlist_provider,
+    \core_privacy\local\request\plugin\provider {
     /**
+     * Describes the personal data the activity stores.
+     *
      * @param collection $collection the metadata being built
      * @return collection
      */
@@ -113,6 +114,8 @@ class provider implements
     }
 
     /**
+     * The contexts holding data about a user.
+     *
      * @param int $userid the user to look for
      * @return contextlist the contexts holding data about them
      */
@@ -144,6 +147,8 @@ class provider implements
     }
 
     /**
+     * The users holding data in a context.
+     *
      * @param userlist $userlist the users found in one context
      */
     #[\Override]
@@ -176,6 +181,8 @@ class provider implements
     }
 
     /**
+     * Exports a user's data in the approved contexts.
+     *
      * @param approved_contextlist $contextlist the contexts approved for export
      */
     #[\Override]
@@ -259,8 +266,12 @@ class provider implements
      * @param int $instanceid the activity instance id
      * @param int $userid the feedback author
      */
-    private static function export_feedback_given(repository $repository, \core\context\module $context,
-                                                  int $instanceid, int $userid): void {
+    private static function export_feedback_given(
+        repository $repository,
+        \core\context\module $context,
+        int $instanceid,
+        int $userid
+    ): void {
         $results = $repository->get_feedback_authored_by($instanceid, $userid);
 
         if (!$results) {
@@ -286,6 +297,8 @@ class provider implements
     }
 
     /**
+     * Deletes every user's data in a context.
+     *
      * @param \context $context the context to empty
      */
     #[\Override]
@@ -302,6 +315,8 @@ class provider implements
     }
 
     /**
+     * Deletes a user's data in the approved contexts.
+     *
      * @param approved_contextlist $contextlist the contexts approved for deletion
      */
     #[\Override]
@@ -322,6 +337,8 @@ class provider implements
     }
 
     /**
+     * Deletes the approved users' data in a context.
+     *
      * @param approved_userlist $userlist the users approved for deletion
      */
     #[\Override]
@@ -352,6 +369,8 @@ class provider implements
     }
 
     /**
+     * The activity's database access.
+     *
      * @return repository the activity's database access
      */
     private static function repository(): repository {

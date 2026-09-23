@@ -36,11 +36,12 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class run_detail implements renderable, templatable {
-
     /** @var array<string, stdClass> The run's files, by the path results join to them on. */
     protected readonly array $filesbypath;
 
     /**
+     * Creates the run detail.
+     *
      * @param stdClass $instance the activity instance
      * @param stdClass $run the run being shown
      * @param stdClass[] $results the run's test case results
@@ -56,18 +57,31 @@ class run_detail implements renderable, templatable {
      * @param string $pagingbar the rendered paging bar
      */
     public function __construct(
+        /** @var stdClass The activity instance */
         protected readonly stdClass $instance,
+        /** @var stdClass The run being shown */
         protected readonly stdClass $run,
+        /** @var stdClass[] The run's test case results */
         protected readonly array $results,
+        /** @var stdClass[] The test files captured with the run */
         protected readonly array $files,
+        /** @var string|null The run's owner, or null to leave it out */
         protected readonly ?string $studentname,
+        /** @var context The activity context, for formatting feedback */
         protected readonly context $context,
+        /** @var bool Whether the viewer may edit feedback */
         protected readonly bool $cancomment,
+        /** @var source_history The same tests as the student's earlier runs reported them */
         protected readonly source_history $history,
+        /** @var url The run list this run was opened from */
         protected readonly url $backurl,
+        /** @var url Where the feedback form posts to */
         protected readonly url $formurl,
+        /** @var int Zero based page number within the results */
         protected readonly int $page = 0,
+        /** @var int Results per page, or 0 to show them all */
         protected readonly int $perpage = 0,
+        /** @var string The rendered paging bar */
         protected readonly string $pagingbar = ''
     ) {
         $this->filesbypath = array_column($files, null, 'path');
@@ -216,6 +230,8 @@ class run_detail implements renderable, templatable {
     }
 
     /**
+     * Formats a run's duration.
+     *
      * @param int $ms how long the run took, in milliseconds
      * @return string milliseconds under a second, format_time() units from there on
      */
@@ -383,6 +399,8 @@ class run_detail implements renderable, templatable {
     }
 
     /**
+     * The badge for a test unchanged since feedback.
+     *
      * @param stdClass $result a test case whose body has not changed since it was commented on
      * @return array the widest badge the captured hashes support
      */
@@ -400,6 +418,8 @@ class run_detail implements renderable, templatable {
     }
 
     /**
+     * Builds a badge.
+     *
      * @param string $identifier the label's string identifier
      * @param string $classes the Bootstrap classes the badge carries
      * @return array
@@ -472,6 +492,8 @@ class run_detail implements renderable, templatable {
     }
 
     /**
+     * The run's copy of the file a result names.
+     *
      * @param stdClass $result one test case result
      * @return stdClass|null the run's copy of the file the result names, if it has one
      */
@@ -480,6 +502,8 @@ class run_detail implements renderable, templatable {
     }
 
     /**
+     * The content of a file.
+     *
      * @param stdClass|null $file one of the run's files
      * @return string the source the file carries, stored canonicalised
      */

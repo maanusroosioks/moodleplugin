@@ -18,19 +18,9 @@ namespace mod_idetestfeedback\output;
 
 use mod_idetestfeedback\local\source_history;
 
-/**
- * Exposes the badge builder.
- */
-class testable_run_detail_history extends run_detail {
+defined('MOODLE_INTERNAL') || die();
 
-    /**
-     * @param \stdClass $result one test case result
-     * @return array[] the exported badges
-     */
-    public function badges(\stdClass $result): array {
-        return $this->history_badges($result);
-    }
-}
+require_once(__DIR__ . '/../fixtures/testable_run_detail_history.php');
 
 /**
  * Tests for how the run detail reports a test case against earlier runs.
@@ -42,7 +32,6 @@ class testable_run_detail_history extends run_detail {
  * @covers     \mod_idetestfeedback\output\run_detail
  */
 final class run_detail_history_test extends \advanced_testcase {
-
     /** @var int The run being shown, for feedback written before it. */
     private const NOW = 1000;
 
@@ -50,6 +39,8 @@ final class run_detail_history_test extends \advanced_testcase {
     private const PATH = 'tests/test_calculator.py';
 
     /**
+     * Builds a result row.
+     *
      * @param array $overrides the columns to set
      * @return \stdClass a result row
      */
@@ -69,13 +60,18 @@ final class run_detail_history_test extends \advanced_testcase {
     }
 
     /**
+     * Builds the run detail under test.
+     *
      * @param array $priorresults earlier result rows, newest run first
      * @param array $priorfiles the file rows of those runs
      * @param int|null $currentblobid the body this run captured for the file
      * @return testable_run_detail_history
      */
-    private function detail(array $priorresults, array $priorfiles = [],
-                            ?int $currentblobid = null): testable_run_detail_history {
+    private function detail(
+        array $priorresults,
+        array $priorfiles = [],
+        ?int $currentblobid = null
+    ): testable_run_detail_history {
         return new testable_run_detail_history(
             instance: (object) ['requiredtests' => null],
             run: (object) [],
@@ -91,6 +87,8 @@ final class run_detail_history_test extends \advanced_testcase {
     }
 
     /**
+     * Builds a file row.
+     *
      * @param int $runid the run the file was captured with
      * @param int $blobid the body it captured there
      * @return \stdClass
@@ -100,6 +98,8 @@ final class run_detail_history_test extends \advanced_testcase {
     }
 
     /**
+     * Asserts that exactly one badge was exported, with the given label.
+     *
      * @param string $identifier the expected label's string identifier
      * @param array[] $badges what the run detail exported
      */

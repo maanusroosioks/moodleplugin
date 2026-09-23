@@ -26,7 +26,6 @@ namespace mod_idetestfeedback\local;
  * @covers     \mod_idetestfeedback\local\status
  */
 final class status_test extends \basic_testcase {
-
     public function test_try_from_resolves_known_values(): void {
         $this->assertSame(status::PASSED, status::tryFrom('PASSED'));
         $this->assertSame(status::FAILED, status::tryFrom('FAILED'));

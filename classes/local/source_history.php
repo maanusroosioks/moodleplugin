@@ -31,7 +31,6 @@ namespace mod_idetestfeedback\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class source_history {
-
     /** @var int How many of the student's earlier runs are compared against. */
     public const LOOKBACK_RUNS = 20;
 
@@ -48,6 +47,8 @@ class source_history {
     protected array $fileblobs = [];
 
     /**
+     * Indexes the earlier runs for lookup.
+     *
      * @param \stdClass[] $priorresults earlier result rows, newest run first
      * @param \stdClass[] $priorfiles the file rows of those same runs
      * @param int $runtimecreated when the run being shown was submitted
@@ -62,9 +63,11 @@ class source_history {
 
             // Feedback written after this run was submitted cannot be what the
             // student was answering, so it is not treated as an anchor.
-            if (!isset($this->lastfeedback[$key])
+            if (
+                !isset($this->lastfeedback[$key])
                     && trim((string) ($row->feedback ?? '')) !== ''
-                    && (int) ($row->feedbackmodified ?? 0) < $runtimecreated) {
+                    && (int) ($row->feedbackmodified ?? 0) < $runtimecreated
+            ) {
                 $this->lastfeedback[$key] = $row;
             }
         }
@@ -75,6 +78,8 @@ class source_history {
     }
 
     /**
+     * How a test's code changed since the last run that reported it.
+     *
      * @param \stdClass $result one test case result of the run being shown
      * @return source_change against the last earlier run that reported this test
      */
@@ -83,6 +88,8 @@ class source_history {
     }
 
     /**
+     * How a test's code changed since a teacher last commented on it.
+     *
      * @param \stdClass $result one test case result of the run being shown
      * @return source_change against the occurrence a teacher last commented on
      */
@@ -125,6 +132,8 @@ class source_history {
     }
 
     /**
+     * The earlier occurrence of a result in an index.
+     *
      * @param array<string, \stdClass> $index one of the folded lookups
      * @param \stdClass $result one test case result of the run being shown
      * @return \stdClass|null the earlier occurrence, if this index holds one
@@ -134,6 +143,8 @@ class source_history {
     }
 
     /**
+     * Compares a result's code hash with an earlier occurrence.
+     *
      * @param \stdClass $current a result of the run being shown
      * @param \stdClass|null $earlier the occurrence to compare it against
      * @return source_change
@@ -160,6 +171,8 @@ class source_history {
     }
 
     /**
+     * Normalises a stored hash for comparison.
+     *
      * @param string|null $hash a stored hash
      * @return string the form hashes are compared in
      */
@@ -168,6 +181,8 @@ class source_history {
     }
 
     /**
+     * The key a test is indexed under.
+     *
      * @param string|null $testsuite the suite the IDE reported, if any
      * @param string $testname the test name the IDE reported
      * @return string the key an occurrence of this test is held under

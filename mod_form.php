@@ -26,8 +26,14 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
 
+/**
+ * The activity settings form.
+ *
+ * @package    mod_idetestfeedback
+ * @copyright  2026 Maanus Roosioks
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class mod_idetestfeedback_mod_form extends moodleform_mod {
-
     /**
      * Defines the activity settings form.
      */
@@ -96,6 +102,8 @@ class mod_idetestfeedback_mod_form extends moodleform_mod {
     }
 
     /**
+     * Validates the submitted settings.
+     *
      * @param array $data the submitted data
      * @param array $files the submitted files
      * @return array field => error message
@@ -132,6 +140,8 @@ class mod_idetestfeedback_mod_form extends moodleform_mod {
     }
 
     /**
+     * Adds the custom completion rule.
+     *
      * @return string[] the ids of the completion elements added
      */
     #[\Override]
@@ -149,6 +159,8 @@ class mod_idetestfeedback_mod_form extends moodleform_mod {
     }
 
     /**
+     * Whether the custom completion rule is enabled.
+     *
      * @param array $data the submitted data
      * @return bool whether this activity's completion rule is switched on
      */

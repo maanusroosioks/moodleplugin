@@ -26,7 +26,6 @@ namespace mod_idetestfeedback\local;
  * @covers     \mod_idetestfeedback\local\validation_exception
  */
 final class validation_exception_test extends \advanced_testcase {
-
     public function test_it_resolves_the_named_language_string(): void {
         $exception = new validation_exception('validation_noresults');
 

@@ -27,13 +27,12 @@ namespace mod_idetestfeedback\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 enum source_change: string {
-
-    /** Nothing to compare: no earlier occurrence, a missing hash, or mismatched kinds. */
+    // Nothing to compare: no earlier occurrence, a missing hash, or mismatched kinds.
     case UNKNOWN = 'UNKNOWN';
 
-    /** Both hashes are present and equal. */
+    // Both hashes are present and equal.
     case UNCHANGED = 'UNCHANGED';
 
-    /** Both hashes are present and differ. */
+    // Both hashes are present and differ.
     case CHANGED = 'CHANGED';
 }

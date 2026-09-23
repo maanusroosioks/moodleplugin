@@ -24,7 +24,6 @@ namespace mod_idetestfeedback\event;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_module_viewed extends \core\event\course_module_viewed {
-
     /**
      * Initialises the event data.
      */
@@ -36,6 +35,8 @@ class course_module_viewed extends \core\event\course_module_viewed {
     }
 
     /**
+     * Maps the objectid for backup and restore.
+     *
      * @return array the backup mapping for this event's objectid
      */
     #[\Override]

@@ -10,30 +10,15 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\output;
 
-/**
- * Exposes the protected source block so one result can be exported on its own.
- */
-class testable_run_detail_source extends run_detail {
+defined('MOODLE_INTERNAL') || die();
 
-    /**
-     * @param \stdClass $result one test case result
-     * @return array|null the exported source block
-     */
-    public function block(\stdClass $result): ?array {
-        return $this->source_block($result);
-    }
-
-    /**
-     * @param int $ms a run's duration in milliseconds
-     * @return string the duration as shown
-     */
-    public static function duration(int $ms): string {
-        return self::run_duration($ms);
-    }
-}
+require_once(__DIR__ . '/../fixtures/testable_run_detail_source.php');
 
 /**
  * Tests for how the run detail finds the code a test case ran.
@@ -45,11 +30,12 @@ class testable_run_detail_source extends run_detail {
  * @covers     \mod_idetestfeedback\output\run_detail
  */
 final class run_detail_source_test extends \advanced_testcase {
-
     /** @var string A file whose test declaration sits on lines 3 and 4. */
     private const FILE = "import pytest\n\ndef test_add():\n    assert add(2, 3) == 5\n";
 
     /**
+     * Builds a result row.
+     *
      * @param array $source the stored source columns of one result
      * @return \stdClass a result row
      */
@@ -65,6 +51,8 @@ final class run_detail_source_test extends \advanced_testcase {
     }
 
     /**
+     * Builds the run detail under test.
+     *
      * @param array $files the stored file rows of the run
      * @return testable_run_detail_source
      */
@@ -84,6 +72,8 @@ final class run_detail_source_test extends \advanced_testcase {
     }
 
     /**
+     * Builds a file row.
+     *
      * @param array $file the stored columns of one file row
      * @return \stdClass a file row
      */

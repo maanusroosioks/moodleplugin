@@ -28,8 +28,9 @@ use mod_idetestfeedback\local\required_tests;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class custom_completion extends activity_custom_completion {
-
     /**
+     * Evaluates a completion rule for the user.
+     *
      * @param string $rule the completion rule to evaluate
      * @return int COMPLETION_COMPLETE or COMPLETION_INCOMPLETE
      */
@@ -70,6 +71,8 @@ class custom_completion extends activity_custom_completion {
     }
 
     /**
+     * The custom completion rules this activity defines.
+     *
      * @return string[] the rules this activity defines
      */
     #[\Override]
@@ -78,6 +81,8 @@ class custom_completion extends activity_custom_completion {
     }
 
     /**
+     * The descriptions of the custom completion rules.
+     *
      * @return array<string, string> rule => the description shown to users
      */
     #[\Override]
@@ -88,6 +93,8 @@ class custom_completion extends activity_custom_completion {
     }
 
     /**
+     * The order the completion rules are displayed in.
+     *
      * @return string[] the order the rules are displayed in
      */
     #[\Override]

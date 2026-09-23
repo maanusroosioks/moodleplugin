@@ -10,6 +10,9 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback;
 
@@ -36,7 +39,6 @@ require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
  * @covers     \backup_idetestfeedback_activity_structure_step
  */
 final class backup_restore_test extends \advanced_testcase {
-
     /** @var string The file both runs capture. */
     private const BODY = "def testAdd():\n    assert add(1, 2) == 3\n";
 
@@ -55,8 +57,14 @@ final class backup_restore_test extends \advanced_testcase {
 
         $cm = get_coursemodule_from_instance('idetestfeedback', $instance->id, $course->id, false, MUST_EXIST);
 
-        $bc = new backup_controller(backup::TYPE_1ACTIVITY, $cm->id, backup::FORMAT_MOODLE,
-            backup::INTERACTIVE_NO, backup::MODE_GENERAL, $USER->id);
+        $bc = new backup_controller(
+            backup::TYPE_1ACTIVITY,
+            $cm->id,
+            backup::FORMAT_MOODLE,
+            backup::INTERACTIVE_NO,
+            backup::MODE_GENERAL,
+            $USER->id
+        );
         $bc->get_plan()->get_setting('users')->set_value(true);
         $bc->execute_plan();
         $backupid = $bc->get_backupid();
@@ -68,8 +76,14 @@ final class backup_restore_test extends \advanced_testcase {
         $bc->destroy();
 
         $target = $this->getDataGenerator()->create_course();
-        $rc = new restore_controller($backupid, $target->id, backup::INTERACTIVE_NO,
-            backup::MODE_GENERAL, $USER->id, backup::TARGET_CURRENT_ADDING);
+        $rc = new restore_controller(
+            $backupid,
+            $target->id,
+            backup::INTERACTIVE_NO,
+            backup::MODE_GENERAL,
+            $USER->id,
+            backup::TARGET_CURRENT_ADDING
+        );
         $this->assertTrue($rc->execute_precheck());
         $rc->execute_plan();
         $rc->destroy();

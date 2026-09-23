@@ -23,9 +23,10 @@ namespace mod_idetestfeedback\local;
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-final readonly class submission {
-
+final class submission {
     /**
+     * Holds a validated submission.
+     *
      * @param string $email the student the middleware authenticated
      * @param string $assignmentkey the key shown on the activity
      * @param string $ide the IDE the run came from
@@ -39,17 +40,28 @@ final readonly class submission {
      * @param bool $warningacknowledged whether the student submitted past the empty-test warning
      */
     public function __construct(
-        public string $email,
-        public string $assignmentkey,
-        public string $ide,
-        public ?string $projectname,
-        public ?string $commithash,
-        public ?int $startedat,
-        public ?int $finishedat,
-        public array $results,
-        public array $testfiles,
-        public bool $capturedisabled,
-        public bool $warningacknowledged,
+        /** @var string The student the middleware authenticated */
+        public readonly string $email,
+        /** @var string The key shown on the activity */
+        public readonly string $assignmentkey,
+        /** @var string The IDE the run came from */
+        public readonly string $ide,
+        /** @var string|null The project the tests ran in */
+        public readonly ?string $projectname,
+        /** @var string|null The commit the tests ran against */
+        public readonly ?string $commithash,
+        /** @var int|null When the run started, in epoch milliseconds */
+        public readonly ?int $startedat,
+        /** @var int|null When the run finished, in epoch milliseconds */
+        public readonly ?int $finishedat,
+        /** @var array[] The test case results, statuses uppercased */
+        public readonly array $results,
+        /** @var array[] The captured test files */
+        public readonly array $testfiles,
+        /** @var bool Whether the student turned source capture off */
+        public readonly bool $capturedisabled,
+        /** @var bool Whether the student submitted past the empty-test warning */
+        public readonly bool $warningacknowledged,
     ) {
     }
 }

@@ -31,7 +31,6 @@ require_once($CFG->dirroot . '/mod/idetestfeedback/backup/moodle2/restore_idetes
  * Provides the settings and steps to perform one complete restore of the activity.
  */
 class restore_idetestfeedback_activity_task extends restore_activity_task {
-
     /**
      * No settings of its own.
      */
@@ -49,6 +48,8 @@ class restore_idetestfeedback_activity_task extends restore_activity_task {
     }
 
     /**
+     * Defines the contents in the activity that must be decoded.
+     *
      * @return restore_decode_content[] the fields the link decoder must process
      */
     public static function define_decode_contents() {
@@ -58,6 +59,8 @@ class restore_idetestfeedback_activity_task extends restore_activity_task {
     }
 
     /**
+     * Defines the decoding rules for links belonging to the activity.
+     *
      * @return restore_decode_rule[] the decoding rules for links into this activity
      */
     public static function define_decode_rules() {
@@ -76,6 +79,8 @@ class restore_idetestfeedback_activity_task extends restore_activity_task {
     }
 
     /**
+     * Defines the restore log rules for the activity.
+     *
      * @return restore_log_rule[] the log rules applied when restoring this activity's logs
      */
     public static function define_restore_log_rules() {
@@ -87,6 +92,8 @@ class restore_idetestfeedback_activity_task extends restore_activity_task {
     }
 
     /**
+     * Defines the restore log rules for the course.
+     *
      * @return restore_log_rule[] the log rules applied when restoring course logs
      */
     public static function define_restore_log_rules_for_course() {

@@ -10,6 +10,9 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\local;
 
@@ -25,7 +28,6 @@ namespace mod_idetestfeedback\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class source_code {
-
     /**
      * @var string Matches the line an IDE appends to a string it cut short.
      * The marker is not source, so it is dropped before anything is counted.
@@ -33,6 +35,8 @@ class source_code {
     private const MARKER = '/\n?\x{2026} \[truncated[^\]\n]*\]\s*$/u';
 
     /**
+     * Converts line endings to LF.
+     *
      * @param string $code source as it was received
      * @return string the same source with CRLF and CR line endings as LF
      */
@@ -41,6 +45,8 @@ class source_code {
     }
 
     /**
+     * Removes the trailing truncation marker.
+     *
      * @param string $code source as it was received
      * @return string the same source without the trailing truncation marker, if it had one
      */
@@ -62,6 +68,8 @@ class source_code {
     }
 
     /**
+     * Hashes source in its canonical form.
+     *
      * @param string $code source as it was received
      * @return string the sha256 of its canonical form
      */

@@ -23,13 +23,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Structure step to restore one idetestfeedback activity.
  */
 class restore_idetestfeedback_activity_structure_step extends restore_activity_structure_step {
-
     /** @var array<string, int> Blobs already stored in this restore, by content hash. */
     private array $blobs = [];
 
@@ -37,6 +34,8 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
     private array $restoredruns = [];
 
     /**
+     * Defines the restore paths of the activity.
+     *
      * @return array the paths to restore, wrapped for restore
      */
     protected function define_structure() {
@@ -81,8 +80,10 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
         // The key is unique site-wide, so a duplicate of an activity that still
         // exists has to be issued its own. A restore onto a site that has never
         // seen this key keeps it, so the keys students already hold keep working.
-        if (empty($data->assignmentkey)
-                || $DB->record_exists('idetestfeedback', ['assignmentkey' => $data->assignmentkey])) {
+        if (
+            empty($data->assignmentkey)
+                || $DB->record_exists('idetestfeedback', ['assignmentkey' => $data->assignmentkey])
+        ) {
             $data->assignmentkey = bin2hex(random_bytes(16));
         }
 
@@ -153,6 +154,8 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
     }
 
     /**
+     * Finds or stores the blob for a body.
+     *
      * @param int $instanceid the activity being restored into
      * @param string $content the canonical body
      * @return int the blob holding it
@@ -165,8 +168,11 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
             return $this->blobs[$hash];
         }
 
-        $existing = $DB->get_field('idetestfeedback_blob', 'id',
-            ['idetestfeedbackid' => $instanceid, 'contenthash' => $hash]);
+        $existing = $DB->get_field(
+            'idetestfeedback_blob',
+            'id',
+            ['idetestfeedbackid' => $instanceid, 'contenthash' => $hash]
+        );
 
         $this->blobs[$hash] = $existing ?: $DB->insert_record('idetestfeedback_blob', (object) [
             'idetestfeedbackid' => $instanceid,

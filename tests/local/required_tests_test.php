@@ -26,8 +26,9 @@ namespace mod_idetestfeedback\local;
  * @covers     \mod_idetestfeedback\local\required_tests
  */
 final class required_tests_test extends \basic_testcase {
-
     /**
+     * Data provider for test_parse().
+     *
      * @return array[] [raw input, expected entries]
      */
     public static function parse_provider(): array {
@@ -53,6 +54,8 @@ final class required_tests_test extends \basic_testcase {
     }
 
     /**
+     * Parsing a teacher's list yields the canonical entries.
+     *
      * @dataProvider parse_provider
      * @param string|null $raw the teacher's list as typed
      * @param string[] $expected the canonical entries
