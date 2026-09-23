@@ -48,10 +48,9 @@ class test_run_submitted extends \core\event\base {
      */
     #[\Override]
     public function get_description() {
-        return "The web service account with id '{$this->userid}' submitted test run with id " .
-            "'{$this->objectid}' (status {$this->other['status']}) for the user with id " .
-            "'{$this->relateduserid}' in the idetestfeedback activity with course module id " .
-            "'{$this->contextinstanceid}'.";
+        return "The user with id '{$this->relateduserid}' submitted test run with id " .
+            "'{$this->objectid}' (status {$this->other['status']}) from their IDE in the " .
+            "idetestfeedback activity with course module id '{$this->contextinstanceid}'.";
     }
 
     /**

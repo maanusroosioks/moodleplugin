@@ -74,6 +74,8 @@ final class submit_test_run_test extends \advanced_testcase {
                 ['testname' => 'testAdd', 'status' => 'PASSED', 'testsuite' => null,
                     'durationms' => 5, 'message' => null],
             ],
+            'capturedisabled'     => false,
+            'warningacknowledged' => false,
         ], $overrides);
     }
 
@@ -444,7 +446,22 @@ final class submit_test_run_test extends \advanced_testcase {
         ]]]));
 
         $files = array_values((new repository($DB))->get_files($returned['runid']));
-        $this->assertSame(524288, \core_text::strlen($files[0]->content));
+        $this->assertSame(524288, strlen($files[0]->content));
+        $this->assertSame(1, (int) $files[0]->truncated);
+    }
+
+    public function test_oversized_multibyte_content_is_clipped_by_bytes_on_a_character_boundary(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['testfiles' => [[
+            'path' => 'tests/big.py',
+            'content' => str_repeat('õ', 300000),
+            'truncated' => false,
+        ]]]));
+
+        $files = array_values((new repository($DB))->get_files($returned['runid']));
+        $this->assertLessThanOrEqual(524288, strlen($files[0]->content));
+        $this->assertTrue(mb_check_encoding($files[0]->content, 'UTF-8'));
         $this->assertSame(1, (int) $files[0]->truncated);
     }
 
@@ -508,6 +525,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertCount(1, $matching);
         $event = $matching[0];
         $this->assertSame($returned['runid'], (int) $event->objectid);
+        $this->assertSame((int) $this->student->id, (int) $event->userid);
         $this->assertSame((int) $this->student->id, (int) $event->relateduserid);
         $this->assertSame(status::PASSED->value, $event->other['status']);
     }
@@ -685,12 +703,14 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     public function test_it_rejects_more_than_the_maximum_number_of_results(): void {
-        $results = array_fill(0, 2001, [
+        $results = array_fill(0, 5001, [
             'testname' => 'test', 'status' => 'PASSED', 'testsuite' => null,
             'durationms' => null, 'message' => null,
         ]);
 
         $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_toomanyresults', 'mod_idetestfeedback', 5000));
+
         $this->submit($this->params(['results' => $results]));
     }
 
@@ -743,6 +763,32 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->expectExceptionMessage(get_string('validation_usernotfound', 'mod_idetestfeedback', 'nobody@example.com'));
 
         $this->submit($this->params(['email' => 'nobody@example.com']));
+    }
+
+    public function test_it_rejects_an_empty_email(): void {
+        $this->getDataGenerator()->create_and_enrol($this->course, 'student', ['email' => '']);
+
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_noemail', 'mod_idetestfeedback'));
+
+        $this->submit($this->params(['email' => '']));
+    }
+
+    public function test_it_checks_the_capability_before_reading_the_payload(): void {
+        $this->setUser($this->student);
+
+        $this->expectException(\required_capability_exception::class);
+
+        $this->submit_payload($this->params(), 'not json at all');
+    }
+
+    public function test_it_rejects_a_submission_to_a_hidden_activity(): void {
+        set_coursemodule_visible($this->instance->cmid, 0);
+
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_activityunavailable', 'mod_idetestfeedback'));
+
+        $this->submit($this->params());
     }
 
     public function test_it_rejects_an_ambiguous_email(): void {

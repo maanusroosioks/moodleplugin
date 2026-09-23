@@ -441,6 +441,48 @@ final class repository_test extends \advanced_testcase {
         $this->assertSame(1, $DB->count_records('idetestfeedback_result', ['runid' => $runid]));
     }
 
+    public function test_insert_run_with_results_retries_a_write_conflict_once(): void {
+        global $DB;
+
+        $this->preventResetByRollback();
+
+        $repository = new class($DB) extends repository {
+            /** @var int */
+            public int $attempts = 0;
+
+            #[\Override]
+            protected function store_blobs(int $instanceid, array $bodies, int $now): array {
+                if ($this->attempts++ === 0) {
+                    throw new \dml_write_exception('Duplicate key');
+                }
+
+                return parent::store_blobs($instanceid, $bodies, $now);
+            }
+        };
+
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $run = (object) [
+            'idetestfeedbackid' => $this->instance->id,
+            'userid' => $student->id,
+            'ide' => 'VSCODE',
+            'status' => status::PASSED->value,
+            'passedcount' => 1,
+            'failedcount' => 0,
+            'skippedcount' => 0,
+            'errorcount' => 0,
+            'timecreated' => time(),
+        ];
+        $results = [(object) ['testname' => 'testAdd', 'status' => status::PASSED->value, 'timecreated' => time()]];
+        $files = [(object) ['path' => 'tests/test.py', 'content' => "x = 1\n", 'timecreated' => time()]];
+
+        $runid = $repository->insert_run_with_results($run, $results, $files);
+
+        $this->assertSame(2, $repository->attempts);
+        $this->assertSame(1, $DB->count_records('idetestfeedback_run', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertCount(1, $repository->get_files($runid));
+        $this->assertSame("x = 1\n", $files[0]->content);
+    }
+
     public function test_insert_run_with_results_rolls_back_the_run_on_failure(): void {
         global $DB;
 

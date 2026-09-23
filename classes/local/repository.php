@@ -379,12 +379,36 @@ class repository {
      *
      * Every hash is derived here, so no caller can supply one of its own.
      *
+     * A write conflict, such as a concurrent run storing the same blob, is
+     * retried once when this is the outermost transaction.
+     *
      * @param \stdClass $run the run to insert
      * @param \stdClass[] $results its results; runid and sourcecodehash are filled in here
-     * @param \stdClass[] $files its captured test files; runid and blobid are filled in here
+     * @param \stdClass[] $files its captured test files, left unchanged
      * @return int the new run id
      */
     public function insert_run_with_results(\stdClass $run, array $results, array $files = []): int {
+        $canretry = !$this->db->is_transaction_started();
+        $copyfiles = fn() => array_map(fn($file) => clone $file, $files);
+
+        try {
+            return $this->insert_run_attempt($run, $results, $copyfiles());
+        } catch (\dml_write_exception $e) {
+            if (!$canretry) {
+                throw $e;
+            }
+
+            return $this->insert_run_attempt($run, $results, $copyfiles());
+        }
+    }
+
+    /**
+     * @param \stdClass $run the run to insert
+     * @param \stdClass[] $results its results
+     * @param \stdClass[] $files its captured test files
+     * @return int the new run id
+     */
+    private function insert_run_attempt(\stdClass $run, array $results, array $files): int {
         $transaction = $this->db->start_delegated_transaction();
 
         try {
@@ -431,7 +455,7 @@ class repository {
      * @param int $now when the run was submitted
      * @return array<string, int> blob id by content hash
      */
-    private function store_blobs(int $instanceid, array $bodies, int $now): array {
+    protected function store_blobs(int $instanceid, array $bodies, int $now): array {
         $blobs = [];
 
         foreach ($bodies as $file) {
