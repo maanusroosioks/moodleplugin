@@ -33,7 +33,7 @@ $string['capturedisabled'] = 'Code capture disabled';
 $string['closebeforeopen'] = 'The closing date must be after the opening date.';
 $string['commithash'] = 'Commit hash';
 $string['completionpassrun'] = 'Student must submit a passing test run';
-$string['completionpassrun_desc'] = 'Submit a test run in which every test passed. Failed, errored and skipped tests all leave the activity incomplete. When test cases are defined for the activity, only those tests have to pass.';
+$string['completionpassrun_desc'] = 'Submit a test run in which every test passed. Failed, errored and skipped tests all leave the activity incomplete.';
 $string['duration'] = 'Duration';
 $string['durationunit'] = '{$a} ms';
 $string['event_test_run_submitted'] = 'Test run submitted';
@@ -109,21 +109,6 @@ $string['privacy:metadata:run:warningacknowledged'] = 'Whether the student was w
 $string['privacy:path:feedbackgiven'] = 'Feedback given to other students';
 $string['privacy:path:runs'] = 'Test runs';
 $string['projectname'] = 'Project';
-$string['required'] = 'Required';
-$string['requiredfailedn'] = '{$a} failing';
-$string['requiredmissingn'] = '{$a} not reported';
-$string['requiredoutstanding'] = 'Defined tests outstanding';
-$string['requiredprogress'] = 'Defined tests passed';
-$string['requiredskippedn'] = '{$a} skipped';
-$string['requiredtests'] = 'Test cases that count';
-$string['requiredtests_help'] = 'Optionally list the test cases that count for this activity, one per line, as either `testName` or `testSuite#testName`.
-
-When set, each run is scored against this list: defined tests that are missing, failing or skipped in a run are shown on the run details, and the "passing test run" completion rule requires a run that passes every defined test.
-
-Leave this empty to accept every test the IDE reports. The completion rule then requires a run in which every reported test passed, so a run with skipped tests does not complete the activity either.
-
-Matching ignores case; enter names as they appear on the run details page. Results are still self-reported from the student\'s environment and are not independently verified.';
-$string['requiredtestsheading'] = 'Defined test cases';
 $string['resetruns'] = 'Delete all submitted test runs';
 $string['rundetail'] = 'Test run details';
 $string['runduration'] = 'Run duration';

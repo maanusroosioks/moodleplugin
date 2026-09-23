@@ -37,7 +37,7 @@ class backup_idetestfeedback_activity_structure_step extends backup_activity_str
 
         $idetestfeedback = new backup_nested_element('idetestfeedback', ['id'], [
             'name', 'intro', 'introformat', 'assignmentkey', 'timeopen', 'timeclose',
-            'timecreated', 'timemodified', 'completionpassrun', 'requiredtests',
+            'timecreated', 'timemodified', 'completionpassrun',
         ]);
 
         $runs = new backup_nested_element('runs');

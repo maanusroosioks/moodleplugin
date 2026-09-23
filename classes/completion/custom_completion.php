@@ -18,7 +18,6 @@ namespace mod_idetestfeedback\completion;
 
 use core_completion\activity_custom_completion;
 use mod_idetestfeedback\local\repository;
-use mod_idetestfeedback\local\required_tests;
 
 /**
  * The activity completion rules this activity defines.
@@ -40,34 +39,9 @@ class custom_completion extends activity_custom_completion {
 
         $this->validate_rule($rule);
 
-        $repository = new repository($DB);
-        $instanceid = $this->cm->instance;
-        $entries    = required_tests::parse($repository->get_instance($instanceid)->requiredtests);
-
-        $passed = $entries === []
-            ? $repository->has_fully_passing_run($instanceid, $this->userid)
-            : $this->has_run_passing_required_tests($repository, $instanceid, $entries);
+        $passed = (new repository($DB))->has_fully_passing_run((int) $this->cm->instance, $this->userid);
 
         return $passed ? COMPLETION_COMPLETE : COMPLETION_INCOMPLETE;
-    }
-
-    /**
-     * Whether any of the user's runs passed every defined test case.
-     *
-     * @param repository $repository the activity's database access
-     * @param int $instanceid the activity instance id
-     * @param string[] $entries the defined test cases, from required_tests::parse()
-     * @return bool
-     */
-    private function has_run_passing_required_tests(repository $repository, int $instanceid, array $entries): bool {
-        foreach ($repository->get_run_ids_for_user($instanceid, $this->userid) as $runid) {
-            $tally = required_tests::evaluate($entries, $repository->get_results($runid));
-            if ($tally['passed'] === $tally['total']) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

@@ -25,11 +25,9 @@ middleware that authenticates the student via OAuth and forwards the test run.
 Five tables (see [db/install.xml](db/install.xml) for the full schema):
 
 - **`idetestfeedback`** — the activity instance, including the unique
-  `assignmentkey`, the optional `timeopen` / `timeclose` submission window, and
-  the optional `requiredtests` list (see below).
+  `assignmentkey` and the optional `timeopen` / `timeclose` submission window.
 - **`idetestfeedback_run`** — one row per API submission (the student, IDE,
-  commit, overall status and per-status counts). Nothing about the
-  `requiredtests` list is copied onto the run; it is scored live, see below.
+  commit, overall status and per-status counts).
 - **`idetestfeedback_result`** — one row per test case within a run. Also holds
   the optional per-test teacher feedback (`feedback`, `feedbackformat`,
   `feedbackby`, `feedbackmodified`; see *Teacher feedback* below).
@@ -225,30 +223,12 @@ The stored run's overall `status` is derived from its results: `ERROR` if any
 result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least
 one result passed, otherwise `SKIPPED` (every test was skipped).
 
-### Defined test cases (optional)
+### Completion
 
-A teacher can list the test cases that count for the activity in the
-**Defined test cases** field, one per line, as either `testName` or
-`testSuite#testName`. The list is stored on the instance as `requiredtests`;
-blank lines, entries with no name part (`#`, `Suite#`) and case-insensitive
-duplicates are dropped on save. Each run is scored **live** against the list as
-it currently stands (nothing is copied onto the run):
-
-| `requiredtests` on the activity | How a run is scored | `completionpassrun` is met by |
-| --- | --- | --- |
-| empty (default) | overall `status` only | a run in which every reported test passed — a skipped test leaves the activity incomplete, even though the run's overall status is `PASSED` |
-| non-empty | every listed entry lands in exactly one bucket per run: passed, failed (also covers errored), skipped, or missing (not reported) | a run in which every listed entry passed |
-
-Matching is case-insensitive (after trimming) against the `testname` /
-`testsuite` the IDE reports. A bare `testName` matches regardless of suite; a
-`testSuite#testName` entry also requires the suite to match (everything after
-the last `#` is the name).
-
-Scoring always reflects the **current** list: the run-details page and the
-`completionpassrun` rule re-evaluate past runs whenever the list changes.
-Adding a list makes earlier runs incomplete until one passes every listed
-entry; clearing the list reverts to the status-only rule. Results remain
-self-reported from the student's environment and are not independently verified.
+The `completionpassrun` rule is met by a run in which every reported test
+passed. A skipped test leaves the activity incomplete, even though the run's
+overall status is `PASSED`. Results are self-reported from the student's
+environment and are not independently verified.
 
 ## Course reset
 
@@ -309,8 +289,6 @@ Languages: English. Translations are managed through AMOS.
 vendor/bin/phpunit --filter mod_idetestfeedback
 ```
 
-- `tests/local/required_tests_test.php` — parsing and scoring of the defined test
-  case list (no database needed).
 - `tests/custom_completion_test.php` — the `completionpassrun` rule, including
   the skipped-test behaviour described above.
 

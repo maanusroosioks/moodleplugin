@@ -29,9 +29,25 @@
  * @return bool
  */
 function xmldb_idetestfeedback_upgrade($oldversion): bool {
+    global $DB;
+
+    $dbman = $DB->get_manager();
+
     // Pre-release builds had a different schema and no path forward from it.
     if ($oldversion < 2026092300) {
         throw new \core\exception\moodle_exception('upgradefromprerelease', 'mod_idetestfeedback');
+    }
+
+    if ($oldversion < 2026092302) {
+        // Drop the defined test case list.
+        $table = new xmldb_table('idetestfeedback');
+        $field = new xmldb_field('requiredtests');
+
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026092302, 'idetestfeedback');
     }
 
     return true;

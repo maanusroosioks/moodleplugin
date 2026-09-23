@@ -32,10 +32,9 @@ final class custom_completion_test extends \advanced_testcase {
     /**
      * Creates an activity with the rule switched on, plus an enrolled student.
      *
-     * @param string $requiredtests the defined test case list
      * @return array{0:cm_info,1:int} [the course module, the student's id]
      */
-    private function setup_activity(string $requiredtests = ''): array {
+    private function setup_activity(): array {
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -46,7 +45,6 @@ final class custom_completion_test extends \advanced_testcase {
             'course' => $course->id,
             'completion' => COMPLETION_TRACKING_AUTOMATIC,
             'completionpassrun' => 1,
-            'requiredtests' => $requiredtests,
         ]);
 
         return [cm_info::create(get_coursemodule_from_instance('idetestfeedback', $instance->id)), $student->id];
@@ -84,7 +82,7 @@ final class custom_completion_test extends \advanced_testcase {
         $this->assertSame(COMPLETION_INCOMPLETE, $this->state($cm, $userid));
     }
 
-    public function test_no_defined_tests_completes_on_an_all_passing_run(): void {
+    public function test_completes_on_an_all_passing_run(): void {
         [$cm, $userid] = $this->setup_activity();
 
         $this->submit($cm, $userid, [
@@ -95,7 +93,7 @@ final class custom_completion_test extends \advanced_testcase {
         $this->assertSame(COMPLETION_COMPLETE, $this->state($cm, $userid));
     }
 
-    public function test_no_defined_tests_stays_incomplete_when_a_test_was_skipped(): void {
+    public function test_stays_incomplete_when_a_test_was_skipped(): void {
         [$cm, $userid] = $this->setup_activity();
 
         // The run's overall status is PASSED, because nothing failed. It still
@@ -108,7 +106,7 @@ final class custom_completion_test extends \advanced_testcase {
         $this->assertSame(COMPLETION_INCOMPLETE, $this->state($cm, $userid));
     }
 
-    public function test_no_defined_tests_stays_incomplete_when_a_test_failed(): void {
+    public function test_stays_incomplete_when_a_test_failed(): void {
         [$cm, $userid] = $this->setup_activity();
 
         $this->submit($cm, $userid, [
@@ -119,28 +117,8 @@ final class custom_completion_test extends \advanced_testcase {
         $this->assertSame(COMPLETION_INCOMPLETE, $this->state($cm, $userid));
     }
 
-    public function test_defined_tests_ignore_extra_tests_that_did_not_pass(): void {
-        [$cm, $userid] = $this->setup_activity("testAdd\ntestSub");
-
-        $this->submit($cm, $userid, [
-            ['testname' => 'testAdd', 'status' => 'PASSED'],
-            ['testname' => 'testSub', 'status' => 'PASSED'],
-            ['testname' => 'testExperimental', 'status' => 'FAILED'],
-        ]);
-
-        $this->assertSame(COMPLETION_COMPLETE, $this->state($cm, $userid));
-    }
-
-    public function test_defined_tests_require_every_one_of_them(): void {
-        [$cm, $userid] = $this->setup_activity("testAdd\ntestSub");
-
-        $this->submit($cm, $userid, [['testname' => 'testAdd', 'status' => 'PASSED']]);
-
-        $this->assertSame(COMPLETION_INCOMPLETE, $this->state($cm, $userid));
-    }
-
     public function test_any_earlier_run_can_satisfy_the_rule(): void {
-        [$cm, $userid] = $this->setup_activity("testAdd");
+        [$cm, $userid] = $this->setup_activity();
 
         $this->submit($cm, $userid, [['testname' => 'testAdd', 'status' => 'PASSED']]);
         $this->submit($cm, $userid, [['testname' => 'testAdd', 'status' => 'FAILED']]);

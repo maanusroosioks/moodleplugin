@@ -306,7 +306,6 @@ class view {
         $page = $this->clamp_page(count($results), self::RESULTS_PER_PAGE);
 
         return $this->renderer->render(new run_detail(
-            instance: $this->instance,
             run: $this->run,
             results: $results,
             files: $this->repository->get_files($this->runid),

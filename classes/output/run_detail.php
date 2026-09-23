@@ -21,7 +21,6 @@ use core\output\renderable;
 use core\output\renderer_base;
 use core\output\templatable;
 use core\url;
-use mod_idetestfeedback\local\required_tests;
 use mod_idetestfeedback\local\source_change;
 use mod_idetestfeedback\local\source_code;
 use mod_idetestfeedback\local\source_history;
@@ -42,7 +41,6 @@ class run_detail implements renderable, templatable {
     /**
      * Creates the run detail.
      *
-     * @param stdClass $instance the activity instance
      * @param stdClass $run the run being shown
      * @param stdClass[] $results the run's test case results
      * @param stdClass[] $files the test files captured with the run
@@ -57,8 +55,6 @@ class run_detail implements renderable, templatable {
      * @param string $pagingbar the rendered paging bar
      */
     public function __construct(
-        /** @var stdClass The activity instance */
-        protected readonly stdClass $instance,
         /** @var stdClass The run being shown */
         protected readonly stdClass $run,
         /** @var stdClass[] The run's test case results */
@@ -95,21 +91,18 @@ class run_detail implements renderable, templatable {
      */
     #[\Override]
     public function export_for_template(renderer_base $output): array {
-        $entries = required_tests::parse($this->instance->requiredtests ?? null);
-        $showrequired = $entries !== [];
         $showfeedback = $this->cancomment || $this->has_feedback();
         $files = $this->file_rows();
 
         return [
             'backurl' => $this->backurl->out(false),
             'formurl' => $this->formurl->out(false),
-            'meta' => $this->meta_rows($output, $entries, $showrequired),
+            'meta' => $this->meta_rows($output),
             'hasresults' => $this->results !== [],
-            'showrequired' => $showrequired,
             'showfeedback' => $showfeedback,
             'cancomment' => $this->cancomment,
-            'colspan' => 6 + (int) $showrequired + (int) $showfeedback,
-            'rows' => $this->result_rows($output, $entries, $showrequired),
+            'colspan' => 6 + (int) $showfeedback,
+            'rows' => $this->result_rows($output),
             'pagingbar' => $this->pagingbar,
             'hasfiles' => $files !== [],
             'files' => $files,
@@ -140,11 +133,9 @@ class run_detail implements renderable, templatable {
      * pre-escaped.
      *
      * @param renderer_base $output
-     * @param string[] $entries the activity's defined test cases
-     * @param bool $showrequired whether the activity defines test cases at all
      * @return array[]
      */
-    protected function meta_rows(renderer_base $output, array $entries, bool $showrequired): array {
+    protected function meta_rows(renderer_base $output): array {
         $rows = [];
 
         if ($this->studentname !== null) {
@@ -186,10 +177,6 @@ class run_detail implements renderable, templatable {
                 'label' => get_string('skipped', 'mod_idetestfeedback'),
                 'text' => (string) (int) $this->run->skippedcount,
             ];
-        }
-
-        if ($showrequired) {
-            $rows = array_merge($rows, $this->required_rows($entries));
         }
 
         $rows = array_merge($rows, $this->timing_rows(), $this->flag_rows());
@@ -276,44 +263,6 @@ class run_detail implements renderable, templatable {
     }
 
     /**
-     * Builds the summary rows scoring this run against the defined test cases.
-     *
-     * @param string[] $entries the activity's defined test cases
-     * @return array[]
-     */
-    protected function required_rows(array $entries): array {
-        $required = required_tests::evaluate($entries, $this->results);
-        if ($required['total'] === 0) {
-            return [];
-        }
-
-        $rows = [[
-            'label' => get_string('requiredprogress', 'mod_idetestfeedback'),
-            'strong' => $required['passed'] . ' / ' . $required['total'],
-        ]];
-
-        $outstanding = [];
-        if ($required['failed'] > 0) {
-            $outstanding[] = get_string('requiredfailedn', 'mod_idetestfeedback', $required['failed']);
-        }
-        if ($required['skipped'] > 0) {
-            $outstanding[] = get_string('requiredskippedn', 'mod_idetestfeedback', $required['skipped']);
-        }
-        if ($required['missing'] > 0) {
-            $outstanding[] = get_string('requiredmissingn', 'mod_idetestfeedback', $required['missing']);
-        }
-
-        if ($outstanding) {
-            $rows[] = [
-                'label' => get_string('requiredoutstanding', 'mod_idetestfeedback'),
-                'text' => implode('; ', $outstanding),
-            ];
-        }
-
-        return $rows;
-    }
-
-    /**
      * The results on the current page.
      *
      * @return stdClass[]
@@ -330,13 +279,10 @@ class run_detail implements renderable, templatable {
      * Builds one template row per test case result on the current page.
      *
      * @param renderer_base $output
-     * @param string[] $entries the activity's defined test cases
-     * @param bool $showrequired whether the activity defines test cases at all
      * @return array[]
      */
-    protected function result_rows(renderer_base $output, array $entries, bool $showrequired): array {
+    protected function result_rows(renderer_base $output): array {
         $rows = [];
-        $index = $showrequired ? required_tests::index_entries($entries) : [];
 
         foreach ($this->page_results() as $result) {
             $feedback = trim((string) ($result->feedback ?? ''));
@@ -350,11 +296,6 @@ class run_detail implements renderable, templatable {
                 'sourceid' => 'idetestfeedback-source-' . $result->id,
                 'testsuite' => (string) ($result->testsuite ?? ''),
                 'testname' => $result->testname,
-                'required' => $showrequired && required_tests::is_required(
-                    $index,
-                    $result->testsuite ?? null,
-                    $result->testname
-                ),
                 'badge' => (new status_badge($result->status))->export_for_template($output),
                 'duration' => $result->durationms !== null
                     ? get_string('durationunit', 'mod_idetestfeedback', (int) $result->durationms)

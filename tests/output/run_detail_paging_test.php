@@ -41,7 +41,6 @@ final class run_detail_paging_test extends \advanced_testcase {
         $results = array_map(fn(int $id) => (object) ['id' => $id], range(1, 5));
 
         $detail = new testable_run_detail_paging(
-            instance: (object) ['requiredtests' => null],
             run: (object) ['id' => 1],
             results: $results,
             files: [],

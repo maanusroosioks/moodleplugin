@@ -15,10 +15,9 @@
 
     Example context (json):
     {
-        "showrequired": true,
         "showfeedback": true,
         "cancomment": false,
-        "colspan": 8,
+        "colspan": 7,
         "pagingbar": "",
         "rows": [
             {
@@ -28,7 +27,6 @@
                 "badges": [
                     {"label": "Body unchanged since feedback", "classes": "bg-secondary text-white"}
                 ],
-                "required": true,
                 "badge": {"label": "PASSED", "classes": "bg-success text-white"},
                 "duration": "12 ms",
                 "message": "",
@@ -61,9 +59,6 @@
             <tr>
                 <th scope="col">{{#str}} testsuite, mod_idetestfeedback {{/str}}</th>
                 <th scope="col">{{#str}} testname, mod_idetestfeedback {{/str}}</th>
-                {{#showrequired}}
-                    <th scope="col">{{#str}} required, mod_idetestfeedback {{/str}}</th>
-                {{/showrequired}}
                 <th scope="col">{{#str}} status, mod_idetestfeedback {{/str}}</th>
                 <th scope="col">{{#str}} duration, mod_idetestfeedback {{/str}}</th>
                 <th scope="col">{{#str}} message, mod_idetestfeedback {{/str}}</th>
@@ -81,16 +76,6 @@
                         {{testname}}
                         {{#badges}} {{> mod_idetestfeedback/status_badge }}{{/badges}}
                     </td>
-                    {{#showrequired}}
-                        <td>
-                            {{#required}}
-                                <span class="badge bg-primary text-white">{{#str}} yes, core {{/str}}</span>
-                            {{/required}}
-                            {{^required}}
-                                <span class="text-muted">&mdash;</span>
-                            {{/required}}
-                        </td>
-                    {{/showrequired}}
                     <td>{{#badge}}{{> mod_idetestfeedback/status_badge }}{{/badge}}</td>
                     <td>{{duration}}</td>
                     <td>{{#message}}<pre class="idetestfeedback-message">{{.}}</pre>{{/message}}</td>

@@ -23,7 +23,6 @@
  */
 
 use mod_idetestfeedback\local\repository;
-use mod_idetestfeedback\local\required_tests;
 
 /**
  * Creates an activity instance, generating the key the IDE submits under.
@@ -38,7 +37,6 @@ function idetestfeedback_add_instance(stdClass $data, $mform = null): int {
     $data->assignmentkey = bin2hex(random_bytes(16));
     $data->timeopen      = $data->timeopen ?? 0;
     $data->timeclose     = $data->timeclose ?? 0;
-    $data->requiredtests = required_tests::normalize($data->requiredtests ?? null);
     $data->timecreated   = time();
     $data->timemodified  = time();
 
@@ -59,7 +57,6 @@ function idetestfeedback_update_instance(stdClass $data, $mform = null): bool {
     $data->id            = $data->instance;
     $data->timeopen      = $data->timeopen ?? 0;
     $data->timeclose     = $data->timeclose ?? 0;
-    $data->requiredtests = required_tests::normalize($data->requiredtests ?? null);
     $data->timemodified  = time();
 
     return $DB->update_record('idetestfeedback', $data);

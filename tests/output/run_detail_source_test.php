@@ -58,7 +58,6 @@ final class run_detail_source_test extends \advanced_testcase {
      */
     private function detail(array $files): testable_run_detail_source {
         return new testable_run_detail_source(
-            instance: (object) ['requiredtests' => null],
             run: (object) [],
             results: [],
             files: $files,

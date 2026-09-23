@@ -98,8 +98,7 @@ class repository {
     }
 
     /**
-     * The ids of a user's runs, so a caller that only needs one matching run can
-     * load the results a run at a time instead of holding all of them at once.
+     * The ids of a user's runs.
      *
      * @param int $instanceid the activity instance id
      * @param int $userid the student

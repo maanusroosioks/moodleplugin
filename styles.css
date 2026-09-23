@@ -25,10 +25,6 @@
     font-size: 0.85em;
 }
 
-.idetestfeedback-monospace {
-    font-family: monospace;
-}
-
 .idetestfeedback-key code {
     font-size: 1em;
     word-break: break-all;

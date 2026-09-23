@@ -58,7 +58,6 @@ final class lib_test extends advanced_testcase {
             'intro' => '',
             'introformat' => FORMAT_HTML,
             'completionpassrun' => 0,
-            'requiredtests' => null,
             'timeopen' => null,
             'timeclose' => null,
         ], $overrides);
@@ -94,15 +93,6 @@ final class lib_test extends advanced_testcase {
         $instance = $DB->get_record('idetestfeedback', ['id' => $id]);
         $this->assertSame(0, (int) $instance->timeopen);
         $this->assertSame(0, (int) $instance->timeclose);
-    }
-
-    public function test_add_instance_normalizes_the_required_tests_list(): void {
-        global $DB;
-
-        $id = idetestfeedback_add_instance($this->form_data(['requiredtests' => "  testAdd  \ntestAdd\n"]));
-
-        $instance = $DB->get_record('idetestfeedback', ['id' => $id]);
-        $this->assertSame('testAdd', $instance->requiredtests);
     }
 
     public function test_update_instance_keeps_the_assignment_key(): void {

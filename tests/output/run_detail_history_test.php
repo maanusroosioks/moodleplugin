@@ -73,7 +73,6 @@ final class run_detail_history_test extends \advanced_testcase {
         ?int $currentblobid = null
     ): testable_run_detail_history {
         return new testable_run_detail_history(
-            instance: (object) ['requiredtests' => null],
             run: (object) [],
             results: [],
             files: [(object) ['path' => self::PATH, 'blobid' => $currentblobid, 'content' => null]],
@@ -218,7 +217,6 @@ final class run_detail_history_test extends \advanced_testcase {
         $this->assertSame([(int) $commented->id], $priorids);
 
         $detail = new testable_run_detail_history(
-            instance: $instance,
             run: $current,
             results: $repository->get_results((int) $current->id),
             files: $repository->get_files((int) $current->id),
