@@ -149,7 +149,7 @@ class provider implements
     #[\Override]
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
-        if (!$context instanceof \context_module) {
+        if (!$context instanceof \core\context\module) {
             return;
         }
 
@@ -184,7 +184,7 @@ class provider implements
         $userid = (int) $contextlist->get_user()->id;
 
         foreach ($contextlist->get_contexts() as $context) {
-            if (!$context instanceof \context_module) {
+            if (!$context instanceof \core\context\module) {
                 continue;
             }
             $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
@@ -233,7 +233,7 @@ class provider implements
                     'testfiles'    => array_values(array_map(
                         fn($f) => [
                             'path'        => $f->path,
-                            'sha256'      => $f->sha256,
+                            'contenthash' => $f->contenthash,
                             'content'     => $f->content,
                             'truncated'   => transform::yesno($f->truncated),
                             'timecreated' => transform::datetime($f->timecreated),
@@ -255,11 +255,11 @@ class provider implements
      * Exports the feedback the user wrote on other people's runs.
      *
      * @param repository $repository the activity's database access
-     * @param \context_module $context the activity context
+     * @param \core\context\module $context the activity context
      * @param int $instanceid the activity instance id
      * @param int $userid the feedback author
      */
-    private static function export_feedback_given(repository $repository, \context_module $context,
+    private static function export_feedback_given(repository $repository, \core\context\module $context,
                                                   int $instanceid, int $userid): void {
         $results = $repository->get_feedback_authored_by($instanceid, $userid);
 
@@ -290,7 +290,7 @@ class provider implements
      */
     #[\Override]
     public static function delete_data_for_all_users_in_context(\context $context): void {
-        if (!$context instanceof \context_module) {
+        if (!$context instanceof \core\context\module) {
             return;
         }
         $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
@@ -309,7 +309,7 @@ class provider implements
         $userid = $contextlist->get_user()->id;
 
         foreach ($contextlist->get_contexts() as $context) {
-            if (!$context instanceof \context_module) {
+            if (!$context instanceof \core\context\module) {
                 continue;
             }
             $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
@@ -327,7 +327,7 @@ class provider implements
     #[\Override]
     public static function delete_data_for_users(approved_userlist $userlist): void {
         $context = $userlist->get_context();
-        if (!$context instanceof \context_module) {
+        if (!$context instanceof \core\context\module) {
             return;
         }
         $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);

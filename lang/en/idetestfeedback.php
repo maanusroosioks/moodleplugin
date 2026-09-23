@@ -156,6 +156,7 @@ $string['timecreated'] = 'Date';
 $string['timeopen'] = 'Open from';
 $string['totalruns'] = 'Total: {$a} run(s)';
 $string['truncated'] = 'Truncated';
+$string['upgradefromprerelease'] = 'This site has a pre-release build of IDE Test Feedback, which cannot be upgraded. Uninstall the plugin and install it again.';
 $string['validation_activityunavailable'] = 'The activity is not available to the user.';
 $string['validation_ambiguousemail'] = 'More than one active user was found with the email "{$a}".';
 $string['validation_assignmentnotfound'] = 'No activity was found for the assignment key "{$a}".';

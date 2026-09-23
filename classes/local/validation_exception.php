@@ -23,7 +23,7 @@ namespace mod_idetestfeedback\local;
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class validation_exception extends \moodle_exception {
+class validation_exception extends \core\exception\moodle_exception {
     /**
      * @param string $errorcode the language string naming the reason
      * @param mixed $a the placeholder value that string takes, if any

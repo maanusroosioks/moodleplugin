@@ -176,7 +176,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         );
         $this->assertCount(1, $data->testfiles);
         $this->assertSame('tests/test_calculator.py', $data->testfiles[0]['path']);
-        $this->assertSame(source_code::hash("import pytest\n"), $data->testfiles[0]['sha256']);
+        $this->assertSame(source_code::hash("import pytest\n"), $data->testfiles[0]['contenthash']);
     }
 
     public function test_export_user_data_writes_feedback_the_user_gave_on_others_runs(): void {

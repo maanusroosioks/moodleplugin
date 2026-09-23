@@ -98,9 +98,6 @@ class mod_idetestfeedback_generator extends testing_module_generator {
 
         $files = [];
         foreach ($record['files'] ?? [] as $f) {
-            if (array_key_exists('sha256', $f)) {
-                throw new coding_exception('sha256 is derived from the stored content, not set by a caller');
-            }
             $files[] = (object) [
                 'path' => $f['path'],
                 'content' => $f['content'] ?? null,

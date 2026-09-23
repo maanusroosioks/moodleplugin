@@ -65,18 +65,6 @@ final class repository_test extends \advanced_testcase {
         ], $overrides));
     }
 
-    public function test_get_course_returns_the_course(): void {
-        $course = $this->repository->get_course($this->course->id);
-
-        $this->assertSame((int) $this->course->id, (int) $course->id);
-    }
-
-    public function test_get_course_throws_when_missing(): void {
-        $this->expectException(\dml_missing_record_exception::class);
-
-        $this->repository->get_course(0);
-    }
-
     public function test_get_instance_returns_the_instance(): void {
         $instance = $this->repository->get_instance($this->instance->id);
 
@@ -132,7 +120,7 @@ final class repository_test extends \advanced_testcase {
         $files = array_values($this->repository->get_files($run->id));
 
         $this->assertSame(['tests/test_alpha.py', 'tests/test_zeta.py'], array_column($files, 'path'));
-        $this->assertSame(source_code::hash('a'), $files[0]->sha256);
+        $this->assertSame(source_code::hash('a'), $files[0]->contenthash);
         $this->assertSame('a', $files[0]->content);
     }
 

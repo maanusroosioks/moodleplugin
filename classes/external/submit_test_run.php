@@ -16,14 +16,12 @@
 
 namespace mod_idetestfeedback\external;
 
+use core\context;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
-use context_system;
-use context_course;
-use context_module;
 use mod_idetestfeedback\event\test_run_submitted;
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\status;
@@ -150,8 +148,8 @@ class submit_test_run extends external_api {
     ): array {
         global $DB;
 
-        self::validate_context(context_system::instance());
-        require_capability('mod/idetestfeedback:submit', context_system::instance());
+        self::validate_context(context\system::instance());
+        require_capability('mod/idetestfeedback:submit', context\system::instance());
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'email'               => $email,
@@ -334,7 +332,7 @@ class submit_test_run extends external_api {
             throw new validation_exception('validation_assignmentnotfound', $submission->assignmentkey);
         }
 
-        if (!is_enrolled(context_course::instance($instance->course), $userid, '', true)) {
+        if (!is_enrolled(context\course::instance($instance->course), $userid, '', true)) {
             throw new validation_exception('validation_notenrolled');
         }
 
@@ -471,7 +469,7 @@ class submit_test_run extends external_api {
     private static function log_submission(\cm_info $cm, \stdClass $run, int $userid): void {
         test_run_submitted::create([
             'objectid'      => $run->id,
-            'context'       => context_module::instance($cm->id),
+            'context'       => context\module::instance($cm->id),
             'userid'        => $userid,
             'relateduserid' => $userid,
             'other'         => ['status' => $run->status],

@@ -22,6 +22,12 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use core\context;
+use core\output\html_writer;
+use core\output\notification;
+use core\url;
+use core_table\output\html_table;
+
 require('../../config.php');
 
 $id = required_param('id', PARAM_INT);
@@ -30,7 +36,7 @@ $course = $DB->get_record('course', ['id' => $id], '*', MUST_EXIST);
 
 require_course_login($course);
 
-$context = context_course::instance($course->id);
+$context = context\course::instance($course->id);
 
 $PAGE->set_url('/mod/idetestfeedback/index.php', ['id' => $id]);
 $PAGE->set_title(get_string('modulenameplural', 'mod_idetestfeedback'));
@@ -45,7 +51,7 @@ echo $OUTPUT->heading(get_string('modulenameplural', 'mod_idetestfeedback'));
 $instances = get_all_instances_in_course('idetestfeedback', $course);
 
 if (empty($instances)) {
-    echo $OUTPUT->notification(get_string('noresults', 'mod_idetestfeedback'), 'info');
+    echo $OUTPUT->notification(get_string('noresults', 'mod_idetestfeedback'), notification::NOTIFY_INFO);
     echo $OUTPUT->footer();
     exit;
 }
@@ -62,7 +68,7 @@ $table->head = [
 foreach ($instances as $instance) {
     $table->data[] = [
         html_writer::link(
-            new moodle_url('/mod/idetestfeedback/view.php', ['id' => $instance->coursemodule]),
+            new url('/mod/idetestfeedback/view.php', ['id' => $instance->coursemodule]),
             format_string($instance->name)
         ),
         html_writer::tag('code', s($instance->assignmentkey)),

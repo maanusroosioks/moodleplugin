@@ -52,7 +52,8 @@ final class source_code_test extends \basic_testcase {
     }
 
     public function test_a_range_running_past_the_end_of_a_cut_file_is_marked_truncated(): void {
-        [$code, $truncated] = source_code::excerpt("one\ntwo\n\u{2026} [truncated by x: 9 more characters]", 2, 8);
+        $cut = source_code::canonicalise("one\ntwo\n\u{2026} [truncated by x: 9 more characters]");
+        [$code, $truncated] = source_code::excerpt($cut, 2, 8);
 
         $this->assertSame('two', $code);
         $this->assertTrue($truncated);
@@ -63,7 +64,9 @@ final class source_code_test extends \basic_testcase {
     }
 
     public function test_the_range_counts_lines_after_line_endings_are_normalised(): void {
-        $this->assertSame(["two\nthree", false], source_code::excerpt("one\r\ntwo\r\nthree\r\nfour", 2, 3));
+        $content = source_code::canonicalise("one\r\ntwo\r\nthree\r\nfour");
+
+        $this->assertSame(["two\nthree", false], source_code::excerpt($content, 2, 3));
     }
 
     public function test_the_same_code_under_three_line_endings_hashes_alike(): void {

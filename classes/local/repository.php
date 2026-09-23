@@ -32,14 +32,6 @@ class repository {
     }
 
     /**
-     * @param int $courseid the course id
-     * @return \stdClass the course
-     */
-    public function get_course(int $courseid): \stdClass {
-        return $this->db->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
-    }
-
-    /**
      * @param int $instanceid the activity instance id
      * @return \stdClass the activity instance
      */
@@ -79,15 +71,14 @@ class repository {
 
     /**
      * The test files captured with a run, each with the body it points at.
-     * The body columns keep the names they had before the body moved out.
      *
      * @param int $runid the run id
      * @return \stdClass[] the test files captured with the run, by path
      */
     public function get_files(int $runid): array {
         return $this->db->get_records_sql(
-            "SELECT f.id, f.runid, f.path, f.blobid, b.contenthash AS sha256,
-                    b.content AS content, f.truncated, f.timecreated
+            "SELECT f.id, f.runid, f.path, f.blobid, b.contenthash, b.content,
+                    f.truncated, f.timecreated
                FROM {idetestfeedback_file} f
           LEFT JOIN {idetestfeedback_blob} b ON b.id = f.blobid
               WHERE f.runid = :runid

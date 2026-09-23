@@ -75,13 +75,13 @@ class source_code {
      * Line numbers are 1-based and inclusive, and hold for whatever a truncated
      * file retained, since a file is only ever cut from the bottom.
      *
-     * @param string $content the file's captured contents
+     * @param string $content the file's contents, as canonicalise() leaves them
      * @param int $startline the declaration's first line
      * @param int $endline the declaration's last line
      * @return array{0:string,1:bool} [the excerpt, whether the file ended before $endline]
      */
     public static function excerpt(string $content, int $startline, int $endline): array {
-        $lines = explode("\n", self::strip_marker($content));
+        $lines = explode("\n", $content);
         $first = max(1, $startline);
 
         if ($first > count($lines)) {

@@ -27,13 +27,6 @@ class testable_run_detail_source extends run_detail {
     }
 
     /**
-     * @return array[] the exported file rows
-     */
-    public function files(): array {
-        return $this->file_rows();
-    }
-
-    /**
      * @param int $ms a run's duration in milliseconds
      * @return string the duration as shown
      */
@@ -109,13 +102,6 @@ final class run_detail_source_test extends \advanced_testcase {
         $this->assertSame("3\n4", $block['linenumbers']);
         $this->assertFalse($block['truncated']);
         $this->assertTrue($block['expandable']);
-    }
-
-    public function test_a_file_holding_only_the_truncation_marker_has_no_content(): void {
-        $rows = $this->detail([$this->file(['content' => "\u{2026} [truncated]"])])->files();
-
-        $this->assertFalse($rows[0]['hascontent']);
-        $this->assertSame('', $rows[0]['linenumbers']);
     }
 
     public function test_a_short_run_is_timed_in_milliseconds_and_a_long_one_in_minutes(): void {

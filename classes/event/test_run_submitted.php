@@ -54,11 +54,11 @@ class test_run_submitted extends \core\event\base {
     }
 
     /**
-     * @return \moodle_url the run this event describes
+     * @return \core\url the run this event describes
      */
     #[\Override]
     public function get_url() {
-        return new \moodle_url('/mod/idetestfeedback/view.php', [
+        return new \core\url('/mod/idetestfeedback/view.php', [
             'id'    => $this->contextinstanceid,
             'runid' => $this->objectid,
         ]);
@@ -72,10 +72,10 @@ class test_run_submitted extends \core\event\base {
         parent::validate_data();
 
         if (!isset($this->relateduserid)) {
-            throw new \coding_exception('The \'relateduserid\' must be set.');
+            throw new \core\exception\coding_exception('The \'relateduserid\' must be set.');
         }
         if (!isset($this->other['status'])) {
-            throw new \coding_exception('The \'status\' value must be set in other.');
+            throw new \core\exception\coding_exception('The \'status\' value must be set in other.');
         }
     }
 

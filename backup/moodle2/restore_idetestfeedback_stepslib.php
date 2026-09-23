@@ -192,7 +192,6 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
         foreach ($this->restoredruns as $runid) {
             $files = [];
             foreach ($repository->get_files($runid) as $file) {
-                $file->contenthash = $file->sha256;
                 $files[(string) $file->path] = $file;
             }
 

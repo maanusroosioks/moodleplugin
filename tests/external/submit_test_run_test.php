@@ -295,7 +295,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame('tests/conftest.py', $files[0]->path);
         $this->assertSame(1, (int) $files[0]->truncated);
         $this->assertSame('tests/test_calculator.py', $files[1]->path);
-        $this->assertSame(source_code::hash($files[1]->content), $files[1]->sha256);
+        $this->assertSame(source_code::hash($files[1]->content), $files[1]->contenthash);
         $this->assertStringContainsString('import pytest', $files[1]->content);
         $this->assertSame(0, (int) $files[1]->truncated);
     }
@@ -377,7 +377,7 @@ final class submit_test_run_test extends \advanced_testcase {
 
         $this->assertNull($results[0]->sourcecodehash);
         $this->assertSame('tests/test_calculator.py', $files[0]->path);
-        $this->assertNull($files[0]->sha256);
+        $this->assertNull($files[0]->contenthash);
         $this->assertNull($files[0]->blobid);
     }
 
@@ -621,7 +621,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $files = array_values((new repository($DB))->get_files($returned['runid']));
         $this->assertCount(1, $files);
         $this->assertSame('import pytest', $files[0]->content);
-        $this->assertSame(source_code::hash("import pytest\n"), $files[0]->sha256);
+        $this->assertSame(source_code::hash("import pytest\n"), $files[0]->contenthash);
     }
 
     public function test_it_rejects_a_hash_a_client_tries_to_assert(): void {

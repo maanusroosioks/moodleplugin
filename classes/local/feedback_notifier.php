@@ -18,8 +18,8 @@ namespace mod_idetestfeedback\local;
 
 use core\message\message;
 use core\output\html_writer;
+use core\url;
 use core_user;
-use moodle_url;
 use stdClass;
 
 /**
@@ -54,7 +54,7 @@ class feedback_notifier {
     public function notify(stdClass $run, array $results, stdClass $from): bool {
         $recipient = core_user::get_user((int) $run->userid, '*', MUST_EXIST);
 
-        $rundetailurl = new moodle_url('/mod/idetestfeedback/view.php', [
+        $rundetailurl = new url('/mod/idetestfeedback/view.php', [
             'id' => $this->cmid,
             'runid' => $run->id,
         ]);

@@ -481,10 +481,10 @@ class run_detail implements renderable, templatable {
 
     /**
      * @param stdClass|null $file one of the run's files
-     * @return string the source the file carries, without any truncation marker
+     * @return string the source the file carries, stored canonicalised
      */
     protected function content_of(?stdClass $file): string {
-        return source_code::strip_marker((string) ($file->content ?? ''));
+        return (string) ($file->content ?? '');
     }
 
     /**
@@ -542,7 +542,7 @@ class run_detail implements renderable, templatable {
 
             $rows[] = [
                 'path' => $file->path,
-                'sha256' => (string) ($file->sha256 ?? ''),
+                'contenthash' => (string) ($file->contenthash ?? ''),
                 'content' => $content,
                 'hascontent' => $hascontent,
                 'language' => self::language_of((string) $file->path),
