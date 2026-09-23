@@ -97,7 +97,8 @@
                     <td>
                         {{#hassource}}
                             {{#source.expandable}}
-                                <button type="button" class="btn btn-link p-0 text-start idetestfeedback-source-toggle"
+                                <button type="button" class="btn btn-link p-0 text-left text-start idetestfeedback-source-toggle"
+                                    data-toggle="collapse" data-target="#{{sourceid}}"
                                     data-bs-toggle="collapse" data-bs-target="#{{sourceid}}"
                                     aria-expanded="false" aria-controls="{{sourceid}}">
                                     <span class="idetestfeedback-filepath">{{source.summary}}</span>

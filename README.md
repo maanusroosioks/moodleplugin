@@ -299,7 +299,7 @@ notification preferences.
 
 ### Requirements
 
-- Moodle 5.0+ (`$plugin->requires = 2025041400`).
+- Moodle 4.5+ (`$plugin->requires = 2024100700`).
 
 Languages: English. Translations are managed through AMOS.
 

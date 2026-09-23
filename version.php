@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'mod_idetestfeedback';
 $plugin->version   = 2026092301;
-$plugin->requires  = 2025041400;
-$plugin->supported = [500, 503];
+$plugin->requires  = 2024100700;
+$plugin->supported = [405, 503];
 $plugin->release   = '1.0.0';
 $plugin->maturity  = MATURITY_STABLE;
