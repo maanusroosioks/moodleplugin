@@ -20,6 +20,7 @@ use core\output\renderable;
 use core\output\renderer_base;
 use core\output\templatable;
 use core\url;
+use mod_idetestfeedback\local\git_remote;
 use stdClass;
 
 /**
@@ -95,12 +96,16 @@ class run_list implements renderable, templatable {
         foreach ($this->runs as $run) {
             $failed = (int) $run->failedcount + (int) $run->errorcount;
             $detailurl = new url($this->detailurl, ['runid' => $run->id]);
+            $commithash = (string) ($run->commithash ?? '');
 
             $rows[] = [
                 'rowclass' => $this->colourrows ? status_badge::row_class($run->status) : '',
                 'student' => $this->showstudent ? fullname($run, $this->viewfullnames) : '',
                 'ide' => $run->ide,
                 'projectname' => (string) ($run->projectname ?? ''),
+                'commithash' => $commithash,
+                'shorthash' => $commithash === '' ? '' : git_remote::short_hash($commithash),
+                'commiturl' => (string) git_remote::commit_url($run->repourl ?? null, $commithash),
                 'badge' => (new status_badge($run->status))->export_for_template($output),
                 'passed' => (int) $run->passedcount,
                 'failed' => $failed,

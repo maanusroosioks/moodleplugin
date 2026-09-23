@@ -78,6 +78,7 @@ class mod_idetestfeedback_generator extends testing_module_generator {
             'ide' => $record['ide'] ?? 'VSCODE',
             'projectname' => $record['projectname'] ?? null,
             'commithash' => $record['commithash'] ?? null,
+            'repourl' => $record['repourl'] ?? null,
             'startedat' => $record['startedat'] ?? null,
             'finishedat' => $record['finishedat'] ?? null,
             'status' => $record['status'] ?? self::worst_status($counts),

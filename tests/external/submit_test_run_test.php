@@ -69,6 +69,7 @@ final class submit_test_run_test extends \advanced_testcase {
             'ide'           => 'VSCODE',
             'projectname'   => 'myproject',
             'commithash'    => 'abc123',
+            'repourl'       => 'https://github.com/ada/calc.git',
             'startedat'     => 1758134400000,
             'finishedat'    => 1758134403120,
             'results'       => [
@@ -149,6 +150,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame('VSCODE', $run->ide);
         $this->assertSame('myproject', $run->projectname);
         $this->assertSame('abc123', $run->commithash);
+        $this->assertSame('https://github.com/ada/calc.git', $run->repourl);
         $this->assertSame(1758134400000, (int) $run->startedat);
         $this->assertSame(1758134403120, (int) $run->finishedat);
         $this->assertSame(status::PASSED->value, $run->status);
@@ -216,6 +218,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $returned = $this->submit($this->params([
             'ide' => '  ' . str_repeat('i', 60) . '  ',
             'commithash' => '  ' . str_repeat('h', 150) . '  ',
+            'repourl' => '  https://example.com/' . str_repeat('r', 300) . '  ',
             'results' => [[
                 'testname' => '  ' . str_repeat('n', 1100) . '  ',
                 'status' => 'PASSED',
@@ -230,6 +233,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $run = $repository->get_run($returned['runid'], $this->instance->id);
         $this->assertSame(str_repeat('i', 50), $run->ide);
         $this->assertSame(str_repeat('h', 100), $run->commithash);
+        $this->assertSame(\core_text::substr('https://example.com/' . str_repeat('r', 300), 0, 255), $run->repourl);
 
         $results = array_values($repository->get_results($returned['runid']));
         $this->assertSame(str_repeat('n', 1024), $results[0]->testname);
@@ -243,6 +247,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $returned = $this->submit($this->params([
             'projectname' => null,
             'commithash' => null,
+            'repourl' => null,
             'startedat' => null,
             'finishedat' => null,
         ]));
@@ -250,8 +255,29 @@ final class submit_test_run_test extends \advanced_testcase {
         $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
         $this->assertNull($run->projectname);
         $this->assertNull($run->commithash);
+        $this->assertNull($run->repourl);
         $this->assertNull($run->startedat);
         $this->assertNull($run->finishedat);
+    }
+
+    public function test_credentials_in_the_repo_url_are_never_stored(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params([
+            'repourl' => 'https://ada:ghp_secret@github.com/ada/calc.git',
+        ]));
+
+        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
+        $this->assertSame('https://github.com/ada/calc.git', $run->repourl);
+    }
+
+    public function test_a_blank_repo_url_is_stored_as_null(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params(['repourl' => '   ']));
+
+        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
+        $this->assertNull($run->repourl);
     }
 
     public function test_it_stores_the_source_block_of_a_result(): void {

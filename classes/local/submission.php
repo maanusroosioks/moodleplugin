@@ -32,6 +32,7 @@ final class submission {
      * @param string $ide the IDE the run came from
      * @param string|null $projectname the project the tests ran in
      * @param string|null $commithash the commit the tests ran against
+     * @param string|null $repourl the git remote the tests ran in, without credentials
      * @param int|null $startedat when the run started, in epoch milliseconds
      * @param int|null $finishedat when the run finished, in epoch milliseconds
      * @param array[] $results the test case results, statuses uppercased
@@ -49,6 +50,8 @@ final class submission {
         public readonly ?string $projectname,
         /** @var string|null The commit the tests ran against */
         public readonly ?string $commithash,
+        /** @var string|null The git remote the tests ran in, without credentials */
+        public readonly ?string $repourl,
         /** @var int|null When the run started, in epoch milliseconds */
         public readonly ?int $startedat,
         /** @var int|null When the run finished, in epoch milliseconds */

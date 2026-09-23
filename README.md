@@ -27,7 +27,7 @@ Five tables (see [db/install.xml](db/install.xml) for the full schema):
 - **`idetestfeedback`** — the activity instance, including the unique
   `assignmentkey` and the optional `timeopen` / `timeclose` submission window.
 - **`idetestfeedback_run`** — one row per API submission (the student, IDE,
-  commit, overall status and per-status counts).
+  commit and repository, overall status and per-status counts).
 - **`idetestfeedback_result`** — one row per test case within a run. Also holds
   the optional per-test teacher feedback (`feedback`, `feedbackformat`,
   `feedbackby`, `feedbackmodified`; see *Teacher feedback* below).
@@ -71,6 +71,7 @@ no role by default)
 | `ide` | text | yes | IDE identifier, e.g. `VSCODE`. Must not be blank. |
 | `projectname` | text | no | |
 | `commithash` | text | no | |
+| `repourl` | text | no | Git remote, e.g. `https://github.com/ada/calc.git` or `git@github.com:ada/calc.git`. Credentials in it (`user:token@`) are removed before storing. When it points at a web host, the commit hash links to `<repo>/commit/<hash>`. |
 | `startedat` | int | no | Epoch **milliseconds**. |
 | `finishedat` | int | no | Epoch **milliseconds**. |
 | `payload` | text | yes | JSON object holding `results` and `testfiles` (see below). |

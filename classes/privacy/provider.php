@@ -51,6 +51,7 @@ class provider implements
                 'ide'                 => 'privacy:metadata:run:ide',
                 'projectname'         => 'privacy:metadata:run:projectname',
                 'commithash'          => 'privacy:metadata:run:commithash',
+                'repourl'             => 'privacy:metadata:run:repourl',
                 'startedat'           => 'privacy:metadata:run:startedat',
                 'finishedat'          => 'privacy:metadata:run:finishedat',
                 'status'              => 'privacy:metadata:run:status',
@@ -197,6 +198,7 @@ class provider implements
                     'ide'          => $run->ide,
                     'projectname'  => $run->projectname,
                     'commithash'   => $run->commithash,
+                    'repourl'      => $run->repourl,
                     // Stored in milliseconds, as the IDE reports them.
                     'startedat'    => $run->startedat ? transform::datetime(intdiv((int) $run->startedat, 1000)) : null,
                     'finishedat'   => $run->finishedat

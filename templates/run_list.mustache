@@ -18,6 +18,9 @@
                 "student": "Ada Lovelace",
                 "ide": "VSCODE",
                 "projectname": "calculator",
+                "commithash": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+                "shorthash": "a1b2c3d",
+                "commiturl": "https://github.com/ada/calc/commit/a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
                 "badge": {"label": "PASSED", "classes": "bg-success text-white"},
                 "passed": 8,
                 "failed": 0,
@@ -48,6 +51,7 @@
                 {{/showstudent}}
                 <th scope="col">{{#str}} ide, mod_idetestfeedback {{/str}}</th>
                 <th scope="col">{{#str}} projectname, mod_idetestfeedback {{/str}}</th>
+                <th scope="col">{{#str}} commit, mod_idetestfeedback {{/str}}</th>
                 <th scope="col">{{#str}} status, mod_idetestfeedback {{/str}}</th>
                 <th scope="col">{{#str}} passed, mod_idetestfeedback {{/str}}</th>
                 <th scope="col">{{#str}} failed, mod_idetestfeedback {{/str}}</th>
@@ -63,6 +67,10 @@
                     {{/showstudent}}
                     <td>{{ide}}</td>
                     <td>{{projectname}}</td>
+                    <td>
+                        {{#commiturl}}<a href="{{.}}" title="{{commithash}}"><code>{{shorthash}}</code></a>{{/commiturl}}
+                        {{^commiturl}}{{#shorthash}}<code title="{{commithash}}">{{.}}</code>{{/shorthash}}{{/commiturl}}
+                    </td>
                     <td>{{#badge}}{{> mod_idetestfeedback/status_badge }}{{/badge}}</td>
                     <td><span class="text-success idetestfeedback-count">{{passed}}</span></td>
                     <td>

@@ -23,6 +23,7 @@ use core\output\templatable;
 use core\url;
 use mod_idetestfeedback\local\feedback_history;
 use mod_idetestfeedback\local\feedback_outcome;
+use mod_idetestfeedback\local\git_remote;
 use mod_idetestfeedback\local\source_code;
 use mod_idetestfeedback\local\source_kind;
 use stdClass;
@@ -162,11 +163,19 @@ class run_detail implements renderable, templatable {
                 'text' => $this->run->projectname,
             ];
         }
+        if (!empty($this->run->repourl)) {
+            $rows[] = self::linked_code_row(
+                get_string('repourl', 'mod_idetestfeedback'),
+                $this->run->repourl,
+                git_remote::web_url($this->run->repourl)
+            );
+        }
         if ($this->run->commithash) {
-            $rows[] = [
-                'label' => get_string('commithash', 'mod_idetestfeedback'),
-                'code' => $this->run->commithash,
-            ];
+            $rows[] = self::linked_code_row(
+                get_string('commithash', 'mod_idetestfeedback'),
+                $this->run->commithash,
+                git_remote::commit_url($this->run->repourl ?? null, $this->run->commithash)
+            );
         }
 
         $rows[] = [
@@ -237,6 +246,20 @@ class run_detail implements renderable, templatable {
         }
 
         return format_time((int) round($ms / 1000));
+    }
+
+    /**
+     * A metadata row showing a value as code, linked when there is a page for it.
+     *
+     * @param string $label the row heading
+     * @param string $code the value
+     * @param string|null $url the page the value links to
+     * @return array
+     */
+    protected static function linked_code_row(string $label, string $code, ?string $url): array {
+        return $url === null
+            ? ['label' => $label, 'code' => $code]
+            : ['label' => $label, 'link' => ['url' => $url, 'code' => $code]];
     }
 
     /**

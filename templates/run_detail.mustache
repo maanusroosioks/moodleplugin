@@ -11,7 +11,14 @@
         "backurl": "https://example.com/mod/idetestfeedback/view.php?id=3",
         "meta": [
             {"label": "Student", "text": "Ada Lovelace"},
-            {"label": "Commit hash", "code": "a1b2c3d"},
+            {
+                "label": "Repository",
+                "link": {"url": "https://github.com/ada/calc", "code": "git@github.com:ada/calc.git"}
+            },
+            {
+                "label": "Commit hash",
+                "link": {"url": "https://github.com/ada/calc/commit/a1b2c3d", "code": "a1b2c3d"}
+            },
             {
                 "label": "Status",
                 "badge": {"label": "PASSED", "classes": "bg-success text-white"}
@@ -41,6 +48,7 @@
                     <td>
                         {{#text}}{{.}}{{/text}}
                         {{#code}}<code>{{.}}</code>{{/code}}
+                        {{#link}}<a href="{{url}}"><code>{{code}}</code></a>{{/link}}
                         {{#strong}}<span class="idetestfeedback-count">{{.}}</span>{{/strong}}
                         {{#badge}}{{> mod_idetestfeedback/status_badge }}{{/badge}}
                         {{#badges}}{{> mod_idetestfeedback/status_badge }} {{/badges}}

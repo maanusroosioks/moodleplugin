@@ -23,6 +23,7 @@ use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use mod_idetestfeedback\event\test_run_submitted;
+use mod_idetestfeedback\local\git_remote;
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\local\submission;
@@ -54,6 +55,7 @@ class submit_test_run extends external_api {
         'ide'            => 50,
         'projectname'    => 255,
         'commithash'     => 100,
+        'repourl'        => 255,
         'testsuite'      => 255,
         'testname'       => 1024,
         'sourcefilepath' => 1024,
@@ -72,6 +74,12 @@ class submit_test_run extends external_api {
             'ide'           => new external_value(PARAM_TEXT, 'IDE identifier, e.g. VSCODE'),
             'projectname'   => new external_value(PARAM_TEXT, 'Project name', VALUE_DEFAULT, null),
             'commithash'    => new external_value(PARAM_TEXT, 'Git commit hash', VALUE_DEFAULT, null),
+            'repourl'       => new external_value(
+                PARAM_TEXT,
+                'Git remote URL; any credentials in it are dropped',
+                VALUE_DEFAULT,
+                null
+            ),
             'startedat'     => new external_value(PARAM_INT, 'Run start (epoch milliseconds)', VALUE_DEFAULT, null),
             'finishedat'    => new external_value(PARAM_INT, 'Run end (epoch milliseconds)', VALUE_DEFAULT, null),
             'payload'       => new external_value(
@@ -141,6 +149,7 @@ class submit_test_run extends external_api {
      * @param string $ide the IDE the run came from
      * @param string|null $projectname the project the tests ran in
      * @param string|null $commithash the commit the tests ran against
+     * @param string|null $repourl the git remote the tests ran in
      * @param int|null $startedat when the run started, in epoch milliseconds
      * @param int|null $finishedat when the run finished, in epoch milliseconds
      * @param string $payload JSON holding the run's results and captured test files
@@ -153,6 +162,7 @@ class submit_test_run extends external_api {
         string $ide,
         ?string $projectname,
         ?string $commithash,
+        ?string $repourl,
         ?int $startedat,
         ?int $finishedat,
         string $payload,
@@ -169,6 +179,7 @@ class submit_test_run extends external_api {
             'ide'             => $ide,
             'projectname'     => $projectname,
             'commithash'      => $commithash,
+            'repourl'         => $repourl,
             'startedat'       => $startedat,
             'finishedat'      => $finishedat,
             'payload'         => $payload,
@@ -234,6 +245,7 @@ class submit_test_run extends external_api {
             ide: $params['ide'],
             projectname: $params['projectname'],
             commithash: $params['commithash'],
+            repourl: git_remote::strip_credentials($params['repourl']),
             startedat: $params['startedat'],
             finishedat: $params['finishedat'],
             results: $results,
@@ -399,6 +411,7 @@ class submit_test_run extends external_api {
         $run->ide                 = self::clip($submission->ide, 'ide');
         $run->projectname         = self::clip($submission->projectname, 'projectname');
         $run->commithash          = self::clip($submission->commithash, 'commithash');
+        $run->repourl             = self::clip($submission->repourl, 'repourl');
         $run->startedat           = $submission->startedat;
         $run->finishedat          = $submission->finishedat;
         $run->status              = self::resolve_run_status($counts)->value;

@@ -74,5 +74,17 @@ function xmldb_idetestfeedback_upgrade($oldversion): bool {
         upgrade_mod_savepoint(true, 2026092304, 'idetestfeedback');
     }
 
+    if ($oldversion < 2026092305) {
+        // Add the git remote.
+        $table = new xmldb_table('idetestfeedback_run');
+        $field = new xmldb_field('repourl', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'commithash');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026092305, 'idetestfeedback');
+    }
+
     return true;
 }
