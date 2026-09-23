@@ -134,7 +134,7 @@ class view {
         if (!$this->canviewall) {
             require_capability('mod/idetestfeedback:view', $this->context);
         }
-        $this->cancomment = has_capability('mod/idetestfeedback:comment', $this->context);
+        $this->cancomment = $this->canviewall && has_capability('mod/idetestfeedback:comment', $this->context);
         $this->viewfullnames = has_capability('moodle/site:viewfullnames', $this->context);
 
         $PAGE->set_title(format_string($this->instance->name));
@@ -194,6 +194,7 @@ class view {
             redirect($this->list_url($this->listpage));
         }
 
+        require_capability('mod/idetestfeedback:viewall', $this->context);
         require_capability('mod/idetestfeedback:comment', $this->context);
 
         $changed = (new feedback_saver($this->repository))

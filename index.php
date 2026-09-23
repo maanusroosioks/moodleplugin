@@ -69,12 +69,16 @@ $table->head = [
 ];
 
 foreach ($instances as $instance) {
+    $canview = has_any_capability(
+        ['mod/idetestfeedback:view', 'mod/idetestfeedback:viewall'],
+        context\module::instance($instance->coursemodule)
+    );
     $table->data[] = [
         html_writer::link(
             new url('/mod/idetestfeedback/view.php', ['id' => $instance->coursemodule]),
             format_string($instance->name)
         ),
-        html_writer::tag('code', s($instance->assignmentkey)),
+        $canview ? html_writer::tag('code', s($instance->assignmentkey)) : '—',
         $instance->timeopen ? userdate($instance->timeopen) : '—',
         $instance->timeclose ? userdate($instance->timeclose) : '—',
     ];

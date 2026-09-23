@@ -838,6 +838,34 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->submit($this->params());
     }
 
+    public function test_it_rejects_a_teacher_submitting_their_own_runs(): void {
+        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'editingteacher', [
+            'email' => 'teacher@example.com',
+        ]);
+
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_cannotrecordruns', 'mod_idetestfeedback'));
+
+        $this->submit($this->params(['email' => $teacher->email]));
+    }
+
+    public function test_it_rejects_a_student_who_may_not_record_runs(): void {
+        global $DB;
+
+        $studentrole = $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
+        assign_capability(
+            'mod/idetestfeedback:recordruns',
+            CAP_PROHIBIT,
+            $studentrole,
+            \context_module::instance($this->instance->cmid)
+        );
+
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_cannotrecordruns', 'mod_idetestfeedback'));
+
+        $this->submit($this->params());
+    }
+
     public function test_it_rejects_an_ambiguous_email(): void {
         $this->getDataGenerator()->create_user(['email' => 'student@example.com']);
 

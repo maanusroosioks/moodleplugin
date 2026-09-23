@@ -48,6 +48,7 @@ $capabilities = [
     ],
 
     'mod/idetestfeedback:comment' => [
+        'riskbitmask'  => RISK_SPAM,
         'captype'      => 'write',
         'contextlevel' => CONTEXT_MODULE,
         'archetypes'   => [
@@ -57,8 +58,16 @@ $capabilities = [
         ],
     ],
 
+    'mod/idetestfeedback:recordruns' => [
+        'captype'      => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes'   => [
+            'student' => CAP_ALLOW,
+        ],
+    ],
+
     'mod/idetestfeedback:submit' => [
-        'riskbitmask'  => RISK_PERSONAL,
+        'riskbitmask'  => RISK_PERSONAL | RISK_SPAM,
         'captype'      => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
         'archetypes'   => [],

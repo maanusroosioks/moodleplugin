@@ -179,6 +179,8 @@ The submission is rejected (with a localised message) when:
 - no active user matches `email`, or more than one does;
 - no activity matches `assignmentkey`;
 - the user is not enrolled in the activity's course;
+- the activity is hidden from the user, or the user lacks
+  `mod/idetestfeedback:view` or `mod/idetestfeedback:recordruns` in it;
 - the current time is before `timeopen` or after `timeclose`;
 - any result has a `status` outside the allowed set;
 - `payload` is not a JSON object;
@@ -262,8 +264,9 @@ notification preferences.
 | --- | --- | --- |
 | `mod/idetestfeedback:view` | student, teacher, editingteacher, manager | View own test results. |
 | `mod/idetestfeedback:viewall` | teacher, editingteacher, manager | View all students' results (`RISK_PERSONAL`). |
-| `mod/idetestfeedback:comment` | teacher, editingteacher, manager | Write per-test feedback on a student's run. |
-| `mod/idetestfeedback:submit` | *none* | Submit results via the web service. Intended to be granted only to the middleware's service account. |
+| `mod/idetestfeedback:comment` | teacher, editingteacher, manager | Write per-test feedback on a student's run (`RISK_SPAM`: sends notifications). Only takes effect together with `viewall`. |
+| `mod/idetestfeedback:recordruns` | student | Have own test runs accepted by the web service. Runs sent for a user without it are rejected, so a teacher's own IDE runs never mix with students'. |
+| `mod/idetestfeedback:submit` | *none* | Submit results via the web service on behalf of any user (`RISK_PERSONAL`, `RISK_SPAM`). Intended to be granted only to the middleware's service account. |
 | `mod/idetestfeedback:addinstance` | editingteacher, manager | Add the activity to a course. |
 
 ## Installation

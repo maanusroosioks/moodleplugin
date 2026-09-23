@@ -371,6 +371,9 @@ class submit_test_run extends external_api {
         ) {
             throw new validation_exception('validation_activityunavailable');
         }
+        if (!has_capability('mod/idetestfeedback:recordruns', $cm->context, $userid)) {
+            throw new validation_exception('validation_cannotrecordruns');
+        }
 
         match (submission_window::of($instance, time())) {
             submission_window::NOT_YET_OPEN => throw new validation_exception(
