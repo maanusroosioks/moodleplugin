@@ -139,33 +139,24 @@ read back off those three fields:
 | `filepath` | line range | means |
 | --- | --- | --- |
 | absent | — | the test was not found in the project's source at all |
-| present | absent | the file was found but the test could not be picked out of it; the hash covers the whole file |
-| present | present | the declaration was located; the line range and the hash cover just it |
-
-A whole-file hash and a declaration hash describe different things, so the two
-are never compared with each other.
+| present | absent | the file was found but the test could not be picked out of it; the run page shows the whole file |
+| present | present | the declaration was located; the run page cuts just it out of the file |
 
 ### Hashing
 
 Moodle computes every stored hash itself, over the bytes it is about to store.
 Nothing a client sends is taken on trust, and the two hash parameters earlier
-versions accepted have been removed.
+versions accepted have been removed. The only hash kept is the one each file
+body is stored under, so identical bodies share one `idetestfeedback_blob` row.
 
 Before hashing, a body is canonicalised: CRLF and CR become LF, trailing
 whitespace goes from each line, and the trailing newline is dropped. Nothing
 else. Comments, tokens and indentation are **not** folded away, because doing
 that needs a parser per language and Moodle has no business owning one.
 
-The cost of that is a weaker `CHANGED`: reformatting a test now reads as
-changed, where an IDE-side normalised hash could have told a reformat from a
-rewrite. The gain is that `UNCHANGED` means byte-identical, that a verdict can
-no longer contradict the code shown beside it, and that the rule behind a hash
-is one function on the server rather than whatever IDE version wrote the run.
-
 A test's body is always cut out of the run's copy of its file at
 `startline`&ndash;`endline`. A test declared below the point a large file was
-clipped at therefore has no body and no hash: nothing is stored twice to rescue
-it.
+clipped at therefore has no body: nothing is stored twice to rescue it.
 
 Each `testfiles` entry:
 
@@ -217,11 +208,7 @@ captured code, so the badge and the stored data cannot disagree.
 What is *not* dropped is everything that describes where the code was, rather
 than what it was: `source.filepath`, `startline` and `endline`.
 
-The hashes do not survive, because there are no bytes left to take them from. A
-run submitted with `capturedisabled` therefore gets no changed/unchanged verdict,
-and is no anchor for the runs that follow it either. That is the price of turning
-capture off, and it is preferred to keeping a hash nobody can check on precisely
-the runs where there is no code to check it against.
+No file hash survives either, because there are no bytes left to take one from.
 
 The stored run's overall `status` is derived from its results: `ERROR` if any
 result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least
@@ -248,6 +235,20 @@ On a student's run-details page a user with `mod/idetestfeedback:comment` sees a
 text against that `idetestfeedback_result` row; clearing a box removes it. The
 student sees the same column read-only, and only when at least one row has
 feedback.
+
+A test the student's earlier runs carried feedback on is badged by how its
+status moved since then, compared against the most recent commented result
+written before the run was submitted:
+
+| At feedback | Now | Badge |
+| --- | --- | --- |
+| `FAILED` / `ERROR` | `PASSED` | Fixed since feedback |
+| `FAILED` / `ERROR` | `FAILED` / `ERROR` | Still failing since feedback |
+| `PASSED` | `FAILED` / `ERROR` | Failing since feedback |
+
+Any other pair, including a skipped test on either side, gets no badge, and
+neither does a result that carries feedback of its own. Tests are matched by
+suite and name, ignoring case.
 
 Ticking **Notify student by message** when saving sends the affected student a
 Moodle notification (message provider `mod_idetestfeedback/feedback`) whose body

@@ -135,10 +135,6 @@ final class backup_restore_test extends \advanced_testcase {
             $this->assertCount(1, $files);
             $this->assertSame(source_code::canonicalise(self::BODY), $files[0]->content);
             $blobids[] = (int) $files[0]->blobid;
-
-            foreach ($repository->get_results((int) $runid) as $result) {
-                $this->assertSame(source_code::hash(self::BODY), $result->sourcecodehash);
-            }
         }
 
         $this->assertSame($blobids[0], $blobids[1]);

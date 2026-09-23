@@ -51,7 +51,7 @@ class backup_idetestfeedback_activity_structure_step extends backup_activity_str
         $result = new backup_nested_element('result', ['id'], [
             'testsuite', 'testname', 'status', 'durationms', 'message',
             'timecreated', 'feedback', 'feedbackformat', 'feedbackby', 'feedbackmodified',
-            'sourcefilepath', 'sourcestartline', 'sourceendline', 'sourcecodehash',
+            'sourcefilepath', 'sourcestartline', 'sourceendline',
         ]);
 
         $files = new backup_nested_element('files');

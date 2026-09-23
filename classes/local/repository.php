@@ -126,80 +126,26 @@ class repository {
     }
 
     /**
-     * The ids of the runs a user submitted before a given one, newest first.
+     * The results a teacher commented on before a run was submitted, across
+     * the same user's earlier runs in the same activity.
      *
-     * @param int $instanceid the activity instance id
-     * @param int $userid the student
      * @param int $runid the run to look back from
-     * @param int $limit how many earlier runs to return at most
-     * @return int[] run ids, newest first, empty when the run is not this user's
+     * @return \stdClass[] result rows keyed by id, newest run first
      */
-    public function get_prior_run_ids(int $instanceid, int $userid, int $runid, int $limit): array {
-        return array_map('intval', array_keys($this->db->get_records_sql(
-            "SELECT r.id
-               FROM {idetestfeedback_run} r
+    public function get_feedback_history(int $runid): array {
+        return $this->db->get_records_sql(
+            "SELECT res.id, res.testsuite, res.testname, res.status
+               FROM {idetestfeedback_result} res
+               JOIN {idetestfeedback_run} r ON r.id = res.runid
                JOIN {idetestfeedback_run} cur ON cur.id = :runid
                     AND cur.idetestfeedbackid = r.idetestfeedbackid
                     AND cur.userid = r.userid
-              WHERE r.idetestfeedbackid = :instanceid
-                AND r.userid = :userid
-                AND (r.timecreated < cur.timecreated
+              WHERE (r.timecreated < cur.timecreated
                      OR (r.timecreated = cur.timecreated AND r.id < cur.id))
-           ORDER BY r.timecreated DESC, r.id DESC",
-            ['runid' => $runid, 'instanceid' => $instanceid, 'userid' => $userid],
-            0,
-            $limit
-        )));
-    }
-
-    /**
-     * The columns {@see source_history} compares, across several of one user's runs.
-     *
-     * Narrow on purpose: this reads many runs at once, and the captured bodies
-     * are the largest columns on the table and are not compared. Ordered so
-     * that one pass can keep the first row it sees for each test.
-     *
-     * @param int[] $runids the runs to read
-     * @return \stdClass[] result rows keyed by id, newest run first
-     */
-    public function get_source_history(array $runids): array {
-        if (!$runids) {
-            return [];
-        }
-
-        [$insql, $params] = $this->db->get_in_or_equal($runids, SQL_PARAMS_NAMED, 'hrun');
-
-        return $this->db->get_records_sql(
-            "SELECT res.id, res.runid, res.testsuite, res.testname, res.sourcefilepath,
-                    res.sourcestartline, res.sourceendline, res.sourcecodehash,
-                    res.feedback, res.feedbackmodified
-               FROM {idetestfeedback_result} res
-               JOIN {idetestfeedback_run} run ON run.id = res.runid
-              WHERE res.runid {$insql}
-              ORDER BY run.timecreated DESC, run.id DESC, res.id ASC",
-            $params
-        );
-    }
-
-    /**
-     * What several of one user's runs captured at each path, without the bodies.
-     * Two runs pointing at one blob captured the same bytes.
-     *
-     * @param int[] $runids the runs to read
-     * @return \stdClass[] file rows keyed by id
-     */
-    public function get_file_history(array $runids): array {
-        if (!$runids) {
-            return [];
-        }
-
-        [$insql, $params] = $this->db->get_in_or_equal($runids, SQL_PARAMS_NAMED, 'frun');
-
-        return $this->db->get_records_sql(
-            "SELECT id, runid, path, blobid
-               FROM {idetestfeedback_file}
-              WHERE runid {$insql}",
-            $params
+                AND res.feedback IS NOT NULL
+                AND res.feedbackmodified < cur.timecreated
+           ORDER BY r.timecreated DESC, r.id DESC, res.id ASC",
+            ['runid' => $runid]
         );
     }
 
@@ -400,7 +346,7 @@ class repository {
      * retried once when this is the outermost transaction.
      *
      * @param \stdClass $run the run to insert
-     * @param \stdClass[] $results its results; runid and sourcecodehash are filled in here
+     * @param \stdClass[] $results its results; runid is filled in here
      * @param \stdClass[] $files its captured test files, left unchanged
      * @return int the new run id
      */
@@ -438,7 +384,6 @@ class repository {
 
             foreach ($results as $result) {
                 $result->runid = $runid;
-                $result->sourcecodehash = capture::result_hash($result, $bodies);
             }
             $this->db->insert_records('idetestfeedback_result', $results);
 

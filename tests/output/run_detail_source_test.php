@@ -46,7 +46,6 @@ final class run_detail_source_test extends \advanced_testcase {
             'sourcefilepath' => 'tests/test_calculator.py',
             'sourcestartline' => 3,
             'sourceendline' => 4,
-            'sourcecodehash' => 'b1946ac92492d234',
         ], $source);
     }
 
@@ -64,7 +63,7 @@ final class run_detail_source_test extends \advanced_testcase {
             studentname: null,
             context: \context_system::instance(),
             cancomment: false,
-            history: new \mod_idetestfeedback\local\source_history([], [], 0),
+            history: new \mod_idetestfeedback\local\feedback_history([]),
             backurl: new \core\url('/'),
             formurl: new \core\url('/')
         );
@@ -136,8 +135,7 @@ final class run_detail_source_test extends \advanced_testcase {
         $block = $this->detail([])->block($this->testresult());
 
         $this->assertSame('tests/test_calculator.py:3-4', $block['summary']);
-        $this->assertSame('b1946ac92492d234', $block['hash']);
-        $this->assertTrue($block['expandable']);
+        $this->assertFalse($block['expandable']);
         $this->assertFalse($block['hascode']);
     }
 
@@ -146,7 +144,6 @@ final class run_detail_source_test extends \advanced_testcase {
             'sourcefilepath' => null,
             'sourcestartline' => null,
             'sourceendline' => null,
-            'sourcecodehash' => null,
         ]));
 
         $this->assertFalse($block['expandable']);
@@ -161,7 +158,7 @@ final class run_detail_source_test extends \advanced_testcase {
 
         $this->assertSame('', $block['code']);
         $this->assertTrue($block['wholefile']);
-        $this->assertSame(get_string('sourcehashfile', 'mod_idetestfeedback'), $block['hashlabel']);
+        $this->assertTrue($block['expandable']);
     }
 
     public function test_a_file_kind_with_capture_off_does_not_promise_a_file_below(): void {
@@ -171,6 +168,7 @@ final class run_detail_source_test extends \advanced_testcase {
         ]));
 
         $this->assertFalse($block['wholefile']);
+        $this->assertFalse($block['expandable']);
     }
 
     public function test_a_result_the_ide_said_nothing_about_has_no_block(): void {
@@ -178,7 +176,6 @@ final class run_detail_source_test extends \advanced_testcase {
             'sourcefilepath' => null,
             'sourcestartline' => null,
             'sourceendline' => null,
-            'sourcecodehash' => null,
         ])));
     }
 }

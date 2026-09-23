@@ -642,107 +642,89 @@ final class repository_test extends \advanced_testcase {
         $this->assertSame((int) $teacher->id, (int) $result->feedbackby);
     }
 
-    public function test_get_prior_run_ids_returns_only_earlier_runs_newest_first(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $first = $this->create_run($student->id, overrides: ['timecreated' => 100]);
-        $second = $this->create_run($student->id, overrides: ['timecreated' => 200]);
-        $third = $this->create_run($student->id, overrides: ['timecreated' => 300]);
+    /**
+     * Writes feedback on every result of a run.
+     *
+     * @param \stdClass $run the run to comment on
+     * @param int $when when the feedback was written
+     */
+    private function comment_on(\stdClass $run, int $when): void {
+        global $DB;
 
-        $this->assertSame(
-            [(int) $second->id, (int) $first->id],
-            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $third->id, 20)
-        );
-        $this->assertSame(
-            [],
-            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $first->id, 20)
-        );
+        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
+        foreach ($this->repository->get_results((int) $run->id) as $result) {
+            $this->repository->update_result_feedback((int) $result->id, 'A note', FORMAT_PLAIN, $teacher->id);
+        }
+        $DB->set_field('idetestfeedback_result', 'feedbackmodified', $when, ['runid' => $run->id]);
     }
 
-    public function test_get_prior_run_ids_honours_the_limit(): void {
+    public function test_get_feedback_history_returns_commented_earlier_runs_newest_first(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $this->create_run($student->id, overrides: ['timecreated' => 100]);
-        $second = $this->create_run($student->id, overrides: ['timecreated' => 200]);
-        $third = $this->create_run($student->id, overrides: ['timecreated' => 300]);
-
-        $this->assertSame(
-            [(int) $second->id],
-            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $third->id, 1)
-        );
-    }
-
-    public function test_get_prior_run_ids_breaks_ties_on_the_same_second_by_id(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $first = $this->create_run($student->id, overrides: ['timecreated' => 100]);
-        $second = $this->create_run($student->id, overrides: ['timecreated' => 100]);
-        $third = $this->create_run($student->id, overrides: ['timecreated' => 100]);
-
-        $this->assertSame(
-            [(int) $second->id, (int) $first->id],
-            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $third->id, 20)
-        );
-    }
-
-    public function test_get_prior_run_ids_is_scoped_to_the_user_and_instance(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $this->create_run($other->id, overrides: ['timecreated' => 100]);
-        $run = $this->create_run($student->id, overrides: ['timecreated' => 200]);
-
-        $this->assertSame(
-            [],
-            $this->repository->get_prior_run_ids($this->instance->id, $student->id, (int) $run->id, 20)
-        );
-        $this->assertSame(
-            [],
-            $this->repository->get_prior_run_ids($this->instance->id, $student->id, 0, 20)
-        );
-    }
-
-    public function test_the_history_lookups_take_an_empty_run_list(): void {
-        $this->assertSame([], $this->repository->get_source_history([]));
-        $this->assertSame([], $this->repository->get_file_history([]));
-    }
-
-    public function test_get_source_history_returns_newest_run_first(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $older = $this->create_run(
-            $student->id,
-            [['testname' => 'testOlder', 'status' => 'PASSED']],
-            ['timecreated' => 100]
-        );
+        $older = $this->create_run($student->id, [['testname' => 'testOlder', 'status' => 'FAILED']], ['timecreated' => 100]);
+        $this->create_run($student->id, [['testname' => 'testUncommented', 'status' => 'FAILED']], ['timecreated' => 150]);
         $newer = $this->create_run($student->id, [
             ['testname' => 'testNewerA', 'status' => 'PASSED'],
-            ['testname' => 'testNewerB', 'status' => 'PASSED'],
+            ['testname' => 'testNewerB', 'status' => 'ERROR'],
         ], ['timecreated' => 200]);
+        $current = $this->create_run($student->id, overrides: ['timecreated' => 300]);
+        $later = $this->create_run($student->id, [['testname' => 'testLater', 'status' => 'FAILED']], ['timecreated' => 400]);
+        $this->comment_on($older, 110);
+        $this->comment_on($newer, 210);
+        $this->comment_on($later, 410);
 
-        $rows = array_values($this->repository->get_source_history([(int) $older->id, (int) $newer->id]));
+        $rows = array_values($this->repository->get_feedback_history((int) $current->id));
 
         $this->assertSame(['testNewerA', 'testNewerB', 'testOlder'], array_column($rows, 'testname'));
+        $this->assertSame(['PASSED', 'ERROR', 'FAILED'], array_column($rows, 'status'));
+        $this->assertFalse(property_exists($rows[0], 'feedback'));
     }
 
-    public function test_get_source_history_carries_the_hash_without_the_body(): void {
+    public function test_get_feedback_history_breaks_ties_on_the_same_second_by_id(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id, [
-            ['testname' => 'testAdd', 'status' => 'PASSED', 'sourcefilepath' => 'tests/t.py',
-                'sourcestartline' => 1, 'sourceendline' => 1],
-        ], ['files' => [['path' => 'tests/t.py', 'content' => 'assert x']]]);
+        $first = $this->create_run($student->id, [['testname' => 'testFirst', 'status' => 'FAILED']], ['timecreated' => 100]);
+        $second = $this->create_run($student->id, [['testname' => 'testSecond', 'status' => 'FAILED']], ['timecreated' => 100]);
+        $third = $this->create_run($student->id, [['testname' => 'testThird', 'status' => 'FAILED']], ['timecreated' => 100]);
+        $this->comment_on($first, 50);
+        $this->comment_on($second, 50);
+        $this->comment_on($third, 50);
 
-        [$row] = array_values($this->repository->get_source_history([(int) $run->id]));
+        $rows = array_values($this->repository->get_feedback_history((int) $second->id));
 
-        $this->assertSame(source_code::hash('assert x'), $row->sourcecodehash);
-        $this->assertFalse(property_exists($row, 'message'));
+        $this->assertSame(['testFirst'], array_column($rows, 'testname'));
     }
 
-    public function test_get_file_history_carries_the_body_without_its_content(): void {
+    public function test_get_feedback_history_ignores_feedback_written_after_the_run(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id, overrides: ['files' => [
-            ['path' => 'tests/test_calculator.py', 'content' => 'import pytest'],
-        ]]);
+        $commented = $this->create_run($student->id, [['testname' => 'testAdd', 'status' => 'FAILED']], ['timecreated' => 100]);
+        $current = $this->create_run($student->id, overrides: ['timecreated' => 200]);
+        $this->comment_on($commented, 250);
 
-        [$row] = array_values($this->repository->get_file_history([(int) $run->id]));
+        $this->assertSame([], $this->repository->get_feedback_history((int) $current->id));
+    }
 
-        $this->assertSame('tests/test_calculator.py', $row->path);
-        $this->assertNotEmpty($row->blobid);
-        $this->assertFalse(property_exists($row, 'content'));
+    public function test_get_feedback_history_ignores_cleared_feedback(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
+        $commented = $this->create_run($student->id, [['testname' => 'testAdd', 'status' => 'FAILED']], ['timecreated' => 100]);
+        $current = $this->create_run($student->id, overrides: ['timecreated' => 200]);
+        [$result] = array_values($this->repository->get_results((int) $commented->id));
+        $this->repository->update_result_feedback((int) $result->id, '', FORMAT_PLAIN, $teacher->id);
+
+        $this->assertSame([], $this->repository->get_feedback_history((int) $current->id));
+    }
+
+    public function test_get_feedback_history_is_scoped_to_the_user_and_instance(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $otherinstance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $this->course->id]);
+        $this->comment_on($this->create_run($other->id, overrides: ['timecreated' => 100]), 110);
+        $this->comment_on($this->create_run($student->id, overrides: [
+            'idetestfeedbackid' => $otherinstance->id,
+            'timecreated' => 100,
+        ]), 110);
+        $current = $this->create_run($student->id, overrides: ['timecreated' => 200]);
+
+        $this->assertSame([], $this->repository->get_feedback_history((int) $current->id));
+        $this->assertSame([], $this->repository->get_feedback_history(0));
     }
 }

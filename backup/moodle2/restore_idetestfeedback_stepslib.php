@@ -23,7 +23,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-use mod_idetestfeedback\local\capture;
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\source_code;
 
@@ -31,9 +30,6 @@ use mod_idetestfeedback\local\source_code;
  * Structure step to restore one idetestfeedback activity.
  */
 class restore_idetestfeedback_activity_structure_step extends restore_activity_structure_step {
-    /** @var int[] The runs this restore created, whose hashes are rebuilt at the end. */
-    private array $restoredruns = [];
-
     /**
      * Defines the restore paths of the activity.
      *
@@ -108,7 +104,6 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
 
         $newitemid = $DB->insert_record('idetestfeedback_run', $data);
         $this->set_mapping('idetestfeedback_run', $oldid, $newitemid);
-        $this->restoredruns[] = (int) $newitemid;
     }
 
     /**
@@ -157,30 +152,9 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
     }
 
     /**
-     * Reattaches the intro files and rebuilds the hashes results are compared
-     * by, a result being restored before the files of its own run.
+     * Reattaches the intro files.
      */
     protected function after_execute() {
-        global $DB;
-
         $this->add_related_files('mod_idetestfeedback', 'intro', null);
-
-        $repository = new repository($DB);
-
-        foreach ($this->restoredruns as $runid) {
-            $files = [];
-            foreach ($repository->get_files($runid) as $file) {
-                $files[(string) $file->path] = $file;
-            }
-
-            foreach ($repository->get_results($runid) as $result) {
-                $DB->set_field(
-                    'idetestfeedback_result',
-                    'sourcecodehash',
-                    capture::result_hash($result, $files),
-                    ['id' => $result->id]
-                );
-            }
-        }
     }
 }

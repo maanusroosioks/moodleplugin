@@ -81,7 +81,6 @@ class provider implements
                 'sourcefilepath'   => 'privacy:metadata:result:sourcefilepath',
                 'sourcestartline'  => 'privacy:metadata:result:sourcestartline',
                 'sourceendline'    => 'privacy:metadata:result:sourceendline',
-                'sourcecodehash'   => 'privacy:metadata:result:sourcecodehash',
             ],
             'privacy:metadata:result'
         );
@@ -225,7 +224,6 @@ class provider implements
                             'sourcefilepath'   => $r->sourcefilepath,
                             'sourcestartline'  => $r->sourcestartline,
                             'sourceendline'    => $r->sourceendline,
-                            'sourcecodehash'   => $r->sourcecodehash,
                         ],
                         $results
                     )),

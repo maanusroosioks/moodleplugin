@@ -17,7 +17,7 @@
 namespace mod_idetestfeedback\local;
 
 /**
- * Derives the hashes a run is stored with, from the bytes being stored.
+ * Derives the file hashes a run is stored with, from the bytes being stored.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
@@ -43,43 +43,5 @@ class capture {
         }
 
         return $bypath;
-    }
-
-    /**
-     * The hash a result is compared by on later runs: the whole body it names,
-     * or just the declaration when it located one.
-     *
-     * @see \mod_idetestfeedback\output\run_detail::test_source()
-     * @param \stdClass $result one test case result
-     * @param array<string, \stdClass> $files the run's canonicalised files, by path
-     * @return string|null null when nothing comparable was captured
-     */
-    public static function result_hash(\stdClass $result, array $files): ?string {
-        $kind = source_kind::of($result);
-        if ($kind === source_kind::NONE) {
-            return null;
-        }
-
-        $file = $files[(string) ($result->sourcefilepath ?? '')] ?? null;
-        if ($file === null || ($file->contenthash ?? null) === null) {
-            return null;
-        }
-
-        if ($kind === source_kind::FILE) {
-            return $file->contenthash;
-        }
-
-        [$excerpt, $truncated] = source_code::excerpt(
-            (string) $file->content,
-            (int) $result->sourcestartline,
-            (int) $result->sourceendline
-        );
-
-        // A declaration the file stopped short of rehashes whenever the cut moves.
-        if ($truncated || trim($excerpt) === '') {
-            return null;
-        }
-
-        return source_code::hash($excerpt);
     }
 }

@@ -68,9 +68,6 @@ class mod_idetestfeedback_generator extends testing_module_generator {
                 'sourcestartline' => $r['sourcestartline'] ?? null,
                 'sourceendline' => $r['sourceendline'] ?? null,
             ];
-            if (array_key_exists('sourcecodehash', $r)) {
-                throw new coding_exception('sourcecodehash is derived from the stored code, not set by a caller');
-            }
             $counts[$result->status]++;
             $results[] = $result;
         }

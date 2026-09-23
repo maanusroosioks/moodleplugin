@@ -50,5 +50,17 @@ function xmldb_idetestfeedback_upgrade($oldversion): bool {
         upgrade_mod_savepoint(true, 2026092302, 'idetestfeedback');
     }
 
+    if ($oldversion < 2026092303) {
+        // Drop the per test code hash.
+        $table = new xmldb_table('idetestfeedback_result');
+        $field = new xmldb_field('sourcecodehash');
+
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026092303, 'idetestfeedback');
+    }
+
     return true;
 }

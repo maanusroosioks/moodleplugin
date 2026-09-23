@@ -271,7 +271,6 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame('tests/test_calculator.py', $results[0]->sourcefilepath);
         $this->assertSame(1, (int) $results[0]->sourcestartline);
         $this->assertSame(2, (int) $results[0]->sourceendline);
-        $this->assertSame(source_code::hash(self::DECLARATION), $results[0]->sourcecodehash);
     }
 
     public function test_a_result_without_a_source_block_stores_nulls(): void {
@@ -282,7 +281,6 @@ final class submit_test_run_test extends \advanced_testcase {
         $results = array_values((new repository($DB))->get_results($returned['runid']));
         $this->assertNull($results[0]->sourcefilepath);
         $this->assertNull($results[0]->sourcestartline);
-        $this->assertNull($results[0]->sourcecodehash);
     }
 
     public function test_it_stores_the_submitted_test_files(): void {
@@ -358,13 +356,12 @@ final class submit_test_run_test extends \advanced_testcase {
         $results = array_values($repository->get_results($returned['runid']));
         $files = array_values($repository->get_files($returned['runid']));
 
-        $this->assertNull($results[0]->sourcecodehash);
         $this->assertCount(1, $files);
         $this->assertNull($files[0]->content);
         $this->assertSame(0, (int) $files[0]->truncated);
     }
 
-    public function test_capture_disabled_leaves_nothing_to_compare(): void {
+    public function test_capture_disabled_leaves_no_body_hash(): void {
         global $DB;
 
         $returned = $this->submit($this->params([
@@ -388,7 +385,6 @@ final class submit_test_run_test extends \advanced_testcase {
         $results = array_values($repository->get_results($returned['runid']));
         $files = array_values($repository->get_files($returned['runid']));
 
-        $this->assertNull($results[0]->sourcecodehash);
         $this->assertSame('tests/test_calculator.py', $files[0]->path);
         $this->assertNull($files[0]->contenthash);
         $this->assertNull($files[0]->blobid);
@@ -435,7 +431,6 @@ final class submit_test_run_test extends \advanced_testcase {
         $files = array_values($repository->get_files($returned['runid']));
 
         $this->assertSame(self::DECLARATION, $files[0]->content);
-        $this->assertSame(source_code::hash(self::DECLARATION), $results[0]->sourcecodehash);
         $this->assertCount(1, $files);
     }
 
@@ -563,7 +558,6 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertNull($results[0]->sourcefilepath);
         $this->assertNull($results[0]->sourcestartline);
         $this->assertNull($results[0]->sourceendline);
-        $this->assertNull($results[0]->sourcecodehash);
     }
 
     public function test_a_source_of_kind_file_drops_line_numbers_it_cannot_mean(): void {
@@ -582,7 +576,6 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame('tests/test_calculator.py', $results[0]->sourcefilepath);
         $this->assertNull($results[0]->sourcestartline);
         $this->assertNull($results[0]->sourceendline);
-        $this->assertSame(source_code::hash(self::DECLARATION), $results[0]->sourcecodehash);
     }
 
     public function test_it_rejects_a_located_source_without_a_file(): void {

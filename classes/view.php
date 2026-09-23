@@ -24,10 +24,10 @@ use core\output\html_writer;
 use core\output\notification;
 use core\output\single_select;
 use core\url;
+use mod_idetestfeedback\local\feedback_history;
 use mod_idetestfeedback\local\feedback_notifier;
 use mod_idetestfeedback\local\feedback_saver;
 use mod_idetestfeedback\local\repository;
-use mod_idetestfeedback\local\source_history;
 use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\local\submission_window;
 use mod_idetestfeedback\output\renderer;
@@ -303,13 +303,6 @@ class view {
             );
         }
 
-        $priorids = $this->repository->get_prior_run_ids(
-            (int) $this->instance->id,
-            (int) $this->run->userid,
-            $this->runid,
-            source_history::LOOKBACK_RUNS
-        );
-
         $results = $this->repository->get_results($this->runid);
         $page = $this->clamp_page(count($results), self::RESULTS_PER_PAGE);
 
@@ -320,11 +313,7 @@ class view {
             studentname: $this->canviewall ? $this->student_name($this->run) : null,
             context: $this->context,
             cancomment: $this->cancomment,
-            history: new source_history(
-                $this->repository->get_source_history($priorids),
-                $this->repository->get_file_history($priorids),
-                (int) $this->run->timecreated
-            ),
+            history: new feedback_history($this->repository->get_feedback_history($this->runid)),
             backurl: $this->list_url($this->listpage),
             formurl: $this->run_url($page),
             page: $page,

@@ -47,7 +47,7 @@ final class run_detail_paging_test extends \advanced_testcase {
             studentname: null,
             context: \context_system::instance(),
             cancomment: false,
-            history: new \mod_idetestfeedback\local\source_history([], [], 0),
+            history: new \mod_idetestfeedback\local\feedback_history([]),
             backurl: new \core\url('/'),
             formurl: new \core\url('/'),
             page: $page,

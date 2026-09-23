@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026092302" COMMENT="XMLDB file for mod_idetestfeedback"
+<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026092303" COMMENT="XMLDB file for mod_idetestfeedback"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
 
@@ -71,7 +71,6 @@
                 <FIELD NAME="sourcefilepath"  TYPE="char" LENGTH="1024" NOTNULL="false" SEQUENCE="false" COMMENT="The captured file the test was found in; null when it was not found at all"/>
                 <FIELD NAME="sourcestartline" TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="sourceendline"   TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false"/>
-                <FIELD NAME="sourcecodehash"  TYPE="char" LENGTH="64"   NOTNULL="false" SEQUENCE="false" COMMENT="SHA-256 computed here over the canonical declaration, or over the whole body when no line range was located; null when nothing was captured"/>
                 <FIELD NAME="feedback"         TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional teacher feedback on this test case result"/>
                 <FIELD NAME="feedbackformat"   TYPE="int"  LENGTH="4"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="feedbackby"       TYPE="int"  LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User id of the teacher who last edited the feedback"/>

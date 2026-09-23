@@ -23,14 +23,14 @@ namespace mod_idetestfeedback\output;
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class testable_run_detail_history extends run_detail {
+class testable_run_detail_feedback extends run_detail {
     /**
-     * Exposes history_badges().
+     * Exposes feedback_badges().
      *
      * @param \stdClass $result one test case result
      * @return array[] the exported badges
      */
     public function badges(\stdClass $result): array {
-        return $this->history_badges($result);
+        return $this->feedback_badges($result);
     }
 }
