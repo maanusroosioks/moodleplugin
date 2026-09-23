@@ -1,0 +1,17 @@
+{{!
+    @template mod_idetestfeedback/run_filters
+
+    The menus that narrow the teacher's run list.
+
+    Example context (json):
+    {
+        "selects": [
+            "<div class=\"singleselect\">Student menu</div>",
+            "<div class=\"singleselect\">Status menu</div>"
+        ]
+    }
+}}
+<div class="idetestfeedback-filters mb-3">
+    {{! Core widgets, rendered by the core renderer before they reach the template. }}
+    {{#selects}}{{{.}}}{{/selects}}
+</div>

@@ -20,7 +20,6 @@ use cm_info;
 use core\context;
 use core\exception\moodle_exception;
 use core\exception\required_capability_exception;
-use core\output\html_writer;
 use core\output\notification;
 use core\output\single_select;
 use core\url;
@@ -235,7 +234,7 @@ class view {
 
         echo $this->renderer->header();
         echo $this->renderer->heading(format_string($this->instance->name));
-        echo $this->assignment_key();
+        echo $this->renderer->assignment_key($this->instance->assignmentkey);
         echo $this->submission_window_notice();
 
         if ($this->runid > 0 && $this->fileid > 0) {
@@ -249,23 +248,6 @@ class view {
         }
 
         echo $this->renderer->footer();
-    }
-
-    /**
-     * The key students paste into their IDE plugin.
-     *
-     * Shown to everyone who can see the activity: it routes submissions to this
-     * instance but grants nothing on its own, and a student cannot submit
-     * without it.
-     *
-     * @return string
-     */
-    protected function assignment_key(): string {
-        return html_writer::div(
-            html_writer::tag('span', get_string('assignmentkey', 'mod_idetestfeedback') . ': ') .
-                html_writer::tag('code', s($this->instance->assignmentkey)),
-            'idetestfeedback-key mb-3'
-        );
     }
 
     /**
@@ -506,10 +488,7 @@ class view {
         );
         $statusselect->label = get_string('status', 'mod_idetestfeedback');
 
-        return html_writer::div(
-            $this->renderer->render($studentselect) . $this->renderer->render($statusselect),
-            'idetestfeedback-filters mb-3'
-        );
+        return $this->renderer->run_filters([$studentselect, $statusselect]);
     }
 
     /**

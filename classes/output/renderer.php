@@ -18,6 +18,7 @@ namespace mod_idetestfeedback\output;
 
 use core\output\notification;
 use core\output\plugin_renderer_base;
+use core\output\single_select;
 use core\url;
 use stdClass;
 
@@ -59,6 +60,31 @@ class renderer extends plugin_renderer_base {
         }
 
         return $out;
+    }
+
+    /**
+     * The key students paste into their IDE plugin.
+     *
+     * Safe to show everyone who can see the activity: it routes submissions to
+     * the instance but grants nothing on its own.
+     *
+     * @param string $assignmentkey the activity's key
+     * @return string
+     */
+    public function assignment_key(string $assignmentkey): string {
+        return $this->render_from_template('mod_idetestfeedback/assignment_key', ['assignmentkey' => $assignmentkey]);
+    }
+
+    /**
+     * The menus that narrow the run list, side by side.
+     *
+     * @param single_select[] $selects the menus
+     * @return string
+     */
+    public function run_filters(array $selects): string {
+        return $this->render_from_template('mod_idetestfeedback/run_filters', [
+            'selects' => array_map(fn(single_select $select) => $this->render($select), $selects),
+        ]);
     }
 
     /**

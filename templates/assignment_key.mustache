@@ -1,0 +1,13 @@
+{{!
+    @template mod_idetestfeedback/assignment_key
+
+    The key students paste into their IDE plugin.
+
+    Example context (json):
+    {
+        "assignmentkey": "0123456789abcdef0123456789abcdef"
+    }
+}}
+<div class="idetestfeedback-key mb-3">
+    <span>{{#str}} assignmentkey, mod_idetestfeedback {{/str}}: </span><code>{{assignmentkey}}</code>
+</div>
