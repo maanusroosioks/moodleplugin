@@ -24,7 +24,6 @@
  */
 
 use mod_idetestfeedback\local\repository;
-use mod_idetestfeedback\local\source_code;
 
 /**
  * Structure step to restore one idetestfeedback activity.
@@ -137,10 +136,7 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
         $data = (object) $data;
         $instanceid = $this->get_new_parentid('idetestfeedback');
 
-        $content = source_code::canonicalise((string) ($data->content ?? ''));
-        $blobid = $content === ''
-            ? null
-            : (new repository($DB))->find_or_create_blob($instanceid, source_code::hash($content), $content, time());
+        $blobid = (new repository($DB))->find_or_create_blob($instanceid, (string) ($data->content ?? ''), time());
 
         $DB->insert_record('idetestfeedback_file', (object) [
             'runid'       => $this->get_new_parentid('idetestfeedback_run'),

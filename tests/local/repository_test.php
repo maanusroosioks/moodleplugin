@@ -727,4 +727,23 @@ final class repository_test extends \advanced_testcase {
         $this->assertSame([], $this->repository->get_feedback_history((int) $current->id));
         $this->assertSame([], $this->repository->get_feedback_history(0));
     }
+
+    public function test_find_or_create_blob_stores_one_canonical_body_per_activity(): void {
+        global $DB;
+
+        $first = $this->repository->find_or_create_blob($this->instance->id, "x = 1  \r\n", time());
+        $second = $this->repository->find_or_create_blob($this->instance->id, "x = 1\n", time());
+
+        $this->assertSame($first, $second);
+        $blob = $DB->get_record('idetestfeedback_blob', ['id' => $first]);
+        $this->assertSame('x = 1', $blob->content);
+        $this->assertSame(source_code::hash('x = 1'), $blob->contenthash);
+    }
+
+    public function test_find_or_create_blob_stores_nothing_for_an_empty_body(): void {
+        global $DB;
+
+        $this->assertNull($this->repository->find_or_create_blob($this->instance->id, " \n\n", time()));
+        $this->assertSame(0, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+    }
 }

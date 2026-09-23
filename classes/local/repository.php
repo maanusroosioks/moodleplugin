@@ -352,16 +352,16 @@ class repository {
      */
     public function insert_run_with_results(\stdClass $run, array $results, array $files = []): int {
         $canretry = !$this->db->is_transaction_started();
-        $copyfiles = fn() => array_map(fn($file) => clone $file, $files);
+        $bodies = capture::canonicalise_files(array_map(fn($file) => clone $file, $files));
 
         try {
-            return $this->insert_run_attempt($run, $results, $copyfiles());
+            return $this->insert_run_attempt($run, $results, $bodies);
         } catch (\dml_write_exception $e) {
             if (!$canretry) {
                 throw $e;
             }
 
-            return $this->insert_run_attempt($run, $results, $copyfiles());
+            return $this->insert_run_attempt($run, $results, $bodies);
         }
     }
 
@@ -370,16 +370,15 @@ class repository {
      *
      * @param \stdClass $run the run to insert
      * @param \stdClass[] $results its results
-     * @param \stdClass[] $files its captured test files
+     * @param array<string, \stdClass> $bodies its canonicalised test files, by path
      * @return int the new run id
      */
-    private function insert_run_attempt(\stdClass $run, array $results, array $files): int {
+    private function insert_run_attempt(\stdClass $run, array $results, array $bodies): int {
         $transaction = $this->db->start_delegated_transaction();
 
         try {
             $runid = $this->db->insert_record('idetestfeedback_run', $run);
 
-            $bodies = capture::canonicalise_files($files);
             $blobs = $this->store_blobs((int) $run->idetestfeedbackid, $bodies, (int) $run->timecreated);
 
             foreach ($results as $result) {
@@ -425,7 +424,7 @@ class repository {
         foreach ($bodies as $file) {
             $hash = $file->contenthash;
             if ($hash !== null && !isset($blobs[$hash])) {
-                $blobs[$hash] = $this->find_or_create_blob($instanceid, $hash, $file->content, $now);
+                $blobs[$hash] = $this->blob_id($instanceid, $hash, $file->content, $now);
             }
         }
 
@@ -436,12 +435,26 @@ class repository {
      * The blob holding a body within the activity, stored first if it is new.
      *
      * @param int $instanceid the activity the body belongs to
+     * @param string $content the body as it was received
+     * @param int $now when the body was first seen, if it is new
+     * @return int|null the blob id, or null when the body canonicalises to nothing
+     */
+    public function find_or_create_blob(int $instanceid, string $content, int $now): ?int {
+        $content = source_code::canonicalise($content);
+
+        return $content === '' ? null : $this->blob_id($instanceid, source_code::hash($content), $content, $now);
+    }
+
+    /**
+     * The blob for an already canonicalised body, stored first if it is new.
+     *
+     * @param int $instanceid the activity the body belongs to
      * @param string $hash the hash of the canonical body
      * @param string $content the canonical body
      * @param int $now when the body was first seen, if it is new
      * @return int the blob id
      */
-    public function find_or_create_blob(int $instanceid, string $hash, string $content, int $now): int {
+    private function blob_id(int $instanceid, string $hash, string $content, int $now): int {
         $existing = $this->db->get_field(
             'idetestfeedback_blob',
             'id',
