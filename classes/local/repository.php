@@ -24,6 +24,9 @@ namespace mod_idetestfeedback\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class repository {
+    /** @var int Seconds a write waits for another write to the same activity to finish */
+    private const LOCK_TIMEOUT = 30;
+
     /**
      * Creates the repository.
      *
@@ -46,7 +49,7 @@ class repository {
     }
 
     /**
-     * A new key for the IDE to submit an activity's runs under.
+     * Generates a new key for the IDE to submit an activity's runs under.
      *
      * @return string 32 hex characters
      */
@@ -65,7 +68,7 @@ class repository {
     }
 
     /**
-     * A run, scoped to the activity it must belong to.
+     * Fetches a run, scoped to the activity it must belong to.
      *
      * @param int $runid the run id
      * @param int $instanceid the activity instance the run must belong to
@@ -89,7 +92,7 @@ class repository {
     }
 
     /**
-     * The test files captured with a run, each with the body it points at.
+     * Fetches the test files captured with a run, each with the body it points at.
      *
      * @param int $runid the run id
      * @return \stdClass[] the test files captured with the run, by path
@@ -107,7 +110,7 @@ class repository {
     }
 
     /**
-     * One file captured with a run, with the body it points at.
+     * Fetches one file captured with a run, with the body it points at.
      *
      * @param int $fileid the file id
      * @param int $runid the run the file must belong to
@@ -126,7 +129,7 @@ class repository {
     }
 
     /**
-     * The results a teacher commented on before a run was submitted, across
+     * Fetches the results a teacher commented on before a run was submitted, across
      * the same user's earlier runs in the same activity.
      *
      * @param int $runid the run to look back from
@@ -150,7 +153,7 @@ class repository {
     }
 
     /**
-     * The feedback one user wrote on results in this activity, without the runs' owners.
+     * Fetches the feedback one user wrote on results in this activity, without the runs' owners.
      *
      * @param int $instanceid the activity instance id
      * @param int $userid the feedback author
@@ -163,7 +166,7 @@ class repository {
                JOIN {idetestfeedback_run} run ON run.id = res.runid
               WHERE run.idetestfeedbackid = :instanceid
                 AND res.feedbackby = :userid
-              ORDER BY res.id ASC",
+           ORDER BY res.id ASC",
             ['instanceid' => $instanceid, 'userid' => $userid]
         );
     }
@@ -181,7 +184,7 @@ class repository {
     }
 
     /**
-     * A page of runs for the whole activity, newest first.
+     * Fetches a page of runs for the whole activity, newest first.
      *
      * @param int $instanceid the activity instance id
      * @param array $filters optional 'userid', 'status' and/or 'groupid' to narrow the list
@@ -203,7 +206,7 @@ class repository {
                FROM {idetestfeedback_run} r
                JOIN {user} u ON u.id = r.userid
               WHERE {$where}
-              ORDER BY r.timecreated DESC, r.id DESC",
+           ORDER BY r.timecreated DESC, r.id DESC",
             $params,
             $limitfrom,
             $limitnum
@@ -224,7 +227,7 @@ class repository {
     }
 
     /**
-     * Distinct users who have at least one run in this activity, for the filter menu.
+     * Fetches the distinct users who have at least one run in this activity, for the filter menu.
      *
      * @param int $instanceid the activity instance id
      * @param int $groupid only members of this group, or 0 for everyone
@@ -239,13 +242,13 @@ class repository {
                FROM {idetestfeedback_run} r
                JOIN {user} u ON u.id = r.userid
               WHERE {$where}
-              ORDER BY u.lastname, u.firstname",
+           ORDER BY u.lastname, u.firstname",
             $params
         );
     }
 
     /**
-     * A page of one user's runs, newest first.
+     * Fetches a page of one user's runs, newest first.
      *
      * @param int $instanceid the activity instance id
      * @param int $userid the student
@@ -270,7 +273,7 @@ class repository {
     }
 
     /**
-     * A user's run count and passing run count.
+     * Counts a user's runs and passing runs.
      *
      * @param int $instanceid the activity instance id
      * @param int $userid the student
@@ -294,7 +297,7 @@ class repository {
     }
 
     /**
-     * Whether the user has a run in which every reported test passed; a run is
+     * Checks whether the user has a run in which every reported test passed; a run is
      * PASSED as soon as nothing failed, so skips have to be excluded too.
      *
      * @param int $instanceid the activity instance id
@@ -311,7 +314,7 @@ class repository {
     }
 
     /**
-     * The active local users with an email address, matched case-insensitively.
+     * Fetches the active local users with an email address, matched case-insensitively.
      *
      * More than one is possible when $CFG->allowaccountssameemail is on.
      *
@@ -342,72 +345,39 @@ class repository {
      *
      * Every hash is derived here, so no caller can supply one of its own.
      *
-     * A write conflict, such as a concurrent run storing the same blob, is
-     * retried once when this is the outermost transaction.
-     *
      * @param \stdClass $run the run to insert
      * @param \stdClass[] $results its results; runid is filled in here
      * @param \stdClass[] $files its captured test files, left unchanged
      * @return int the new run id
      */
     public function insert_run_with_results(\stdClass $run, array $results, array $files = []): int {
-        $canretry = !$this->db->is_transaction_started();
+        $instanceid = (int) $run->idetestfeedbackid;
         $bodies = capture::canonicalise_files(array_map(fn($file) => clone $file, $files));
 
-        try {
-            return $this->insert_run_attempt($run, $results, $bodies);
-        } catch (\dml_write_exception $e) {
-            if (!$canretry) {
-                throw $e;
-            }
-
-            return $this->insert_run_attempt($run, $results, $bodies);
-        }
-    }
-
-    /**
-     * Stores a run in one transaction.
-     *
-     * @param \stdClass $run the run to insert
-     * @param \stdClass[] $results its results
-     * @param array<string, \stdClass> $bodies its canonicalised test files, by path
-     * @return int the new run id
-     */
-    private function insert_run_attempt(\stdClass $run, array $results, array $bodies): int {
-        $transaction = $this->db->start_delegated_transaction();
-
-        try {
+        return $this->write_locked($instanceid, function () use ($instanceid, $run, $results, $bodies): int {
             $runid = $this->db->insert_record('idetestfeedback_run', $run);
 
-            $blobs = $this->store_blobs((int) $run->idetestfeedbackid, $bodies, (int) $run->timecreated);
+            $blobs = $this->store_blobs($instanceid, $bodies, (int) $run->timecreated);
 
             foreach ($results as $result) {
                 $result->runid = $runid;
             }
             $this->db->insert_records('idetestfeedback_result', $results);
 
-            if ($bodies) {
-                $links = [];
-                foreach ($bodies as $path => $file) {
-                    $links[] = (object) [
-                        'runid'       => $runid,
-                        'path'        => $path,
-                        'blobid'      => $blobs[$file->contenthash] ?? null,
-                        'truncated'   => (int) ($file->truncated ?? 0),
-                        'timecreated' => $file->timecreated,
-                    ];
-                }
-                $this->db->insert_records('idetestfeedback_file', $links);
+            $links = [];
+            foreach ($bodies as $path => $file) {
+                $links[] = (object) [
+                    'runid'       => $runid,
+                    'path'        => $path,
+                    'blobid'      => $file->contenthash === null ? null : $blobs[$file->contenthash],
+                    'truncated'   => (int) ($file->truncated ?? 0),
+                    'timecreated' => $file->timecreated,
+                ];
             }
-
-            $transaction->allow_commit();
+            $this->db->insert_records('idetestfeedback_file', $links);
 
             return $runid;
-        } catch (\Throwable $e) {
-            $transaction->rollback($e);
-
-            throw $e;
-        }
+        });
     }
 
     /**
@@ -418,7 +388,7 @@ class repository {
      * @param int $now when the run was submitted
      * @return array<string, int> blob id by content hash
      */
-    protected function store_blobs(int $instanceid, array $bodies, int $now): array {
+    private function store_blobs(int $instanceid, array $bodies, int $now): array {
         $blobs = [];
 
         foreach ($bodies as $file) {
@@ -432,7 +402,7 @@ class repository {
     }
 
     /**
-     * The blob holding a body within the activity, stored first if it is new.
+     * Finds the blob holding a body within the activity, storing it first if it is new.
      *
      * @param int $instanceid the activity the body belongs to
      * @param string $content the body as it was received
@@ -446,7 +416,7 @@ class repository {
     }
 
     /**
-     * The blob for an already canonicalised body, stored first if it is new.
+     * Finds the blob for an already canonicalised body, storing it first if it is new.
      *
      * @param int $instanceid the activity the body belongs to
      * @param string $hash the hash of the canonical body
@@ -498,49 +468,50 @@ class repository {
      * @param int[]|null $userids null for every user, otherwise only these users
      */
     public function delete_runs(int $instanceid, ?array $userids = null): void {
+        if ($userids === []) {
+            return;
+        }
+
+        $this->write_locked($instanceid, fn() => $this->purge_runs($instanceid, $userids));
+    }
+
+    /**
+     * Deletes runs and every body no remaining run points at, under a lock the caller holds.
+     *
+     * @param int $instanceid the activity instance id
+     * @param int[]|null $userids null for every user, otherwise only these users
+     */
+    private function purge_runs(int $instanceid, ?array $userids): void {
         $select = 'idetestfeedbackid = :instanceid';
         $params = ['instanceid' => $instanceid];
 
         if ($userids !== null) {
-            if (!$userids) {
-                return;
-            }
             [$insql, $inparams] = $this->db->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'duser');
             $select .= " AND userid {$insql}";
             $params += $inparams;
         }
 
-        $transaction = $this->db->start_delegated_transaction();
-
-        try {
-            foreach (['idetestfeedback_result', 'idetestfeedback_file'] as $child) {
-                $this->db->delete_records_select(
-                    $child,
-                    "runid IN (SELECT id FROM {idetestfeedback_run} WHERE {$select})",
-                    $params
-                );
-            }
-            $this->db->delete_records_select('idetestfeedback_run', $select, $params);
-
+        foreach (['idetestfeedback_result', 'idetestfeedback_file'] as $child) {
             $this->db->delete_records_select(
-                'idetestfeedback_blob',
-                "idetestfeedbackid = :binstanceid
-                 AND NOT EXISTS (SELECT 1
-                                   FROM {idetestfeedback_file} f
-                                  WHERE f.blobid = {idetestfeedback_blob}.id)",
-                ['binstanceid' => $instanceid]
+                $child,
+                "runid IN (SELECT id FROM {idetestfeedback_run} WHERE {$select})",
+                $params
             );
-
-            $transaction->allow_commit();
-        } catch (\Throwable $e) {
-            $transaction->rollback($e);
-
-            throw $e;
         }
+        $this->db->delete_records_select('idetestfeedback_run', $select, $params);
+
+        $this->db->delete_records_select(
+            'idetestfeedback_blob',
+            "idetestfeedbackid = :binstanceid
+             AND NOT EXISTS (SELECT 1
+                               FROM {idetestfeedback_file} f
+                              WHERE f.blobid = {idetestfeedback_blob}.id)",
+            ['binstanceid' => $instanceid]
+        );
     }
 
     /**
-     * The activity instances in a course.
+     * Fetches the ids of the activity instances in a course.
      *
      * @param int $courseid the course id
      * @return int[] the ids of every activity instance in the course
@@ -560,8 +531,10 @@ class repository {
      * @param int $instanceid the activity instance id
      */
     public function delete_instance(int $instanceid): void {
-        $this->delete_runs($instanceid);
-        $this->db->delete_records('idetestfeedback', ['id' => $instanceid]);
+        $this->write_locked($instanceid, function () use ($instanceid): void {
+            $this->purge_runs($instanceid, null);
+            $this->db->delete_records('idetestfeedback', ['id' => $instanceid]);
+        });
     }
 
     /**
@@ -585,6 +558,39 @@ class repository {
                 AND runid IN (SELECT id FROM {idetestfeedback_run} WHERE idetestfeedbackid = :instanceid)",
             $params
         );
+    }
+
+    /**
+     * Runs a write to an activity's runs and blobs in one transaction, one writer per
+     * activity at a time, so no body is deleted as unused while a new run links to it.
+     *
+     * Nested in a caller's transaction, the lock is released before that transaction commits.
+     *
+     * @param int $instanceid the activity instance id
+     * @param callable $write the write to run
+     * @return mixed whatever the write returns
+     */
+    private function write_locked(int $instanceid, callable $write): mixed {
+        $lock = \core\lock\lock_config::get_lock_factory('mod_idetestfeedback')
+            ->get_lock("instance_{$instanceid}", self::LOCK_TIMEOUT, MINSECS);
+        if (!$lock) {
+            throw new \moodle_exception('locktimeout', 'moodle');
+        }
+
+        try {
+            $transaction = $this->db->start_delegated_transaction();
+
+            try {
+                $result = $write();
+                $transaction->allow_commit();
+
+                return $result;
+            } catch (\Throwable $e) {
+                $transaction->rollback($e);
+            }
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
