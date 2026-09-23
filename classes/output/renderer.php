@@ -18,6 +18,8 @@ namespace mod_idetestfeedback\output;
 
 use core\output\notification;
 use core\output\plugin_renderer_base;
+use core\url;
+use stdClass;
 
 /**
  * Renderer for the activity's pages.
@@ -27,19 +29,6 @@ use core\output\plugin_renderer_base;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class renderer extends plugin_renderer_base {
-    /**
-     * Renders a run list.
-     *
-     * @param run_list $list a page of runs
-     * @return string
-     */
-    public function render_run_list(run_list $list): string {
-        return $this->render_from_template(
-            'mod_idetestfeedback/run_list',
-            $list->export_for_template($this)
-        );
-    }
-
     /**
      * The run summary, then its results, wrapped in the feedback form when the
      * viewer may comment.
@@ -70,6 +59,26 @@ class renderer extends plugin_renderer_base {
         }
 
         return $out;
+    }
+
+    /**
+     * One of a run's files on its own page, expanded.
+     *
+     * @param stdClass $file the file, with the body it points at
+     * @param url $backurl the run the file was opened from
+     * @return string
+     */
+    public function run_file(stdClass $file, url $backurl): string {
+        $row = ['inline' => true, 'open' => true] + run_detail::file_row($file);
+
+        if ($row['hascontent'] && $row['language'] !== '') {
+            $this->require_highlighter();
+        }
+
+        return $this->render_from_template('mod_idetestfeedback/run_file', [
+            'backurl' => $backurl->out(false),
+            'files' => [$row],
+        ]);
     }
 
     /**

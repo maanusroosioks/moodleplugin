@@ -17,7 +17,7 @@
 namespace mod_idetestfeedback\output;
 
 /**
- * Exposes the protected source block so one result can be exported on its own.
+ * Exposes the protected source and file rows so they can be exported on their own.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
@@ -32,6 +32,15 @@ class testable_run_detail_source extends run_detail {
      */
     public function block(\stdClass $result): ?array {
         return $this->source_block($result);
+    }
+
+    /**
+     * Exposes file_rows().
+     *
+     * @return array[] the exported file rows
+     */
+    public function files(): array {
+        return $this->file_rows();
     }
 
     /**

@@ -27,8 +27,8 @@ require_once(__DIR__ . '/../fixtures/testable_run_detail.php');
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\output\run_detail
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\output\run_detail::class)]
 final class run_detail_test extends \basic_testcase {
     /**
      * Data provider for test_language_is_taken_from_the_file_extension().
@@ -54,10 +54,10 @@ final class run_detail_test extends \basic_testcase {
     /**
      * The Prism language comes from the file extension.
      *
-     * @dataProvider language_provider
      * @param string $path the file the code came from
      * @param string $expected the Prism language it should be tagged with
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('language_provider')]
     public function test_language_is_taken_from_the_file_extension(string $path, string $expected): void {
         $this->assertSame($expected, testable_run_detail::language($path));
     }

@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\local;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\local\feedback_saver
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\feedback_saver::class)]
 final class feedback_saver_test extends \advanced_testcase {
     /** @var repository */
     private repository $repository;

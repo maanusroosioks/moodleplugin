@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\output;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\output\status_badge
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\output\status_badge::class)]
 final class status_badge_test extends \basic_testcase {
     /**
      * Data provider for test_row_class().
@@ -44,10 +44,10 @@ final class status_badge_test extends \basic_testcase {
     /**
      * Each status maps to its table row class.
      *
-     * @dataProvider row_class_provider
      * @param string $status a status as stored on the run or result row
      * @param string $expected the expected row class
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('row_class_provider')]
     public function test_row_class(string $status, string $expected): void {
         $this->assertSame($expected, status_badge::row_class($status));
     }
@@ -84,10 +84,10 @@ final class status_badge_test extends \basic_testcase {
     /**
      * Each status maps to its badge classes.
      *
-     * @dataProvider classes_provider
      * @param string $status a status as stored on the run or result row
      * @param string $expected the expected CSS classes
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('classes_provider')]
     public function test_export_for_template_classes(string $status, string $expected): void {
         $exported = (new status_badge($status))->export_for_template($this->renderer());
 

@@ -47,18 +47,18 @@ class provider implements
         $collection->add_database_table(
             'idetestfeedback_run',
             [
-                'userid'       => 'privacy:metadata:run:userid',
-                'ide'          => 'privacy:metadata:run:ide',
-                'projectname'  => 'privacy:metadata:run:projectname',
-                'commithash'   => 'privacy:metadata:run:commithash',
-                'startedat'    => 'privacy:metadata:run:startedat',
-                'finishedat'   => 'privacy:metadata:run:finishedat',
-                'status'       => 'privacy:metadata:run:status',
-                'passedcount'  => 'privacy:metadata:run:passedcount',
-                'failedcount'  => 'privacy:metadata:run:failedcount',
-                'skippedcount' => 'privacy:metadata:run:skippedcount',
-                'errorcount'   => 'privacy:metadata:run:errorcount',
-                'timecreated'  => 'privacy:metadata:run:timecreated',
+                'userid'              => 'privacy:metadata:run:userid',
+                'ide'                 => 'privacy:metadata:run:ide',
+                'projectname'         => 'privacy:metadata:run:projectname',
+                'commithash'          => 'privacy:metadata:run:commithash',
+                'startedat'           => 'privacy:metadata:run:startedat',
+                'finishedat'          => 'privacy:metadata:run:finishedat',
+                'status'              => 'privacy:metadata:run:status',
+                'passedcount'         => 'privacy:metadata:run:passedcount',
+                'failedcount'         => 'privacy:metadata:run:failedcount',
+                'skippedcount'        => 'privacy:metadata:run:skippedcount',
+                'errorcount'          => 'privacy:metadata:run:errorcount',
+                'timecreated'         => 'privacy:metadata:run:timecreated',
                 'capturedisabled'     => 'privacy:metadata:run:capturedisabled',
                 'warningacknowledged' => 'privacy:metadata:run:warningacknowledged',
             ],
@@ -68,9 +68,9 @@ class provider implements
         $collection->add_database_table(
             'idetestfeedback_result',
             [
-                'testsuite'      => 'privacy:metadata:result:testsuite',
-                'testname'       => 'privacy:metadata:result:testname',
-                'status'         => 'privacy:metadata:result:status',
+                'testsuite'        => 'privacy:metadata:result:testsuite',
+                'testname'         => 'privacy:metadata:result:testname',
+                'status'           => 'privacy:metadata:result:status',
                 'durationms'       => 'privacy:metadata:result:durationms',
                 'message'          => 'privacy:metadata:result:message',
                 'timecreated'      => 'privacy:metadata:result:timecreated',
@@ -153,20 +153,15 @@ class provider implements
      */
     #[\Override]
     public static function get_users_in_context(userlist $userlist): void {
-        $context = $userlist->get_context();
-        if (!$context instanceof \core\context\module) {
-            return;
-        }
-
-        $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
-        if (!$cm) {
+        $instanceid = self::instance_id($userlist->get_context());
+        if ($instanceid === null) {
             return;
         }
 
         $userlist->add_from_sql(
             'userid',
             "SELECT userid FROM {idetestfeedback_run} WHERE idetestfeedbackid = :instanceid",
-            ['instanceid' => $cm->instance]
+            ['instanceid' => $instanceid]
         );
 
         $userlist->add_from_sql(
@@ -176,7 +171,7 @@ class provider implements
                JOIN {idetestfeedback_run} r ON r.id = res.runid
               WHERE r.idetestfeedbackid = :instanceid
                 AND res.feedbackby IS NOT NULL",
-            ['instanceid' => $cm->instance]
+            ['instanceid' => $instanceid]
         );
     }
 
@@ -191,15 +186,12 @@ class provider implements
         $userid = (int) $contextlist->get_user()->id;
 
         foreach ($contextlist->get_contexts() as $context) {
-            if (!$context instanceof \core\context\module) {
-                continue;
-            }
-            $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
-            if (!$cm) {
+            $instanceid = self::instance_id($context);
+            if ($instanceid === null) {
                 continue;
             }
 
-            $runs = $repository->get_runs_for_user((int) $cm->instance, $userid);
+            $runs = $repository->get_runs_for_user($instanceid, $userid);
 
             foreach ($runs as $run) {
                 $results = $repository->get_results((int) $run->id);
@@ -254,7 +246,7 @@ class provider implements
                 );
             }
 
-            self::export_feedback_given($repository, $context, (int) $cm->instance, $userid);
+            self::export_feedback_given($repository, $context, $instanceid, $userid);
         }
     }
 
@@ -303,15 +295,10 @@ class provider implements
      */
     #[\Override]
     public static function delete_data_for_all_users_in_context(\context $context): void {
-        if (!$context instanceof \core\context\module) {
-            return;
+        $instanceid = self::instance_id($context);
+        if ($instanceid !== null) {
+            self::repository()->delete_runs($instanceid);
         }
-        $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
-        if (!$cm) {
-            return;
-        }
-
-        self::repository()->delete_runs($cm->instance);
     }
 
     /**
@@ -324,15 +311,10 @@ class provider implements
         $userid = $contextlist->get_user()->id;
 
         foreach ($contextlist->get_contexts() as $context) {
-            if (!$context instanceof \core\context\module) {
-                continue;
+            $instanceid = self::instance_id($context);
+            if ($instanceid !== null) {
+                self::forget_users($instanceid, [$userid]);
             }
-            $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
-            if (!$cm) {
-                continue;
-            }
-
-            self::forget_users($cm->instance, [$userid]);
         }
     }
 
@@ -343,16 +325,10 @@ class provider implements
      */
     #[\Override]
     public static function delete_data_for_users(approved_userlist $userlist): void {
-        $context = $userlist->get_context();
-        if (!$context instanceof \core\context\module) {
-            return;
+        $instanceid = self::instance_id($userlist->get_context());
+        if ($instanceid !== null) {
+            self::forget_users($instanceid, $userlist->get_userids());
         }
-        $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
-        if (!$cm) {
-            return;
-        }
-
-        self::forget_users($cm->instance, $userlist->get_userids());
     }
 
     /**
@@ -366,6 +342,22 @@ class provider implements
 
         $repository->anonymise_feedback_authors($instanceid, $userids);
         $repository->delete_runs($instanceid, $userids);
+    }
+
+    /**
+     * The activity instance a context belongs to.
+     *
+     * @param \context $context any context
+     * @return int|null the instance id, or null when the context is not one of this activity's
+     */
+    private static function instance_id(\context $context): ?int {
+        if (!$context instanceof \core\context\module) {
+            return null;
+        }
+
+        $cm = get_coursemodule_from_id('idetestfeedback', $context->instanceid);
+
+        return $cm ? (int) $cm->instance : null;
     }
 
     /**

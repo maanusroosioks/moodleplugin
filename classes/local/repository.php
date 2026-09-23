@@ -46,6 +46,15 @@ class repository {
     }
 
     /**
+     * A new key for the IDE to submit an activity's runs under.
+     *
+     * @return string 32 hex characters
+     */
+    public static function generate_assignmentkey(): string {
+        return bin2hex(random_bytes(16));
+    }
+
+    /**
      * Fetches the activity instance that uses a key.
      *
      * @param string $assignmentkey the key the IDE submits under
@@ -98,19 +107,22 @@ class repository {
     }
 
     /**
-     * The ids of a user's runs.
+     * One file captured with a run, with the body it points at.
      *
-     * @param int $instanceid the activity instance id
-     * @param int $userid the student
-     * @return int[] the user's run ids, newest first
+     * @param int $fileid the file id
+     * @param int $runid the run the file must belong to
+     * @return \stdClass|null the file, or null when the run has no such file
      */
-    public function get_run_ids_for_user(int $instanceid, int $userid): array {
-        return array_map('intval', array_keys($this->db->get_records(
-            'idetestfeedback_run',
-            ['idetestfeedbackid' => $instanceid, 'userid' => $userid],
-            'timecreated DESC, id DESC',
-            'id'
-        )));
+    public function get_file(int $fileid, int $runid): ?\stdClass {
+        return $this->db->get_record_sql(
+            "SELECT f.id, f.runid, f.path, f.blobid, b.contenthash, b.content,
+                    f.truncated, f.timecreated
+               FROM {idetestfeedback_file} f
+          LEFT JOIN {idetestfeedback_blob} b ON b.id = f.blobid
+              WHERE f.id = :fileid
+                AND f.runid = :runid",
+            ['fileid' => $fileid, 'runid' => $runid]
+        ) ?: null;
     }
 
     /**
@@ -123,14 +135,21 @@ class repository {
      * @return int[] run ids, newest first, empty when the run is not this user's
      */
     public function get_prior_run_ids(int $instanceid, int $userid, int $runid, int $limit): array {
-        $ids = $this->get_run_ids_for_user($instanceid, $userid);
-        $position = array_search($runid, $ids, true);
-
-        if ($position === false) {
-            return [];
-        }
-
-        return array_slice($ids, $position + 1, $limit);
+        return array_map('intval', array_keys($this->db->get_records_sql(
+            "SELECT r.id
+               FROM {idetestfeedback_run} r
+               JOIN {idetestfeedback_run} cur ON cur.id = :runid
+                    AND cur.idetestfeedbackid = r.idetestfeedbackid
+                    AND cur.userid = r.userid
+              WHERE r.idetestfeedbackid = :instanceid
+                AND r.userid = :userid
+                AND (r.timecreated < cur.timecreated
+                     OR (r.timecreated = cur.timecreated AND r.id < cur.id))
+           ORDER BY r.timecreated DESC, r.id DESC",
+            ['runid' => $runid, 'instanceid' => $instanceid, 'userid' => $userid],
+            0,
+            $limit
+        )));
     }
 
     /**
@@ -346,36 +365,8 @@ class repository {
     }
 
     /**
-     * Builds the shared WHERE clause for the run list/count.
+     * The active local users with an email address, matched case-insensitively.
      *
-     * @param int $instanceid the activity instance id
-     * @param array $filters optional 'userid', 'status' and/or 'groupid'
-     * @param string $alias the table alias to qualify columns with, '' for none
-     * @return array [string $where, array $params]
-     */
-    private function run_filter_sql(int $instanceid, array $filters, string $alias = ''): array {
-        $prefix = $alias === '' ? '' : $alias . '.';
-
-        $where = "{$prefix}idetestfeedbackid = :instanceid";
-        $params = ['instanceid' => $instanceid];
-
-        if (!empty($filters['userid'])) {
-            $where .= " AND {$prefix}userid = :fuserid";
-            $params['fuserid'] = $filters['userid'];
-        }
-        if (!empty($filters['status'])) {
-            $where .= " AND {$prefix}status = :fstatus";
-            $params['fstatus'] = $filters['status'];
-        }
-        if (!empty($filters['groupid'])) {
-            $where .= " AND {$prefix}userid IN (SELECT gm.userid FROM {groups_members} gm WHERE gm.groupid = :fgroupid)";
-            $params['fgroupid'] = $filters['groupid'];
-        }
-
-        return [$where, $params];
-    }
-
-    /**
      * More than one is possible when $CFG->allowaccountssameemail is on.
      *
      * @param string $email the address the middleware asserted
@@ -488,25 +479,36 @@ class repository {
 
         foreach ($bodies as $file) {
             $hash = $file->contenthash;
-            if ($hash === null || isset($blobs[$hash])) {
-                continue;
+            if ($hash !== null && !isset($blobs[$hash])) {
+                $blobs[$hash] = $this->find_or_create_blob($instanceid, $hash, $file->content, $now);
             }
-
-            $existing = $this->db->get_field(
-                'idetestfeedback_blob',
-                'id',
-                ['idetestfeedbackid' => $instanceid, 'contenthash' => $hash]
-            );
-
-            $blobs[$hash] = $existing ?: $this->db->insert_record('idetestfeedback_blob', (object) [
-                'idetestfeedbackid' => $instanceid,
-                'contenthash'       => $hash,
-                'content'           => $file->content,
-                'timecreated'       => $now,
-            ]);
         }
 
         return $blobs;
+    }
+
+    /**
+     * The blob holding a body within the activity, stored first if it is new.
+     *
+     * @param int $instanceid the activity the body belongs to
+     * @param string $hash the hash of the canonical body
+     * @param string $content the canonical body
+     * @param int $now when the body was first seen, if it is new
+     * @return int the blob id
+     */
+    public function find_or_create_blob(int $instanceid, string $hash, string $content, int $now): int {
+        $existing = $this->db->get_field(
+            'idetestfeedback_blob',
+            'id',
+            ['idetestfeedbackid' => $instanceid, 'contenthash' => $hash]
+        );
+
+        return (int) ($existing ?: $this->db->insert_record('idetestfeedback_blob', (object) [
+            'idetestfeedbackid' => $instanceid,
+            'contenthash'       => $hash,
+            'content'           => $content,
+            'timecreated'       => $now,
+        ]));
     }
 
     /**
@@ -625,5 +627,35 @@ class repository {
                 AND runid IN (SELECT id FROM {idetestfeedback_run} WHERE idetestfeedbackid = :instanceid)",
             $params
         );
+    }
+
+    /**
+     * Builds the shared WHERE clause for the run list/count.
+     *
+     * @param int $instanceid the activity instance id
+     * @param array $filters optional 'userid', 'status' and/or 'groupid'
+     * @param string $alias the table alias to qualify columns with, '' for none
+     * @return array [string $where, array $params]
+     */
+    private function run_filter_sql(int $instanceid, array $filters, string $alias = ''): array {
+        $prefix = $alias === '' ? '' : $alias . '.';
+
+        $where = "{$prefix}idetestfeedbackid = :instanceid";
+        $params = ['instanceid' => $instanceid];
+
+        if (!empty($filters['userid'])) {
+            $where .= " AND {$prefix}userid = :fuserid";
+            $params['fuserid'] = $filters['userid'];
+        }
+        if (!empty($filters['status'])) {
+            $where .= " AND {$prefix}status = :fstatus";
+            $params['fstatus'] = $filters['status'];
+        }
+        if (!empty($filters['groupid'])) {
+            $where .= " AND {$prefix}userid IN (SELECT gm.userid FROM {groups_members} gm WHERE gm.groupid = :fgroupid)";
+            $params['fgroupid'] = $filters['groupid'];
+        }
+
+        return [$where, $params];
     }
 }

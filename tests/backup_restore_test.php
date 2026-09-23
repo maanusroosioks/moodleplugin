@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback;
 
@@ -35,9 +35,9 @@ require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \restore_idetestfeedback_activity_structure_step
- * @covers     \backup_idetestfeedback_activity_structure_step
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\restore_idetestfeedback_activity_structure_step::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\backup_idetestfeedback_activity_structure_step::class)]
 final class backup_restore_test extends \advanced_testcase {
     /** @var string The file both runs capture. */
     private const BODY = "def testAdd():\n    assert add(1, 2) == 3\n";

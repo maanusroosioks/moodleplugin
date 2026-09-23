@@ -29,8 +29,8 @@ require_once(__DIR__ . '/../fixtures/testable_run_detail_history.php');
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\output\run_detail
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\output\run_detail::class)]
 final class run_detail_history_test extends \advanced_testcase {
     /** @var int The run being shown, for feedback written before it. */
     private const NOW = 1000;

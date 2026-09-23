@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\event;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\event\test_run_submitted
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\event\test_run_submitted::class)]
 final class test_run_submitted_test extends \advanced_testcase {
     /** @var \stdClass */
     private \stdClass $instance;

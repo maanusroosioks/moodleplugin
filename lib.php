@@ -34,13 +34,16 @@ use mod_idetestfeedback\local\repository;
 function idetestfeedback_add_instance(stdClass $data, $mform = null): int {
     global $DB;
 
-    $data->assignmentkey = bin2hex(random_bytes(16));
+    $data->assignmentkey = repository::generate_assignmentkey();
     $data->timeopen      = $data->timeopen ?? 0;
     $data->timeclose     = $data->timeclose ?? 0;
     $data->timecreated   = time();
     $data->timemodified  = time();
 
-    return $DB->insert_record('idetestfeedback', $data);
+    $data->id = $DB->insert_record('idetestfeedback', $data);
+    idetestfeedback_update_completion_date_event($data);
+
+    return $data->id;
 }
 
 /**
@@ -59,7 +62,59 @@ function idetestfeedback_update_instance(stdClass $data, $mform = null): bool {
     $data->timeclose     = $data->timeclose ?? 0;
     $data->timemodified  = time();
 
-    return $DB->update_record('idetestfeedback', $data);
+    $DB->update_record('idetestfeedback', $data);
+    idetestfeedback_update_completion_date_event($data);
+
+    return true;
+}
+
+/**
+ * Puts the "Expect completed on" date on the calendar, or takes it off.
+ *
+ * @param stdClass $data the submitted mod_form data, carrying the instance id
+ */
+function idetestfeedback_update_completion_date_event(stdClass $data): void {
+    \core_completion\api::update_completion_date_event(
+        $data->coursemodule,
+        'idetestfeedback',
+        $data->id,
+        !empty($data->completionexpected) ? $data->completionexpected : null
+    );
+}
+
+/**
+ * The action the calendar and timeline offer on this activity's events.
+ *
+ * @param calendar_event $event the event being shown
+ * @param \core_calendar\action_factory $factory builds the action
+ * @param int $userid the user the event is shown to, 0 for the current user
+ * @return \core_calendar\local\event\entities\action_interface|null null once the activity is complete
+ */
+function mod_idetestfeedback_core_calendar_provide_event_action(
+    calendar_event $event,
+    \core_calendar\action_factory $factory,
+    int $userid = 0
+): ?\core_calendar\local\event\entities\action_interface {
+    global $CFG, $USER;
+    require_once($CFG->libdir . '/completionlib.php');
+
+    $userid = $userid ?: (int) $USER->id;
+    $cm = get_fast_modinfo($event->courseid, $userid)->instances['idetestfeedback'][$event->instance] ?? null;
+    if (!$cm) {
+        return null;
+    }
+
+    $completion = new completion_info($cm->get_course());
+    if ($completion->get_data($cm, false, $userid)->completionstate != COMPLETION_INCOMPLETE) {
+        return null;
+    }
+
+    return $factory->create_instance(
+        get_string('view'),
+        new \core\url('/mod/idetestfeedback/view.php', ['id' => $cm->id]),
+        1,
+        true
+    );
 }
 
 /**

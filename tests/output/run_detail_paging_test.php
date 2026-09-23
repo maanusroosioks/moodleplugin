@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\output;
 
@@ -27,8 +27,8 @@ require_once(__DIR__ . '/../fixtures/testable_run_detail_paging.php');
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\output\run_detail
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\output\run_detail::class)]
 final class run_detail_paging_test extends \advanced_testcase {
     /**
      * The result ids shown on one page.

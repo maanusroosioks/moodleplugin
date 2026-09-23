@@ -28,14 +28,15 @@ use stdClass;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     ::idetestfeedback_add_instance
- * @covers     ::idetestfeedback_update_instance
- * @covers     ::idetestfeedback_delete_instance
- * @covers     ::idetestfeedback_supports
- * @covers     ::idetestfeedback_get_coursemodule_info
- * @covers     ::idetestfeedback_reset_userdata
- * @covers     ::idetestfeedback_view
  */
+#[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_add_instance')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_update_instance')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_update_completion_date_event')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_delete_instance')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_supports')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_get_coursemodule_info')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_reset_userdata')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_view')]
 final class lib_test extends advanced_testcase {
     #[\Override]
     protected function setUp(): void {
@@ -54,6 +55,7 @@ final class lib_test extends advanced_testcase {
 
         return (object) array_merge([
             'course' => $course->id,
+            'coursemodule' => 0,
             'name' => 'A test activity',
             'intro' => '',
             'introformat' => FORMAT_HTML,
@@ -110,6 +112,31 @@ final class lib_test extends advanced_testcase {
         $this->assertSame('Renamed', $instance->name);
     }
 
+    public function test_expected_completion_date_is_put_on_the_calendar_and_taken_off(): void {
+        global $DB;
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $expected = time() + DAYSECS;
+        $instance = $this->getDataGenerator()->create_module('idetestfeedback', [
+            'course' => $course->id,
+            'completion' => COMPLETION_TRACKING_AUTOMATIC,
+            'completionexpected' => $expected,
+        ]);
+        $conditions = [
+            'modulename' => 'idetestfeedback',
+            'instance' => $instance->id,
+            'eventtype' => \core_completion\api::COMPLETION_EVENT_TYPE_DATE_COMPLETION_EXPECTED,
+        ];
+
+        $this->assertEquals($expected, $DB->get_field('event', 'timestart', $conditions, MUST_EXIST));
+
+        $update = $this->form_data(['coursemodule' => $instance->cmid, 'course' => $course->id]);
+        $update->instance = $instance->id;
+        idetestfeedback_update_instance($update);
+
+        $this->assertFalse($DB->record_exists('event', $conditions));
+    }
+
     public function test_delete_instance_removes_the_instance_and_its_runs(): void {
         global $DB;
 
@@ -150,10 +177,10 @@ final class lib_test extends advanced_testcase {
     /**
      * The module reports the features it supports.
      *
-     * @dataProvider supports_provider
      * @param string $feature a FEATURE_* constant, or an unknown string
      * @param string|bool|null $expected the expected support value
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('supports_provider')]
     public function test_supports(string $feature, string|bool|null $expected): void {
         $this->assertSame($expected, idetestfeedback_supports($feature));
     }

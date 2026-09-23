@@ -26,8 +26,8 @@ use mod_idetestfeedback\completion\custom_completion;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\completion\custom_completion
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\completion\custom_completion::class)]
 final class custom_completion_test extends \advanced_testcase {
     /**
      * Creates an activity with the rule switched on, plus an enrolled student.

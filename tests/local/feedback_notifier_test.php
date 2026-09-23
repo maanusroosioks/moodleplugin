@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\local;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\local\feedback_notifier
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\feedback_notifier::class)]
 final class feedback_notifier_test extends \advanced_testcase {
     public function test_notify_sends_a_message_naming_the_run_owner_and_feedback(): void {
         $this->resetAfterTest();

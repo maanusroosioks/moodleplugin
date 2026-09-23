@@ -12,16 +12,15 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\local;
 
 /**
  * Reading the source code an IDE captured with a run.
  *
- * A test's body is normally carried once, in the run's file, and a result only
- * repeats it when the file could not: the excerpt is cut out here rather than
- * stored twice.
+ * A test's body is carried once, in the run's file, and the excerpt a result
+ * points at is cut out here rather than stored twice.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks

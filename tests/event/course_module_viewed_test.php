@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\event;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\event\course_module_viewed
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\event\course_module_viewed::class)]
 final class course_module_viewed_test extends \advanced_testcase {
     public function test_it_can_be_triggered_and_captured(): void {
         $this->resetAfterTest();

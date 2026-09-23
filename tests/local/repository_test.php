@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\local;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\local\repository
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\repository::class)]
 final class repository_test extends \advanced_testcase {
     /** @var repository */
     private repository $repository;
@@ -216,20 +216,6 @@ final class repository_test extends \advanced_testcase {
         $run = $this->create_run($student->id);
 
         $this->assertSame([], $this->repository->get_files($run->id));
-    }
-
-    public function test_get_run_ids_for_user_are_newest_first_and_scoped_to_the_user(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-
-        $first = $this->create_run($student->id, overrides: ['timecreated' => 1000]);
-        $second = $this->create_run($student->id, overrides: ['timecreated' => 2000]);
-        $this->create_run($other->id, overrides: ['timecreated' => 3000]);
-
-        $this->assertSame(
-            [(int) $second->id, (int) $first->id],
-            $this->repository->get_run_ids_for_user($this->instance->id, $student->id)
-        );
     }
 
     public function test_get_feedback_authored_by_excludes_other_authors_and_instances(): void {

@@ -29,6 +29,7 @@ use mod_idetestfeedback\local\feedback_saver;
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\source_history;
 use mod_idetestfeedback\local\status;
+use mod_idetestfeedback\local\submission_window;
 use mod_idetestfeedback\output\renderer;
 use mod_idetestfeedback\output\run_detail;
 use mod_idetestfeedback\output\run_list;
@@ -93,6 +94,7 @@ class view {
      * @param int $filteruserid show only this student's runs, or 0 for all students
      * @param string $filterstatus show only runs with this status, or '' for all statuses
      * @param int $listpage the run list page a run was opened from, for the way back
+     * @param int $fileid the run's file to show on its own, or 0 for the whole run
      */
     public function __construct(
         /** @var int The course module id */
@@ -105,7 +107,9 @@ class view {
         protected int $filteruserid = 0,
         string $filterstatus = '',
         /** @var int The run list page a run was opened from, for the way back */
-        protected int $listpage = 0
+        protected int $listpage = 0,
+        /** @var int The run's file to show on its own, or 0 for the whole run */
+        protected int $fileid = 0
     ) {
         global $DB, $PAGE, $USER;
 
@@ -116,7 +120,11 @@ class view {
         [$this->course, $this->cm] = get_course_and_cm_from_cmid($cmid, 'idetestfeedback');
         $this->instance = $this->repository->get_instance($this->cm->instance);
 
-        $PAGE->set_url($this->runid > 0 ? $this->run_url($this->page) : $this->list_url($this->page));
+        $PAGE->set_url(match (true) {
+            $this->runid > 0 && $this->fileid > 0 => $this->file_url($this->fileid),
+            $this->runid > 0 => $this->run_url($this->page),
+            default => $this->list_url($this->page),
+        });
 
         require_course_login($this->course, true, $this->cm);
 
@@ -229,7 +237,9 @@ class view {
         echo $this->assignment_key();
         echo $this->submission_window_notice();
 
-        if ($this->runid > 0) {
+        if ($this->runid > 0 && $this->fileid > 0) {
+            echo $this->run_file();
+        } else if ($this->runid > 0) {
             echo $this->run_detail();
         } else if ($this->canviewall) {
             echo $this->teacher_view();
@@ -263,23 +273,21 @@ class view {
      * @return string rendered notification, or '' while submissions are open
      */
     protected function submission_window_notice(): string {
-        $now = time();
+        $message = match (submission_window::of($this->instance, time())) {
+            submission_window::NOT_YET_OPEN => get_string(
+                'submissionnotopen',
+                'mod_idetestfeedback',
+                userdate($this->instance->timeopen)
+            ),
+            submission_window::CLOSED => get_string(
+                'submissionclosed',
+                'mod_idetestfeedback',
+                userdate($this->instance->timeclose)
+            ),
+            submission_window::OPEN => null,
+        };
 
-        if ($this->instance->timeopen > 0 && $now < $this->instance->timeopen) {
-            return $this->renderer->notification(
-                get_string('submissionnotopen', 'mod_idetestfeedback', userdate($this->instance->timeopen)),
-                notification::NOTIFY_WARNING
-            );
-        }
-
-        if ($this->instance->timeclose > 0 && $now > $this->instance->timeclose) {
-            return $this->renderer->notification(
-                get_string('submissionclosed', 'mod_idetestfeedback', userdate($this->instance->timeclose)),
-                notification::NOTIFY_WARNING
-            );
-        }
-
-        return '';
+        return $message === null ? '' : $this->renderer->notification($message, notification::NOTIFY_WARNING);
     }
 
     /**
@@ -328,6 +336,23 @@ class view {
                 $this->run_url()
             ),
         ));
+    }
+
+    /**
+     * One of the run's files on its own, for a file too large to show with the run.
+     *
+     * @return string
+     */
+    protected function run_file(): string {
+        $file = $this->run ? $this->repository->get_file($this->fileid, $this->runid) : null;
+        if (!$file) {
+            return $this->renderer->notification(
+                get_string('filenotfound', 'mod_idetestfeedback'),
+                notification::NOTIFY_ERROR
+            );
+        }
+
+        return $this->renderer->run_file($file, $this->run_url($this->page));
     }
 
     /**
@@ -509,10 +534,15 @@ class view {
     /**
      * The active filters, as query parameters for links back into the list.
      *
-     * @return array
+     * @return array each repository filter key, prefixed with 'filter'
      */
     protected function filter_params(): array {
-        return array_filter(['filteruserid' => $this->filteruserid, 'filterstatus' => $this->filterstatus?->value]);
+        $params = [];
+        foreach ($this->run_filters() as $key => $value) {
+            $params['filter' . $key] = $value;
+        }
+
+        return $params;
     }
 
     /**
@@ -556,6 +586,16 @@ class view {
      */
     protected function run_url(int $page = 0): url {
         return $this->url(['runid' => $this->runid] + $this->list_state($this->listpage) + array_filter(['page' => $page]));
+    }
+
+    /**
+     * One of the requested run's files on its own.
+     *
+     * @param int $fileid the file id
+     * @return url
+     */
+    protected function file_url(int $fileid): url {
+        return new url($this->run_url($this->page), ['fileid' => $fileid]);
     }
 
     /**

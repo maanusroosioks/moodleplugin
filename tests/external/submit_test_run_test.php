@@ -28,8 +28,8 @@ use mod_idetestfeedback\local\validation_exception;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\external\submit_test_run
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\external\submit_test_run::class)]
 final class submit_test_run_test extends \advanced_testcase {
     /** @var string The declaration the fixture's line range points at. */
     private const DECLARATION = "def test_add_returns_sum():\n    assert add(2, 3) == 5";
@@ -179,10 +179,10 @@ final class submit_test_run_test extends \advanced_testcase {
     /**
      * The run status is the worst status any result reported.
      *
-     * @dataProvider run_status_provider
      * @param string[] $statuses the statuses to submit, one result each
      * @param status $expected the overall run status that should be stored
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('run_status_provider')]
     public function test_run_status_is_the_worst_outcome_reported(array $statuses, status $expected): void {
         global $DB;
 
@@ -514,10 +514,10 @@ final class submit_test_run_test extends \advanced_testcase {
     /**
      * An impossible source line range is rejected.
      *
-     * @dataProvider invalid_source_lines_provider
      * @param int $startline the first line to submit
      * @param int $endline the last line to submit
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalid_source_lines_provider')]
     public function test_it_rejects_an_impossible_source_line_range(int $startline, int $endline): void {
         $this->expectException(validation_exception::class);
         $this->expectExceptionMessage(get_string('validation_invalidsourcelines', 'mod_idetestfeedback'));
@@ -801,6 +801,23 @@ final class submit_test_run_test extends \advanced_testcase {
 
     public function test_it_rejects_a_submission_to_a_hidden_activity(): void {
         set_coursemodule_visible($this->instance->cmid, 0);
+
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_activityunavailable', 'mod_idetestfeedback'));
+
+        $this->submit($this->params());
+    }
+
+    public function test_it_rejects_a_student_who_may_not_view_the_activity(): void {
+        global $DB;
+
+        $studentrole = $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
+        assign_capability(
+            'mod/idetestfeedback:view',
+            CAP_PROHIBIT,
+            $studentrole,
+            \context_module::instance($this->instance->cmid)
+        );
 
         $this->expectException(validation_exception::class);
         $this->expectExceptionMessage(get_string('validation_activityunavailable', 'mod_idetestfeedback'));

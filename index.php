@@ -51,7 +51,10 @@ echo $OUTPUT->heading(get_string('modulenameplural', 'mod_idetestfeedback'));
 $instances = get_all_instances_in_course('idetestfeedback', $course);
 
 if (empty($instances)) {
-    echo $OUTPUT->notification(get_string('noresults', 'mod_idetestfeedback'), notification::NOTIFY_INFO);
+    echo $OUTPUT->notification(
+        get_string('thereareno', 'moodle', get_string('modulenameplural', 'mod_idetestfeedback')),
+        notification::NOTIFY_INFO
+    );
     echo $OUTPUT->footer();
     exit;
 }

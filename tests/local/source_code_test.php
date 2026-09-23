@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\local;
 
@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\local;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\local\source_code
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\source_code::class)]
 final class source_code_test extends \basic_testcase {
     /** @var string A file of five numbered lines. */
     private const FILE = "one\ntwo\nthree\nfour\nfive\n";

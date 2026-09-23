@@ -191,7 +191,7 @@ The submission is rejected (with a localised message) when:
 - the current time is before `timeopen` or after `timeclose`;
 - any result has a `status` outside the allowed set;
 - `payload` is not a JSON object;
-- `results` is empty, or holds more than 2000 entries;
+- `results` is empty, or holds more than 5000 entries;
 - `ide` is blank;
 - `startedat`, `finishedat` or any `durationms` is negative, or the run finishes
   before it starts;
@@ -205,6 +205,10 @@ Oversized `testfiles[].content` does not reject the submission:
 it is clipped and stored with `truncated` set, which is what the run detail page
 then flags. The clip falls back to the last line boundary it kept, so the line
 numbers a result carries still land on the right lines of what remains.
+
+The run detail page shows file bodies in path order until 1 MB of them has been
+shown; every file after that links to a page of its own instead, so a run at the
+limits does not turn into one enormous page.
 
 `capturedisabled` is enforced rather than taken on trust. A submission that sets
 it is stored without any `testfiles[].content`, whatever the client sent. The run detail page badges such a run as having no

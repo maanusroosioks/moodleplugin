@@ -2,12 +2,16 @@
     @template mod_idetestfeedback/run_files
 
     The test files captured with one run, each collapsed to its path so the
-    source code is out of the way until a teacher asks for it.
+    source code is out of the way until a teacher asks for it. A file whose
+    body did not fit on the run page links to a page of its own instead.
 
     Example context (json):
     {
         "files": [
             {
+                "inline": true,
+                "open": false,
+                "fileurl": "https://example.com/mod/idetestfeedback/view.php?id=3&runid=9&fileid=4",
                 "path": "tests/test_calculator.py",
                 "contenthash": "c7be1ed902fb8dd4",
                 "content": "import pytest\n\ndef test_add_returns_sum():\n    assert add(2, 3) == 5\n",
@@ -22,7 +26,7 @@
 <h3 class="mt-4">{{#str}} files, mod_idetestfeedback {{/str}}</h3>
 
 {{#files}}
-    <details class="idetestfeedback-file mb-2">
+    <details class="idetestfeedback-file mb-2"{{#open}} open{{/open}}>
         <summary>
             <span class="idetestfeedback-filepath">{{path}}</span>
             {{#truncated}}
@@ -33,11 +37,19 @@
             <div class="text-muted small">{{#str}} filehash, mod_idetestfeedback {{/str}}: <code>{{.}}</code></div>
         {{/contenthash}}
         {{#hascontent}}
-            <div class="idetestfeedback-code">
-                <pre class="idetestfeedback-gutter text-muted" aria-hidden="true">{{linenumbers}}</pre>
-                {{#language}}<pre class="language-{{.}}"><code>{{content}}</code></pre>{{/language}}
-                {{^language}}<pre><code>{{content}}</code></pre>{{/language}}
-            </div>
+            {{#inline}}
+                <div class="idetestfeedback-code">
+                    <pre class="idetestfeedback-gutter text-muted" aria-hidden="true">{{linenumbers}}</pre>
+                    {{#language}}<pre class="language-{{.}}"><code>{{content}}</code></pre>{{/language}}
+                    {{^language}}<pre><code>{{content}}</code></pre>{{/language}}
+                </div>
+            {{/inline}}
+            {{^inline}}
+                <p class="text-muted">
+                    {{#str}} filetoolarge, mod_idetestfeedback {{/str}}
+                    <a href="{{fileurl}}">{{#str}} fileopen, mod_idetestfeedback {{/str}}</a>
+                </p>
+            {{/inline}}
         {{/hascontent}}
         {{^hascontent}}
             <p class="text-muted">{{#str}} sourcenotcaptured, mod_idetestfeedback {{/str}}</p>

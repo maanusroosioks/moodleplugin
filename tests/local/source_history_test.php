@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\local;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\local\source_history
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\source_history::class)]
 final class source_history_test extends \basic_testcase {
     /** @var int The run being shown, for feedback written before it. */
     private const NOW = 1000;

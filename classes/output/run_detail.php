@@ -35,6 +35,9 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class run_detail implements renderable, templatable {
+    /** @var int Most bytes of file content shown on the run page; larger files open on their own page. */
+    public const INLINE_FILE_BYTES = 1048576;
+
     /** @var array<string, stdClass> The run's files, by the path results join to them on. */
     protected readonly array $filesbypath;
 
@@ -49,7 +52,7 @@ class run_detail implements renderable, templatable {
      * @param bool $cancomment whether the viewer may edit feedback
      * @param source_history $history the same tests as the student's earlier runs reported them
      * @param url $backurl the run list this run was opened from
-     * @param url $formurl where the feedback form posts to
+     * @param url $formurl the run's own page, which the feedback form posts to and files open from
      * @param int $page zero based page number within the results
      * @param int $perpage results per page, or 0 to show them all
      * @param string $pagingbar the rendered paging bar
@@ -71,7 +74,7 @@ class run_detail implements renderable, templatable {
         protected readonly source_history $history,
         /** @var url The run list this run was opened from */
         protected readonly url $backurl,
-        /** @var url Where the feedback form posts to */
+        /** @var url The run's own page, which the feedback form posts to and files open from */
         protected readonly url $formurl,
         /** @var int Zero based page number within the results */
         protected readonly int $page = 0,
@@ -93,6 +96,12 @@ class run_detail implements renderable, templatable {
     public function export_for_template(renderer_base $output): array {
         $showfeedback = $this->cancomment || $this->has_feedback();
         $files = $this->file_rows();
+        $rows = $this->result_rows($output);
+
+        $highlighted = array_merge(
+            array_filter($files, fn(array $file) => $file['inline'] && $file['hascontent']),
+            array_filter(array_filter(array_column($rows, 'source')), fn(array $source) => $source['hascode'])
+        );
 
         return [
             'backurl' => $this->backurl->out(false),
@@ -102,11 +111,11 @@ class run_detail implements renderable, templatable {
             'showfeedback' => $showfeedback,
             'cancomment' => $this->cancomment,
             'colspan' => 6 + (int) $showfeedback,
-            'rows' => $this->result_rows($output),
+            'rows' => $rows,
             'pagingbar' => $this->pagingbar,
             'hasfiles' => $files !== [],
             'files' => $files,
-            'hascode' => array_filter($files, fn(array $file) => $file['hascontent'] && $file['language'] !== '') !== [],
+            'hascode' => array_filter($highlighted, fn(array $block) => $block['language'] !== '') !== [],
         ];
     }
 
@@ -408,12 +417,8 @@ class run_detail implements renderable, templatable {
     }
 
     /**
-     * The lines one test case occupies, cut out of the run's copy of its file.
-     *
-     * A test's body normally travels once, in the run's copy of its file, and is
-     * repeated on the result only when the file could not carry it. So the
-     * result's own copy wins where there is one, and otherwise the excerpt is
-     * cut out of the file at the line range the IDE recorded.
+     * The lines one test case occupies, cut out of the run's copy of its file
+     * at the line range the IDE recorded.
      *
      * @param stdClass $result one test case result
      * @param source_kind $kind what the result's source block describes
@@ -455,15 +460,14 @@ class run_detail implements renderable, templatable {
     /**
      * The gutter beside a source block, numbering its lines as the file numbers them.
      *
-     * @param string $code the captured source, never empty
+     * @param string $code the captured source in canonical form, never empty
      * @param int|null $startline the line the capture began at, null when the IDE did not say
      * @return string one number per line of code, newline separated
      */
     protected static function line_numbers(string $code, ?int $startline): string {
-        $first = $startline !== null ? max(1, (int) $startline) : 1;
-        $body = str_replace(["\r\n", "\r"], "\n", rtrim($code, "\r\n"));
+        $first = max(1, (int) $startline);
 
-        return implode("\n", range($first, $first + substr_count($body, "\n")));
+        return implode("\n", range($first, $first + substr_count(rtrim($code, "\n"), "\n")));
     }
 
     /**
@@ -496,27 +500,49 @@ class run_detail implements renderable, templatable {
     /**
      * Builds one template row per captured test file.
      *
+     * Bodies are shown in path order until INLINE_FILE_BYTES is spent; the
+     * rest link to a page of their own instead.
+     *
      * @return array[]
      */
     protected function file_rows(): array {
         $rows = [];
+        $budget = self::INLINE_FILE_BYTES;
 
         foreach ($this->files as $file) {
-            $content = $this->content_of($file);
-            $hascontent = trim($content) !== '';
+            $size = strlen($this->content_of($file));
+            $inline = $size <= $budget;
+            $budget -= $inline ? $size : 0;
 
+            $row = self::file_row($file);
             $rows[] = [
-                'path' => $file->path,
-                'contenthash' => (string) ($file->contenthash ?? ''),
-                'content' => $content,
-                'hascontent' => $hascontent,
-                'language' => self::language_of((string) $file->path),
-                'linenumbers' => $hascontent ? self::line_numbers($content, 1) : '',
-                'truncated' => !empty($file->truncated),
-            ];
+                'inline' => $inline,
+                'fileurl' => (new url($this->formurl, ['fileid' => $file->id]))->out(false),
+            ] + ($inline ? $row : ['content' => '', 'linenumbers' => ''] + $row);
         }
 
         return $rows;
+    }
+
+    /**
+     * The template row for one captured test file, body included.
+     *
+     * @param stdClass $file the file, with the body it points at
+     * @return array
+     */
+    public static function file_row(stdClass $file): array {
+        $content = (string) ($file->content ?? '');
+        $hascontent = trim($content) !== '';
+
+        return [
+            'path' => $file->path,
+            'contenthash' => (string) ($file->contenthash ?? ''),
+            'content' => $content,
+            'hascontent' => $hascontent,
+            'language' => self::language_of((string) $file->path),
+            'linenumbers' => $hascontent ? self::line_numbers($content, 1) : '',
+            'truncated' => !empty($file->truncated),
+        ];
     }
 
     /**

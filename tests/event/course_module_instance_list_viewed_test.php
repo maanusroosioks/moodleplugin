@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\event;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\event\course_module_instance_list_viewed
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\event\course_module_instance_list_viewed::class)]
 final class course_module_instance_list_viewed_test extends \advanced_testcase {
     /**
      * The event can be created and triggered in a course context.

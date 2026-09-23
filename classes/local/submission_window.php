@@ -14,27 +14,35 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace mod_idetestfeedback\local;
+
 /**
- * Shows the test runs submitted to one IDE Test Feedback activity.
+ * Where an activity stands against its optional timeopen / timeclose window.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+enum submission_window {
+    case NOT_YET_OPEN;
+    case OPEN;
+    case CLOSED;
 
-// phpcs:ignore moodle.Files.RequireLogin.Missing -- mod_idetestfeedback\view calls require_course_login().
-require('../../config.php');
-require_once(__DIR__ . '/lib.php');
+    /**
+     * Where an activity stands at a given moment.
+     *
+     * @param \stdClass $instance the activity instance
+     * @param int $now the moment to check
+     * @return self
+     */
+    public static function of(\stdClass $instance, int $now): self {
+        if ($instance->timeopen > 0 && $now < $instance->timeopen) {
+            return self::NOT_YET_OPEN;
+        }
+        if ($instance->timeclose > 0 && $now > $instance->timeclose) {
+            return self::CLOSED;
+        }
 
-$view = new \mod_idetestfeedback\view(
-    cmid: required_param('id', PARAM_INT),
-    runid: optional_param('runid', 0, PARAM_INT),
-    page: optional_param('page', 0, PARAM_INT),
-    filteruserid: optional_param('filteruserid', 0, PARAM_INT),
-    filterstatus: optional_param('filterstatus', '', PARAM_ALPHA),
-    listpage: optional_param('listpage', 0, PARAM_INT),
-    fileid: optional_param('fileid', 0, PARAM_INT),
-);
-
-$view->handle_post();
-$view->render();
+        return self::OPEN;
+    }
+}

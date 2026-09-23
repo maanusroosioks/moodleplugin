@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\local;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\local\validation_exception
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\validation_exception::class)]
 final class validation_exception_test extends \advanced_testcase {
     public function test_it_resolves_the_named_language_string(): void {
         $exception = new validation_exception('validation_noresults');

@@ -1,0 +1,30 @@
+{{!
+    @template mod_idetestfeedback/run_file
+
+    One test file captured with a run, on a page of its own, for a file too
+    large to show on the run page.
+
+    Example context (json):
+    {
+        "backurl": "https://example.com/mod/idetestfeedback/view.php?id=3&runid=9",
+        "files": [
+            {
+                "inline": true,
+                "open": true,
+                "fileurl": "",
+                "path": "tests/test_calculator.py",
+                "contenthash": "c7be1ed902fb8dd4",
+                "content": "import pytest\n\ndef test_add_returns_sum():\n    assert add(2, 3) == 5\n",
+                "hascontent": true,
+                "language": "python",
+                "linenumbers": "1\n2\n3\n4",
+                "truncated": false
+            }
+        ]
+    }
+}}
+<div class="mb-3">
+    <a href="{{backurl}}" class="btn btn-secondary">&larr; {{#str}} back, mod_idetestfeedback {{/str}}</a>
+</div>
+
+{{> mod_idetestfeedback/run_files }}

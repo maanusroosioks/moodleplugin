@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace mod_idetestfeedback\output;
 
@@ -27,8 +27,8 @@ require_once(__DIR__ . '/../fixtures/testable_run_detail_source.php');
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\output\run_detail
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\output\run_detail::class)]
 final class run_detail_source_test extends \advanced_testcase {
     /** @var string A file whose test declaration sits on lines 3 and 4. */
     private const FILE = "import pytest\n\ndef test_add():\n    assert add(2, 3) == 5\n";
@@ -78,6 +78,7 @@ final class run_detail_source_test extends \advanced_testcase {
      */
     private function file(array $file = []): \stdClass {
         return (object) array_merge([
+            'id' => 1,
             'path' => 'tests/test_calculator.py',
             'content' => self::FILE,
             'truncated' => 0,
@@ -91,6 +92,24 @@ final class run_detail_source_test extends \advanced_testcase {
         $this->assertSame("3\n4", $block['linenumbers']);
         $this->assertFalse($block['truncated']);
         $this->assertTrue($block['expandable']);
+    }
+
+    public function test_files_past_the_inline_budget_link_to_their_own_page(): void {
+        $large = str_repeat("x\n", run_detail::INLINE_FILE_BYTES / 2);
+
+        $rows = $this->detail([
+            $this->file(['id' => 4, 'path' => 'a.py', 'content' => $large]),
+            $this->file(['id' => 5, 'path' => 'b.py']),
+        ])->files();
+
+        $this->assertTrue($rows[0]['inline']);
+        $this->assertSame($large, $rows[0]['content']);
+
+        $this->assertFalse($rows[1]['inline']);
+        $this->assertTrue($rows[1]['hascontent']);
+        $this->assertSame('', $rows[1]['content']);
+        $this->assertSame('', $rows[1]['linenumbers']);
+        $this->assertStringContainsString('fileid=5', $rows[1]['fileurl']);
     }
 
     public function test_a_short_run_is_timed_in_milliseconds_and_a_long_one_in_minutes(): void {

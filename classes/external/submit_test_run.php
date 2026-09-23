@@ -26,6 +26,7 @@ use mod_idetestfeedback\event\test_run_submitted;
 use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\local\submission;
+use mod_idetestfeedback\local\submission_window;
 use mod_idetestfeedback\local\validation_exception;
 
 /**
@@ -362,17 +363,24 @@ class submit_test_run extends external_api {
         }
 
         $cm = get_fast_modinfo($instance->course, $userid)->get_instances_of('idetestfeedback')[$instance->id] ?? null;
-        if (!$cm || $cm->deletioninprogress || !$cm->uservisible) {
+        if (
+            !$cm || $cm->deletioninprogress || !$cm->uservisible
+                || !has_capability('mod/idetestfeedback:view', $cm->context, $userid)
+        ) {
             throw new validation_exception('validation_activityunavailable');
         }
 
-        $now = time();
-        if ($instance->timeopen > 0 && $now < $instance->timeopen) {
-            throw new validation_exception('validation_windownotopen', userdate($instance->timeopen));
-        }
-        if ($instance->timeclose > 0 && $now > $instance->timeclose) {
-            throw new validation_exception('validation_windowclosed', userdate($instance->timeclose));
-        }
+        match (submission_window::of($instance, time())) {
+            submission_window::NOT_YET_OPEN => throw new validation_exception(
+                'validation_windownotopen',
+                userdate($instance->timeopen)
+            ),
+            submission_window::CLOSED => throw new validation_exception(
+                'validation_windowclosed',
+                userdate($instance->timeclose)
+            ),
+            submission_window::OPEN => null,
+        };
 
         return [$userid, $instance, $cm];
     }
@@ -482,7 +490,7 @@ class submit_test_run extends external_api {
             return;
         }
 
-        require_once($CFG->dirroot . '/lib/completionlib.php');
+        require_once($CFG->libdir . '/completionlib.php');
 
         $completion = new \completion_info($cm->get_course());
         if ($completion->is_enabled($cm)) {

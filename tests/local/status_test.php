@@ -23,8 +23,8 @@ namespace mod_idetestfeedback\local;
  * @category   test
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \mod_idetestfeedback\local\status
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\status::class)]
 final class status_test extends \basic_testcase {
     public function test_try_from_resolves_known_values(): void {
         $this->assertSame(status::PASSED, status::tryFrom('PASSED'));
