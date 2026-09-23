@@ -45,6 +45,8 @@ class view {
 
     protected const PER_PAGE = 50;
 
+    protected const RESULTS_PER_PAGE = 50;
+
     protected stdClass $cm;
     protected stdClass $course;
     protected stdClass $instance;
@@ -62,7 +64,7 @@ class view {
      *
      * @param int $cmid the course module id
      * @param int $runid the run to show in detail, or 0 for the run list
-     * @param int $page zero based page number within the run list
+     * @param int $page zero based page number within the run list, or within the run's results
      * @param int $filteruserid show only this student's runs, or 0 for all students
      * @param string $filterstatus show only runs with this status, or '' for all statuses
      */
@@ -159,8 +161,13 @@ class view {
             $notified = $notifier->notify($this->run, $changed, $this->user);
         }
 
+        $params = ['runid' => $this->runid];
+        if ($this->page > 0) {
+            $params['page'] = $this->page;
+        }
+
         redirect(
-            $this->url(['runid' => $this->runid]),
+            $this->url($params),
             get_string($notified ? 'feedbacksavednotified' : 'feedbacksaved', 'mod_idetestfeedback'),
             null,
             notification::NOTIFY_SUCCESS
@@ -302,10 +309,13 @@ class view {
             source_history::LOOKBACK_RUNS
         );
 
+        $results = $this->repository->get_results($this->runid);
+        $page = $this->clamp_page(count($results), self::RESULTS_PER_PAGE);
+
         return $this->renderer->render(new run_detail(
             $this->instance,
             $this->run,
-            $this->repository->get_results($this->runid),
+            $results,
             $this->repository->get_files($this->runid),
             $this->canviewall ? $this->student_name($this->run) : null,
             $this->context,
@@ -315,6 +325,14 @@ class view {
                 $this->repository->get_source_history($priorids),
                 $this->repository->get_file_history($priorids),
                 (int) $this->run->timecreated
+            ),
+            $page,
+            self::RESULTS_PER_PAGE,
+            $this->renderer->paging_bar(
+                count($results),
+                $page,
+                self::RESULTS_PER_PAGE,
+                $this->url(['runid' => $this->runid])
             )
         ));
     }
@@ -502,13 +520,14 @@ class view {
     }
 
     /**
-     * The requested page, held within the range the run count allows.
+     * The requested page, held within the range the item count allows.
      *
-     * @param int $total the number of runs being paged through
+     * @param int $total the number of items being paged through
+     * @param int $perpage items per page
      * @return int a zero based page number
      */
-    protected function clamp_page(int $total): int {
-        $maxpage = (int) floor(max(0, $total - 1) / self::PER_PAGE);
+    protected function clamp_page(int $total, int $perpage = self::PER_PAGE): int {
+        $maxpage = (int) floor(max(0, $total - 1) / $perpage);
 
         return max(0, min($this->page, $maxpage));
     }

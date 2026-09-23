@@ -50,6 +50,9 @@ class run_detail implements renderable, templatable {
      * @param int $cmid the course module id
      * @param bool $cancomment whether the viewer may edit feedback
      * @param source_history $history the same tests as the student's earlier runs reported them
+     * @param int $page zero based page number within the results
+     * @param int $perpage results per page, or 0 to show them all
+     * @param string $pagingbar the rendered paging bar
      */
     public function __construct(
         protected readonly stdClass $instance,
@@ -60,7 +63,10 @@ class run_detail implements renderable, templatable {
         protected readonly context $context,
         protected readonly int $cmid,
         protected readonly bool $cancomment,
-        protected readonly source_history $history
+        protected readonly source_history $history,
+        protected readonly int $page = 0,
+        protected readonly int $perpage = 0,
+        protected readonly string $pagingbar = ''
     ) {
     }
 
@@ -75,13 +81,14 @@ class run_detail implements renderable, templatable {
         $entries = required_tests::parse($this->instance->requiredtests ?? null);
         $showrequired = $entries !== [];
         $showfeedback = $this->cancomment || $this->has_feedback();
+        $formparams = ['id' => $this->cmid, 'runid' => $this->run->id];
+        if ($this->page > 0) {
+            $formparams['page'] = $this->page;
+        }
 
         return [
             'backurl' => (new moodle_url('/mod/idetestfeedback/view.php', ['id' => $this->cmid]))->out(false),
-            'formurl' => (new moodle_url('/mod/idetestfeedback/view.php', [
-                'id' => $this->cmid,
-                'runid' => $this->run->id,
-            ]))->out(false),
+            'formurl' => (new moodle_url('/mod/idetestfeedback/view.php', $formparams))->out(false),
             'meta' => $this->meta_rows($output, $entries, $showrequired),
             'hasresults' => $this->results !== [],
             'showrequired' => $showrequired,
@@ -89,6 +96,7 @@ class run_detail implements renderable, templatable {
             'cancomment' => $this->cancomment,
             'colspan' => 6 + (int) $showrequired + (int) $showfeedback,
             'rows' => $this->result_rows($output, $entries, $showrequired),
+            'pagingbar' => $this->pagingbar,
             'hasfiles' => $this->files !== [],
             'files' => $this->file_rows(),
             'hascode' => $this->has_code(),
@@ -297,7 +305,20 @@ class run_detail implements renderable, templatable {
     }
 
     /**
-     * Builds one template row per test case result.
+     * The results on the current page.
+     *
+     * @return stdClass[]
+     */
+    protected function page_results(): array {
+        if ($this->perpage <= 0) {
+            return $this->results;
+        }
+
+        return array_slice($this->results, $this->page * $this->perpage, $this->perpage);
+    }
+
+    /**
+     * Builds one template row per test case result on the current page.
      *
      * @param renderer_base $output
      * @param string[] $entries the activity's defined test cases
@@ -308,7 +329,7 @@ class run_detail implements renderable, templatable {
         $rows = [];
         $index = $showrequired ? required_tests::index_entries($entries) : [];
 
-        foreach ($this->results as $result) {
+        foreach ($this->page_results() as $result) {
             $feedback = trim((string) ($result->feedback ?? ''));
             $source = $this->source_block($result);
 
