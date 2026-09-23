@@ -85,10 +85,25 @@ class repository {
      * Fetches the results of a run.
      *
      * @param int $runid the run id
-     * @return \stdClass[] the run's results, in insertion order
+     * @return \stdClass[] the run's results, by status in {@see status::listing_order()}, then test suite and name
      */
     public function get_results(int $runid): array {
-        return $this->db->get_records('idetestfeedback_result', ['runid' => $runid], 'id ASC');
+        $params = ['runid' => $runid];
+        $ranks = '';
+        foreach (status::listing_order() as $rank => $status) {
+            $ranks .= " WHEN :status{$rank} THEN {$rank}";
+            $params["status{$rank}"] = $status->value;
+        }
+        $unranked = count(status::listing_order());
+
+        return $this->db->get_records_sql(
+            "SELECT *
+               FROM {idetestfeedback_result}
+              WHERE runid = :runid
+           ORDER BY CASE status{$ranks} ELSE {$unranked} END,
+                    COALESCE(testsuite, ''), testname, id",
+            $params
+        );
     }
 
     /**
@@ -587,6 +602,8 @@ class repository {
                 return $result;
             } catch (\Throwable $e) {
                 $transaction->rollback($e);
+
+                throw $e;
             }
         } finally {
             $lock->release();

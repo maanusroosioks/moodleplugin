@@ -71,6 +71,15 @@ enum status: string {
     }
 
     /**
+     * The statuses in the order a run's results are listed, the ones needing attention first.
+     *
+     * @return self[]
+     */
+    public static function listing_order(): array {
+        return [self::ERROR, self::FAILED, self::SKIPPED, self::PASSED];
+    }
+
+    /**
      * The worst outcome in a set of counts, which is the status of the run as a whole.
      *
      * @param array<string, int> $counts from {@see tally()}

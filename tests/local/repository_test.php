@@ -101,17 +101,50 @@ final class repository_test extends \advanced_testcase {
         $this->assertNull($this->repository->get_run(0, $this->instance->id));
     }
 
-    public function test_get_results_are_returned_in_insertion_order(): void {
+    public function test_get_results_are_ordered_by_status_then_suite_then_name(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $run = $this->create_run($student->id, [
-            ['testname' => 'testFirst', 'status' => 'PASSED'],
-            ['testname' => 'testSecond', 'status' => 'FAILED'],
-            ['testname' => 'testThird', 'status' => 'SKIPPED'],
+            ['testsuite' => 'A', 'testname' => 'passed', 'status' => 'PASSED'],
+            ['testsuite' => 'B', 'testname' => 'skipped', 'status' => 'SKIPPED'],
+            ['testsuite' => 'B', 'testname' => 'errorB', 'status' => 'ERROR'],
+            ['testsuite' => 'A', 'testname' => 'errorA', 'status' => 'ERROR'],
+            ['testsuite' => 'B', 'testname' => 'failedB2', 'status' => 'FAILED'],
+            ['testsuite' => 'B', 'testname' => 'failedB1', 'status' => 'FAILED'],
+            ['testsuite' => 'A', 'testname' => 'failedA', 'status' => 'FAILED'],
         ]);
 
         $results = array_values($this->repository->get_results($run->id));
 
-        $this->assertSame(['testFirst', 'testSecond', 'testThird'], array_column($results, 'testname'));
+        $this->assertSame(
+            ['errorA', 'errorB', 'failedA', 'failedB1', 'failedB2', 'skipped', 'passed'],
+            array_column($results, 'testname')
+        );
+    }
+
+    public function test_get_results_put_a_result_without_a_suite_first_within_its_status(): void {
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $run = $this->create_run($student->id, [
+            ['testsuite' => 'A', 'testname' => 'inSuite', 'status' => 'FAILED'],
+            ['testname' => 'noSuite', 'status' => 'FAILED'],
+        ]);
+
+        $results = array_values($this->repository->get_results($run->id));
+
+        $this->assertSame(['noSuite', 'inSuite'], array_column($results, 'testname'));
+    }
+
+    public function test_get_results_put_an_unknown_status_last(): void {
+        global $DB;
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $run = $this->create_run($student->id, [
+            ['testname' => 'legacy', 'status' => 'PASSED'],
+            ['testname' => 'passed', 'status' => 'PASSED'],
+        ]);
+        $DB->set_field('idetestfeedback_result', 'status', 'OLD', ['runid' => $run->id, 'testname' => 'legacy']);
+
+        $results = array_values($this->repository->get_results($run->id));
+
+        $this->assertSame(['passed', 'legacy'], array_column($results, 'testname'));
     }
 
     public function test_get_files_are_returned_by_path(): void {
