@@ -391,7 +391,6 @@ class view {
             ),
             detailurl: $this->url($this->list_state($page)),
             showstudent: true,
-            colourrows: false,
             viewfullnames: $this->viewfullnames,
             totaltext: get_string('totalruns', 'mod_idetestfeedback', $total),
             filters: $menus,
@@ -427,7 +426,6 @@ class view {
             ),
             detailurl: $this->url($this->list_state($page)),
             showstudent: false,
-            colourrows: true,
             summary: get_string('summarytext', 'mod_idetestfeedback', [
                 'total' => $total,
                 'rate' => (int) round($passedruns / $total * 100),

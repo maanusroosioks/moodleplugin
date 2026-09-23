@@ -37,7 +37,6 @@ class run_list implements renderable, templatable {
      * @param stdClass[] $runs the runs on this page
      * @param url $detailurl the run detail page, carrying the list state; each row adds its run id
      * @param bool $showstudent whether to show the student column
-     * @param bool $colourrows whether to tint each row by its status
      * @param bool $viewfullnames whether the viewer may see full names
      * @param string $summary a pass rate summary shown above the table
      * @param string $totaltext how many runs matched, shown above the table
@@ -51,8 +50,6 @@ class run_list implements renderable, templatable {
         protected readonly url $detailurl,
         /** @var bool Whether to show the student column */
         protected readonly bool $showstudent,
-        /** @var bool Whether to tint each row by its status */
-        protected readonly bool $colourrows,
         /** @var bool Whether the viewer may see full names */
         protected readonly bool $viewfullnames = false,
         /** @var string A pass rate summary shown above the table */
@@ -99,7 +96,6 @@ class run_list implements renderable, templatable {
             $commithash = (string) ($run->commithash ?? '');
 
             $rows[] = [
-                'rowclass' => $this->colourrows ? status_badge::row_class($run->status) : '',
                 'student' => $this->showstudent ? fullname($run, $this->viewfullnames) : '',
                 'ide' => $run->ide,
                 'projectname' => (string) ($run->projectname ?? ''),

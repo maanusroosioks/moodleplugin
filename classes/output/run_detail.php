@@ -170,13 +170,13 @@ class run_detail implements renderable, templatable {
                 git_remote::web_url($this->run->repourl)
             );
         }
-        if ($this->run->commithash) {
-            $rows[] = self::linked_code_row(
+        $rows[] = $this->run->commithash
+            ? self::linked_code_row(
                 get_string('commithash', 'mod_idetestfeedback'),
                 $this->run->commithash,
                 git_remote::commit_url($this->run->repourl ?? null, $this->run->commithash)
-            );
-        }
+            )
+            : ['label' => get_string('commithash', 'mod_idetestfeedback'), 'text' => '—'];
 
         $rows[] = [
             'label' => get_string('status', 'mod_idetestfeedback'),
