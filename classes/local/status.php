@@ -53,4 +53,36 @@ enum status: string {
 
         return $options;
     }
+
+    /**
+     * Counts the statuses.
+     *
+     * @param string[] $statuses status values, one per result
+     * @return array<string, int> count per status value, every status present
+     */
+    public static function tally(array $statuses): array {
+        $counts = array_fill_keys(array_column(self::cases(), 'value'), 0);
+
+        foreach ($statuses as $status) {
+            $counts[$status]++;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * The worst outcome in a set of counts, which is the status of the run as a whole.
+     *
+     * @param array<string, int> $counts from {@see tally()}
+     * @return self
+     */
+    public static function worst(array $counts): self {
+        foreach ([self::ERROR, self::FAILED, self::PASSED] as $status) {
+            if ($counts[$status->value] > 0) {
+                return $status;
+            }
+        }
+
+        return self::SKIPPED;
+    }
 }

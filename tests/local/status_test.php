@@ -55,4 +55,22 @@ final class status_test extends \basic_testcase {
         $this->assertSame('ERROR', $options['ERROR']);
         $this->assertSame('SKIPPED', $options['SKIPPED']);
     }
+
+    public function test_tally_counts_every_status_including_absent_ones(): void {
+        $this->assertSame(
+            ['PASSED' => 2, 'FAILED' => 1, 'ERROR' => 0, 'SKIPPED' => 0],
+            status::tally(['PASSED', 'FAILED', 'PASSED'])
+        );
+    }
+
+    public function test_worst_prefers_error_then_failed_then_passed(): void {
+        $this->assertSame(status::ERROR, status::worst(status::tally(['PASSED', 'ERROR', 'FAILED'])));
+        $this->assertSame(status::FAILED, status::worst(status::tally(['PASSED', 'SKIPPED', 'FAILED'])));
+        $this->assertSame(status::PASSED, status::worst(status::tally(['SKIPPED', 'PASSED'])));
+    }
+
+    public function test_worst_is_skipped_when_nothing_ran(): void {
+        $this->assertSame(status::SKIPPED, status::worst(status::tally(['SKIPPED'])));
+        $this->assertSame(status::SKIPPED, status::worst(status::tally([])));
+    }
 }

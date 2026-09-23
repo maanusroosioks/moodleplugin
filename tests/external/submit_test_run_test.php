@@ -30,6 +30,7 @@ use mod_idetestfeedback\local\validation_exception;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\external\submit_test_run::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\run_recorder::class)]
 final class submit_test_run_test extends \advanced_testcase {
     /** @var string The declaration the fixture's line range points at. */
     private const DECLARATION = "def test_add_returns_sum():\n    assert add(2, 3) == 5";

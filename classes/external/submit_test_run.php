@@ -25,6 +25,7 @@ use core_external\external_value;
 use mod_idetestfeedback\event\test_run_submitted;
 use mod_idetestfeedback\local\git_remote;
 use mod_idetestfeedback\local\repository;
+use mod_idetestfeedback\local\run_recorder;
 use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\local\submission;
 use mod_idetestfeedback\local\submission_window;
@@ -46,21 +47,6 @@ class submit_test_run extends external_api {
 
     /** @var int Most test files accepted in one submission. */
     private const MAX_FILES = 200;
-
-    /** @var int Most bytes of content kept per test file. */
-    private const MAX_FILE_BYTES = 524288;
-
-    /** @var array<string, int> Column widths from db/install.xml. */
-    private const MAX_LENGTHS = [
-        'ide'            => 50,
-        'projectname'    => 255,
-        'commithash'     => 100,
-        'repourl'        => 255,
-        'testsuite'      => 255,
-        'testname'       => 1024,
-        'sourcefilepath' => 1024,
-        'filepath'       => 1024,
-    ];
 
     /**
      * Describes the web service parameters.
@@ -192,7 +178,7 @@ class submit_test_run extends external_api {
 
         [$userid, $instance, $cm] = self::resolve_target($repository, $submission);
 
-        $run = self::store_run($repository, $instance, $userid, $submission);
+        $run = (new run_recorder($repository))->record($submission, (int) $instance->id, $userid);
 
         self::update_completion($instance, $cm, $userid);
         self::log_submission($cm, $run, $userid);
@@ -391,97 +377,6 @@ class submit_test_run extends external_api {
     }
 
     /**
-     * Writes the run, its results and its files.
-     *
-     * @param repository $repository the activity's database access
-     * @param \stdClass $instance the activity the run belongs to
-     * @param int $userid the student the run is attributed to
-     * @param submission $submission
-     * @return \stdClass the stored run, carrying its new id
-     */
-    private static function store_run(
-        repository $repository,
-        \stdClass $instance,
-        int $userid,
-        submission $submission
-    ): \stdClass {
-        $now = time();
-        $counts = self::tally_statuses($submission->results);
-
-        $run = new \stdClass();
-        $run->idetestfeedbackid   = $instance->id;
-        $run->userid              = $userid;
-        $run->ide                 = self::clip($submission->ide, 'ide');
-        $run->projectname         = self::clip($submission->projectname, 'projectname');
-        $run->commithash          = self::clip($submission->commithash, 'commithash');
-        $run->repourl             = self::clip($submission->repourl, 'repourl');
-        $run->startedat           = $submission->startedat;
-        $run->finishedat          = $submission->finishedat;
-        $run->status              = self::resolve_run_status($counts)->value;
-        $run->passedcount         = $counts[status::PASSED->value];
-        $run->failedcount         = $counts[status::FAILED->value];
-        $run->skippedcount        = $counts[status::SKIPPED->value];
-        $run->errorcount          = $counts[status::ERROR->value];
-        $run->timecreated         = $now;
-        $run->capturedisabled     = (int) $submission->capturedisabled;
-
-        $results = [];
-        foreach ($submission->results as $submitted) {
-            $source = $submitted['source'] ?? [];
-            $filepath = self::clip($source['filepath'] ?? null, 'sourcefilepath');
-
-            $result                  = new \stdClass();
-            $result->testsuite       = self::clip($submitted['testsuite'], 'testsuite');
-            $result->testname        = self::clip($submitted['testname'], 'testname');
-            $result->status          = $submitted['status'];
-            $result->durationms      = $submitted['durationms'];
-            $result->message         = $submitted['message'];
-            $result->timecreated     = $now;
-            $result->sourcefilepath  = $filepath === '' ? null : $filepath;
-            $result->sourcestartline = $source['startline'] ?? null;
-            $result->sourceendline   = $source['endline'] ?? null;
-            $results[] = $result;
-        }
-
-        $files = [];
-        foreach (self::unique_files($submission->testfiles) as $path => $submitted) {
-            [$content, $truncated] = self::clip_code($submitted['content'], !empty($submitted['truncated']));
-
-            $file              = new \stdClass();
-            $file->path        = (string) $path;
-            $file->content     = $content;
-            $file->truncated   = $truncated;
-            $file->timecreated = $now;
-            $files[] = $file;
-        }
-
-        $run->id = $repository->insert_run_with_results($run, $results, $files);
-
-        return $run;
-    }
-
-    /**
-     * The run's test files, one per path and in path order; the first body for a path wins.
-     *
-     * @param array[] $testfiles the submitted test files
-     * @return array[] the files, keyed by path
-     */
-    private static function unique_files(array $testfiles): array {
-        $files = [];
-
-        foreach ($testfiles as $file) {
-            $path = self::clip($file['path'], 'filepath');
-            if (!isset($files[$path])) {
-                $files[$path] = $file;
-            }
-        }
-
-        ksort($files);
-
-        return $files;
-    }
-
-    /**
      * Re-evaluates the custom completion rule for the student who submitted.
      *
      * @param \stdClass $instance the activity the run belongs to
@@ -518,75 +413,5 @@ class submit_test_run extends external_api {
             'relateduserid' => $userid,
             'other'         => ['status' => $run->status],
         ])->trigger();
-    }
-
-    /**
-     * Counts the results per status.
-     *
-     * @param array[] $results the submitted test case results
-     * @return array<string, int> result count per status, every status present
-     */
-    private static function tally_statuses(array $results): array {
-        $counts = array_fill_keys(array_column(status::cases(), 'value'), 0);
-
-        foreach ($results as $result) {
-            $counts[$result['status']]++;
-        }
-
-        return $counts;
-    }
-
-    /**
-     * The worst outcome any test in the run reported.
-     *
-     * @param array<string, int> $counts from {@see tally_statuses()}
-     * @return status
-     */
-    private static function resolve_run_status(array $counts): status {
-        if ($counts[status::ERROR->value] > 0) {
-            return status::ERROR;
-        }
-        if ($counts[status::FAILED->value] > 0) {
-            return status::FAILED;
-        }
-        if ($counts[status::PASSED->value] > 0) {
-            return status::PASSED;
-        }
-
-        return status::SKIPPED;
-    }
-
-    /**
-     * Trims a value and clips it to the width of the column it is stored in.
-     *
-     * @param string|null $value the submitted value
-     * @param string $field the key into {@see MAX_LENGTHS}
-     * @return string|null
-     */
-    private static function clip(?string $value, string $field): ?string {
-        if ($value === null) {
-            return null;
-        }
-
-        return \core_text::substr(trim($value), 0, self::MAX_LENGTHS[$field]);
-    }
-
-    /**
-     * Clips captured code to MAX_FILE_BYTES on a character boundary, and on a
-     * line boundary where there is one so line ranges still line up.
-     *
-     * @param string|null $code the submitted code
-     * @param bool $truncated whether the IDE already reported it truncated
-     * @return array{0:?string,1:int} [the code to store, the truncated flag]
-     */
-    private static function clip_code(?string $code, bool $truncated): array {
-        if ($code === null || strlen($code) <= self::MAX_FILE_BYTES) {
-            return [$code, (int) $truncated];
-        }
-
-        $kept = mb_strcut($code, 0, self::MAX_FILE_BYTES, 'UTF-8');
-        $break = strrpos($kept, "\n");
-
-        return [$break ? substr($kept, 0, $break) : $kept, 1];
     }
 }

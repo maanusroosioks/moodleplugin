@@ -49,11 +49,10 @@ class mod_idetestfeedback_generator extends testing_module_generator {
         global $DB;
 
         $now = $record['timecreated'] ?? time();
-        $counts = array_fill_keys(array_column(status::cases(), 'value'), 0);
 
         $results = [];
         foreach ($record['results'] as $r) {
-            $result = (object) [
+            $results[] = (object) [
                 'testsuite' => $r['testsuite'] ?? null,
                 'testname' => $r['testname'],
                 'status' => $r['status'],
@@ -68,9 +67,9 @@ class mod_idetestfeedback_generator extends testing_module_generator {
                 'sourcestartline' => $r['sourcestartline'] ?? null,
                 'sourceendline' => $r['sourceendline'] ?? null,
             ];
-            $counts[$result->status]++;
-            $results[] = $result;
         }
+
+        $counts = status::tally(array_column($results, 'status'));
 
         $run = (object) [
             'idetestfeedbackid' => $record['idetestfeedbackid'],
@@ -81,7 +80,7 @@ class mod_idetestfeedback_generator extends testing_module_generator {
             'repourl' => $record['repourl'] ?? null,
             'startedat' => $record['startedat'] ?? null,
             'finishedat' => $record['finishedat'] ?? null,
-            'status' => $record['status'] ?? self::worst_status($counts),
+            'status' => $record['status'] ?? status::worst($counts)->value,
             'passedcount' => $counts[status::PASSED->value],
             'failedcount' => $counts[status::FAILED->value],
             'skippedcount' => $counts[status::SKIPPED->value],
@@ -103,25 +102,5 @@ class mod_idetestfeedback_generator extends testing_module_generator {
         $run->id = (new repository($DB))->insert_run_with_results($run, $results, $files);
 
         return $run;
-    }
-
-    /**
-     * The overall run status for a set of result counts.
-     *
-     * @param array<string, int> $counts result count per status
-     * @return string the worst outcome any test reported
-     */
-    private static function worst_status(array $counts): string {
-        if ($counts[status::ERROR->value] > 0) {
-            return status::ERROR->value;
-        }
-        if ($counts[status::FAILED->value] > 0) {
-            return status::FAILED->value;
-        }
-        if ($counts[status::PASSED->value] > 0) {
-            return status::PASSED->value;
-        }
-
-        return status::SKIPPED->value;
     }
 }
