@@ -16,11 +16,11 @@
 
 namespace mod_idetestfeedback\output;
 
-use moodle_url;
-use renderable;
-use renderer_base;
+use core\output\renderable;
+use core\output\renderer_base;
+use core\output\templatable;
+use core\url;
 use stdClass;
-use templatable;
 
 /**
  * A page of test runs, as a table.
@@ -33,9 +33,10 @@ class run_list implements renderable, templatable {
 
     /**
      * @param stdClass[] $runs the runs on this page
-     * @param int $cmid the course module id
+     * @param url $detailurl the run detail page, carrying the list state; each row adds its run id
      * @param bool $showstudent whether to show the student column
      * @param bool $colourrows whether to tint each row by its status
+     * @param bool $viewfullnames whether the viewer may see full names
      * @param string $summary a pass rate summary shown above the table
      * @param string $totaltext how many runs matched, shown above the table
      * @param string $filters the rendered filter menus
@@ -43,9 +44,10 @@ class run_list implements renderable, templatable {
      */
     public function __construct(
         protected readonly array $runs,
-        protected readonly int $cmid,
+        protected readonly url $detailurl,
         protected readonly bool $showstudent,
         protected readonly bool $colourrows,
+        protected readonly bool $viewfullnames = false,
         protected readonly string $summary = '',
         protected readonly string $totaltext = '',
         protected readonly string $filters = '',
@@ -82,14 +84,11 @@ class run_list implements renderable, templatable {
 
         foreach ($this->runs as $run) {
             $failed = (int) $run->failedcount + (int) $run->errorcount;
-            $detailurl = new moodle_url('/mod/idetestfeedback/view.php', [
-                'id' => $this->cmid,
-                'runid' => $run->id,
-            ]);
+            $detailurl = new url($this->detailurl, ['runid' => $run->id]);
 
             $rows[] = [
                 'rowclass' => $this->colourrows ? status_badge::row_class($run->status) : '',
-                'student' => $this->showstudent ? fullname($run) : '',
+                'student' => $this->showstudent ? fullname($run, $this->viewfullnames) : '',
                 'ide' => $run->ide,
                 'projectname' => (string) ($run->projectname ?? ''),
                 'badge' => (new status_badge($run->status))->export_for_template($output),

@@ -23,6 +23,7 @@
  */
 
 require('../../config.php');
+require_once(__DIR__ . '/lib.php');
 
 $view = new \mod_idetestfeedback\view(
     cmid: required_param('id', PARAM_INT),
@@ -30,6 +31,7 @@ $view = new \mod_idetestfeedback\view(
     page: optional_param('page', 0, PARAM_INT),
     filteruserid: optional_param('filteruserid', 0, PARAM_INT),
     filterstatus: optional_param('filterstatus', '', PARAM_ALPHA),
+    listpage: optional_param('listpage', 0, PARAM_INT),
 );
 
 $view->handle_post();

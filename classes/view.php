@@ -16,13 +16,14 @@
 
 namespace mod_idetestfeedback;
 
-use completion_info;
-use context_module;
+use cm_info;
+use core\context;
+use core\exception\moodle_exception;
 use core\exception\required_capability_exception;
 use core\output\html_writer;
 use core\output\notification;
 use core\output\single_select;
-use mod_idetestfeedback\event\course_module_viewed;
+use core\url;
 use mod_idetestfeedback\local\feedback_notifier;
 use mod_idetestfeedback\local\feedback_saver;
 use mod_idetestfeedback\local\repository;
@@ -31,7 +32,6 @@ use mod_idetestfeedback\local\status;
 use mod_idetestfeedback\output\renderer;
 use mod_idetestfeedback\output\run_detail;
 use mod_idetestfeedback\output\run_list;
-use moodle_url;
 use stdClass;
 
 /**
@@ -43,16 +43,19 @@ use stdClass;
  */
 class view {
 
-    protected const PER_PAGE = 50;
+    /** @var int Runs per page of the run list. */
+    protected const RUNS_PER_PAGE = 50;
 
+    /** @var int Test case results per page of the run detail. */
     protected const RESULTS_PER_PAGE = 50;
 
-    protected stdClass $cm;
+    protected cm_info $cm;
     protected stdClass $course;
     protected stdClass $instance;
-    protected context_module $context;
+    protected context\module $context;
     protected bool $canviewall;
     protected bool $cancomment;
+    protected bool $viewfullnames;
     protected repository $repository;
     protected renderer $renderer;
     protected stdClass $user;
@@ -67,13 +70,15 @@ class view {
      * @param int $page zero based page number within the run list, or within the run's results
      * @param int $filteruserid show only this student's runs, or 0 for all students
      * @param string $filterstatus show only runs with this status, or '' for all statuses
+     * @param int $listpage the run list page a run was opened from, for the way back
      */
     public function __construct(
         protected int $cmid,
         protected int $runid = 0,
         protected int $page = 0,
         protected int $filteruserid = 0,
-        string $filterstatus = ''
+        string $filterstatus = '',
+        protected int $listpage = 0
     ) {
         global $DB, $PAGE, $USER;
 
@@ -81,24 +86,24 @@ class view {
         $this->user = $USER;
         $this->filterstatus = status::tryFrom($filterstatus);
 
-        $this->cm = get_coursemodule_from_id('idetestfeedback', $cmid, 0, false, MUST_EXIST);
-        $this->course = $this->repository->get_course($this->cm->course);
+        [$this->course, $this->cm] = get_course_and_cm_from_cmid($cmid, 'idetestfeedback');
         $this->instance = $this->repository->get_instance($this->cm->instance);
+
+        $PAGE->set_url($this->runid > 0 ? $this->run_url($this->page) : $this->list_url($this->page));
 
         require_course_login($this->course, true, $this->cm);
 
-        $this->context = context_module::instance($this->cm->id);
+        $this->context = $this->cm->context;
 
         $this->canviewall = has_capability('mod/idetestfeedback:viewall', $this->context);
         if (!$this->canviewall) {
             require_capability('mod/idetestfeedback:view', $this->context);
         }
         $this->cancomment = has_capability('mod/idetestfeedback:comment', $this->context);
+        $this->viewfullnames = has_capability('moodle/site:viewfullnames', $this->context);
 
-        $PAGE->set_url($this->url($this->runid > 0 ? ['runid' => $this->runid] : []));
         $PAGE->set_title(format_string($this->instance->name));
         $PAGE->set_heading(format_string($this->course->fullname));
-        $PAGE->set_context($this->context);
 
         $this->renderer = $PAGE->get_renderer('mod_idetestfeedback');
 
@@ -117,17 +122,21 @@ class view {
     protected function load_run(): ?stdClass {
         $run = $this->repository->get_run($this->runid, $this->instance->id);
 
-        if (!$run) {
-            return null;
+        if (!$run || (int) $run->userid === (int) $this->user->id) {
+            return $run;
         }
 
-        if (!$this->canviewall && (int) $run->userid !== (int) $this->user->id) {
+        if (!$this->canviewall) {
             throw new required_capability_exception(
                 $this->context,
                 'mod/idetestfeedback:viewall',
                 'nopermissions',
                 ''
             );
+        }
+
+        if (!groups_user_groups_visible($this->course, (int) $run->userid, $this->cm)) {
+            throw new moodle_exception('notingroup');
         }
 
         return $run;
@@ -147,7 +156,7 @@ class view {
         require_sesskey();
 
         if (!$this->run) {
-            redirect($this->url());
+            redirect($this->list_url($this->listpage));
         }
 
         require_capability('mod/idetestfeedback:comment', $this->context);
@@ -161,13 +170,8 @@ class view {
             $notified = $notifier->notify($this->run, $changed, $this->user);
         }
 
-        $params = ['runid' => $this->runid];
-        if ($this->page > 0) {
-            $params['page'] = $this->page;
-        }
-
         redirect(
-            $this->url($params),
+            $this->run_url($this->page),
             get_string($notified ? 'feedbacksavednotified' : 'feedbacksaved', 'mod_idetestfeedback'),
             null,
             notification::NOTIFY_SUCCESS
@@ -184,28 +188,14 @@ class view {
      * @return array<int, string> result id => submitted feedback
      */
     protected function submitted_feedback(): array {
-        $submission = data_submitted();
-
-        if (!$submission) {
-            return [];
-        }
-
-        $feedback = [];
-        foreach ((array) $submission as $field => $value) {
-            if (preg_match('/^feedback_(\d+)$/', $field, $matches)) {
-                $feedback[(int) $matches[1]] = (string) $value;
-            }
-        }
-
-        return $feedback;
+        return optional_param_array('feedback', [], PARAM_RAW);
     }
 
     /**
      * Writes the page.
      */
     public function render(): void {
-        $this->mark_viewed();
-        $this->log_viewed();
+        idetestfeedback_view($this->instance, $this->course, $this->cm, $this->context);
 
         echo $this->renderer->header();
         echo $this->renderer->heading(format_string($this->instance->name));
@@ -221,30 +211,6 @@ class view {
         }
 
         echo $this->renderer->footer();
-    }
-
-    /**
-     * Records the view against the activity's completion tracking.
-     */
-    protected function mark_viewed(): void {
-        global $CFG;
-        require_once($CFG->libdir . '/completionlib.php');
-
-        $completion = new completion_info($this->course);
-        $completion->set_module_viewed($this->cm);
-    }
-
-    /**
-     * Logs the view.
-     */
-    protected function log_viewed(): void {
-        $event = course_module_viewed::create([
-            'objectid' => $this->instance->id,
-            'context' => $this->context,
-        ]);
-        $event->add_record_snapshot('course', $this->course);
-        $event->add_record_snapshot('idetestfeedback', $this->instance);
-        $event->trigger();
     }
 
     /**
@@ -313,27 +279,28 @@ class view {
         $page = $this->clamp_page(count($results), self::RESULTS_PER_PAGE);
 
         return $this->renderer->render(new run_detail(
-            $this->instance,
-            $this->run,
-            $results,
-            $this->repository->get_files($this->runid),
-            $this->canviewall ? $this->student_name($this->run) : null,
-            $this->context,
-            $this->cmid,
-            $this->cancomment,
-            new source_history(
+            instance: $this->instance,
+            run: $this->run,
+            results: $results,
+            files: $this->repository->get_files($this->runid),
+            studentname: $this->canviewall ? $this->student_name($this->run) : null,
+            context: $this->context,
+            cancomment: $this->cancomment,
+            history: new source_history(
                 $this->repository->get_source_history($priorids),
                 $this->repository->get_file_history($priorids),
                 (int) $this->run->timecreated
             ),
-            $page,
-            self::RESULTS_PER_PAGE,
-            $this->renderer->paging_bar(
+            backurl: $this->list_url($this->listpage),
+            formurl: $this->run_url($page),
+            page: $page,
+            perpage: self::RESULTS_PER_PAGE,
+            pagingbar: $this->renderer->paging_bar(
                 count($results),
                 $page,
                 self::RESULTS_PER_PAGE,
-                $this->url(['runid' => $this->runid])
-            )
+                $this->run_url()
+            ),
         ));
     }
 
@@ -346,18 +313,29 @@ class view {
     protected function student_name(stdClass $run): string {
         $user = $this->repository->get_user_brief((int) $run->userid);
 
-        return $user ? fullname($user) : get_string('unknownuser');
+        return $user ? fullname($user, $this->viewfullnames) : get_string('unknownuser');
     }
 
     /**
-     * Every student's runs, filtered and paged.
+     * Every student's runs in the active group, filtered and paged.
      *
      * @return string
      */
     protected function teacher_view(): string {
         $out = $this->renderer->heading(get_string('viewresults', 'mod_idetestfeedback'), 2);
+        $out .= groups_print_activity_menu(
+            $this->cm,
+            $this->url(array_diff_key($this->filter_params(), ['filteruserid' => 0])),
+            true
+        );
 
-        $grandtotal = $this->repository->count_runs_for_instance($this->instance->id);
+        $groupid = $this->active_group();
+        if ($groupid === null) {
+            return $out . $this->renderer->notification(get_string('notingroup'), notification::NOTIFY_INFO);
+        }
+
+        $scope = array_filter(['groupid' => $groupid]);
+        $grandtotal = $this->repository->count_runs_for_instance($this->instance->id, $scope);
         if ($grandtotal === 0) {
             return $out . $this->renderer->notification(
                 get_string('noresults', 'mod_idetestfeedback'),
@@ -366,10 +344,10 @@ class view {
         }
 
         $filters = $this->run_filters();
-        $menus = $this->run_filter_menus();
+        $menus = $this->run_filter_menus($groupid);
 
         $total = $filters
-            ? $this->repository->count_runs_for_instance($this->instance->id, $filters)
+            ? $this->repository->count_runs_for_instance($this->instance->id, $scope + $filters)
             : $grandtotal;
 
         if ($total === 0) {
@@ -379,26 +357,22 @@ class view {
             );
         }
 
-        $page = $this->clamp_page($total);
+        $page = $this->clamp_page($total, self::RUNS_PER_PAGE);
 
         return $out . $this->renderer->render(new run_list(
             runs: $this->repository->get_runs_for_instance(
                 $this->instance->id,
-                $filters,
-                $page * self::PER_PAGE,
-                self::PER_PAGE
+                $scope + $filters,
+                $page * self::RUNS_PER_PAGE,
+                self::RUNS_PER_PAGE
             ),
-            cmid: $this->cmid,
+            detailurl: $this->url($this->list_state($page)),
             showstudent: true,
             colourrows: false,
+            viewfullnames: $this->viewfullnames,
             totaltext: get_string('totalruns', 'mod_idetestfeedback', $total),
             filters: $menus,
-            pagingbar: $this->renderer->paging_bar(
-                $total,
-                $page,
-                self::PER_PAGE,
-                $this->url($this->filter_params())
-            )
+            pagingbar: $this->renderer->paging_bar($total, $page, self::RUNS_PER_PAGE, $this->list_url())
         ));
     }
 
@@ -419,29 +393,40 @@ class view {
             );
         }
 
-        $page = $this->clamp_page($total);
+        $page = $this->clamp_page($total, self::RUNS_PER_PAGE);
 
         return $out . $this->renderer->render(new run_list(
             runs: $this->repository->get_runs_for_user(
                 $this->instance->id,
                 $this->user->id,
-                $page * self::PER_PAGE,
-                self::PER_PAGE
+                $page * self::RUNS_PER_PAGE,
+                self::RUNS_PER_PAGE
             ),
-            cmid: $this->cmid,
+            detailurl: $this->url($this->list_state($page)),
             showstudent: false,
             colourrows: true,
             summary: get_string('summarytext', 'mod_idetestfeedback', [
                 'total' => $total,
                 'rate' => (int) round($passedruns / $total * 100),
             ]),
-            pagingbar: $this->renderer->paging_bar(
-                $total,
-                $page,
-                self::PER_PAGE,
-                $this->url()
-            )
+            pagingbar: $this->renderer->paging_bar($total, $page, self::RUNS_PER_PAGE, $this->list_url())
         ));
+    }
+
+    /**
+     * The group the run list is limited to.
+     *
+     * @return int|null the group id, 0 for every student, or null when the viewer may see no group at all
+     */
+    protected function active_group(): ?int {
+        $groupid = (int) groups_get_activity_group($this->cm, true);
+
+        if ($groupid === 0 && groups_get_activity_groupmode($this->cm) == SEPARATEGROUPS
+                && !has_capability('moodle/site:accessallgroups', $this->context)) {
+            return null;
+        }
+
+        return $groupid;
     }
 
     /**
@@ -449,18 +434,19 @@ class view {
      *
      * Each carries the other's current value, and neither carries the page number.
      *
+     * @param int $groupid list only students in this group, or 0 for every student
      * @return string
      */
-    protected function run_filter_menus(): string {
+    protected function run_filter_menus(int $groupid): string {
         $studentoptions = [0 => get_string('allstudents', 'mod_idetestfeedback')];
-        foreach ($this->repository->get_students_with_runs($this->instance->id) as $student) {
-            $studentoptions[$student->id] = fullname($student);
+        foreach ($this->repository->get_students_with_runs($this->instance->id, $groupid) as $student) {
+            $studentoptions[$student->id] = fullname($student, $this->viewfullnames);
         }
 
         $params = $this->filter_params();
 
         $studentselect = new single_select(
-            $this->url(array_diff_key($params, ['filteruserid' => null])),
+            $this->url(array_diff_key($params, ['filteruserid' => 0])),
             'filteruserid',
             $studentoptions,
             $this->filteruserid,
@@ -469,7 +455,7 @@ class view {
         $studentselect->label = get_string('student', 'mod_idetestfeedback');
 
         $statusselect = new single_select(
-            $this->url(array_diff_key($params, ['filterstatus' => null])),
+            $this->url(array_diff_key($params, ['filterstatus' => 0])),
             'filterstatus',
             status::filter_options(),
             $this->filterstatus?->value ?? status::ANY,
@@ -489,16 +475,7 @@ class view {
      * @return array
      */
     protected function run_filters(): array {
-        $filters = [];
-
-        if ($this->filteruserid) {
-            $filters['userid'] = $this->filteruserid;
-        }
-        if ($this->filterstatus !== null) {
-            $filters['status'] = $this->filterstatus->value;
-        }
-
-        return $filters;
+        return array_filter(['userid' => $this->filteruserid, 'status' => $this->filterstatus?->value]);
     }
 
     /**
@@ -507,16 +484,17 @@ class view {
      * @return array
      */
     protected function filter_params(): array {
-        $params = [];
+        return array_filter(['filteruserid' => $this->filteruserid, 'filterstatus' => $this->filterstatus?->value]);
+    }
 
-        if ($this->filteruserid) {
-            $params['filteruserid'] = $this->filteruserid;
-        }
-        if ($this->filterstatus !== null) {
-            $params['filterstatus'] = $this->filterstatus->value;
-        }
-
-        return $params;
+    /**
+     * Where the run list stood, as query parameters a run carries so its back link returns there.
+     *
+     * @param int $listpage the run list page
+     * @return array
+     */
+    protected function list_state(int $listpage): array {
+        return $this->filter_params() + array_filter(['listpage' => $listpage]);
     }
 
     /**
@@ -526,19 +504,39 @@ class view {
      * @param int $perpage items per page
      * @return int a zero based page number
      */
-    protected function clamp_page(int $total, int $perpage = self::PER_PAGE): int {
+    protected function clamp_page(int $total, int $perpage): int {
         $maxpage = (int) floor(max(0, $total - 1) / $perpage);
 
         return max(0, min($this->page, $maxpage));
     }
 
     /**
+     * The run list, with the active filters.
+     *
+     * @param int $page zero based page number
+     * @return url
+     */
+    protected function list_url(int $page = 0): url {
+        return $this->url($this->filter_params() + array_filter(['page' => $page]));
+    }
+
+    /**
+     * The requested run, keeping the run list state it was opened from.
+     *
+     * @param int $page zero based page number within the run's results
+     * @return url
+     */
+    protected function run_url(int $page = 0): url {
+        return $this->url(['runid' => $this->runid] + $this->list_state($this->listpage) + array_filter(['page' => $page]));
+    }
+
+    /**
      * A URL back into this activity.
      *
      * @param array $params query parameters to carry alongside the course module id
-     * @return moodle_url
+     * @return url
      */
-    protected function url(array $params = []): moodle_url {
-        return new moodle_url('/mod/idetestfeedback/view.php', ['id' => $this->cmid] + $params);
+    protected function url(array $params = []): url {
+        return new url('/mod/idetestfeedback/view.php', ['id' => $this->cmid] + $params);
     }
 }

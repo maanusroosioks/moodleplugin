@@ -25,6 +25,21 @@ class testable_run_detail_source extends run_detail {
     public function block(\stdClass $result): ?array {
         return $this->source_block($result);
     }
+
+    /**
+     * @return array[] the exported file rows
+     */
+    public function files(): array {
+        return $this->file_rows();
+    }
+
+    /**
+     * @param int $ms a run's duration in milliseconds
+     * @return string the duration as shown
+     */
+    public static function duration(int $ms): string {
+        return self::run_duration($ms);
+    }
 }
 
 /**
@@ -62,15 +77,16 @@ final class run_detail_source_test extends \advanced_testcase {
      */
     private function detail(array $files): testable_run_detail_source {
         return new testable_run_detail_source(
-            (object) ['requiredtests' => null],
-            (object) [],
-            [],
-            $files,
-            null,
-            \context_system::instance(),
-            1,
-            false,
-            new \mod_idetestfeedback\local\source_history([], [], 0)
+            instance: (object) ['requiredtests' => null],
+            run: (object) [],
+            results: [],
+            files: $files,
+            studentname: null,
+            context: \context_system::instance(),
+            cancomment: false,
+            history: new \mod_idetestfeedback\local\source_history([], [], 0),
+            backurl: new \core\url('/'),
+            formurl: new \core\url('/')
         );
     }
 
@@ -93,6 +109,18 @@ final class run_detail_source_test extends \advanced_testcase {
         $this->assertSame("3\n4", $block['linenumbers']);
         $this->assertFalse($block['truncated']);
         $this->assertTrue($block['expandable']);
+    }
+
+    public function test_a_file_holding_only_the_truncation_marker_has_no_content(): void {
+        $rows = $this->detail([$this->file(['content' => "\u{2026} [truncated]"])])->files();
+
+        $this->assertFalse($rows[0]['hascontent']);
+        $this->assertSame('', $rows[0]['linenumbers']);
+    }
+
+    public function test_a_short_run_is_timed_in_milliseconds_and_a_long_one_in_minutes(): void {
+        $this->assertSame('250 ms', testable_run_detail_source::duration(250));
+        $this->assertSame(format_time(125), testable_run_detail_source::duration(125000));
     }
 
     public function test_a_body_the_run_did_not_capture_shows_nothing(): void {

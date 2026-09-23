@@ -217,7 +217,7 @@ class repository {
      * A page of runs for the whole activity, newest first.
      *
      * @param int $instanceid the activity instance id
-     * @param array $filters optional 'userid' and/or 'status' to narrow the list
+     * @param array $filters optional 'userid', 'status' and/or 'groupid' to narrow the list
      * @param int $limitfrom the first row to return
      * @param int $limitnum how many rows to return, 0 for all of them
      * @return \stdClass[] runs, each carrying the submitting user's name fields
@@ -239,7 +239,7 @@ class repository {
 
     /**
      * @param int $instanceid the activity instance id
-     * @param array $filters optional 'userid' and/or 'status' to narrow the count
+     * @param array $filters optional 'userid', 'status' and/or 'groupid' to narrow the count
      * @return int how many runs match
      */
     public function count_runs_for_instance(int $instanceid, array $filters = []): int {
@@ -252,18 +252,20 @@ class repository {
      * Distinct users who have at least one run in this activity, for the filter menu.
      *
      * @param int $instanceid the activity instance id
+     * @param int $groupid only members of this group, or 0 for everyone
      * @return \stdClass[] id and name fields, ordered by name
      */
-    public function get_students_with_runs(int $instanceid): array {
+    public function get_students_with_runs(int $instanceid, int $groupid = 0): array {
         $namefields = \core_user\fields::for_name()->get_sql('u')->selects;
+        [$where, $params] = $this->run_filter_sql($instanceid, ['groupid' => $groupid], 'r');
 
         return $this->db->get_records_sql(
             "SELECT DISTINCT u.id{$namefields}
                FROM {idetestfeedback_run} r
                JOIN {user} u ON u.id = r.userid
-              WHERE r.idetestfeedbackid = :instanceid
+              WHERE {$where}
               ORDER BY u.lastname, u.firstname",
-            ['instanceid' => $instanceid]
+            $params
         );
     }
 
@@ -327,7 +329,7 @@ class repository {
      * Builds the shared WHERE clause for the run list/count.
      *
      * @param int $instanceid the activity instance id
-     * @param array $filters optional 'userid' and/or 'status'
+     * @param array $filters optional 'userid', 'status' and/or 'groupid'
      * @param string $alias the table alias to qualify columns with, '' for none
      * @return array [string $where, array $params]
      */
@@ -344,6 +346,10 @@ class repository {
         if (!empty($filters['status'])) {
             $where .= " AND {$prefix}status = :fstatus";
             $params['fstatus'] = $filters['status'];
+        }
+        if (!empty($filters['groupid'])) {
+            $where .= " AND {$prefix}userid IN (SELECT gm.userid FROM {groups_members} gm WHERE gm.groupid = :fgroupid)";
+            $params['fgroupid'] = $filters['groupid'];
         }
 
         return [$where, $params];

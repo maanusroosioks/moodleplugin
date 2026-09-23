@@ -77,15 +77,16 @@ final class run_detail_history_test extends \advanced_testcase {
     private function detail(array $priorresults, array $priorfiles = [],
                             ?int $currentblobid = null): testable_run_detail_history {
         return new testable_run_detail_history(
-            (object) ['requiredtests' => null],
-            (object) [],
-            [],
-            [(object) ['path' => self::PATH, 'blobid' => $currentblobid, 'content' => null]],
-            null,
-            \context_system::instance(),
-            1,
-            false,
-            new source_history($priorresults, $priorfiles, self::NOW)
+            instance: (object) ['requiredtests' => null],
+            run: (object) [],
+            results: [],
+            files: [(object) ['path' => self::PATH, 'blobid' => $currentblobid, 'content' => null]],
+            studentname: null,
+            context: \context_system::instance(),
+            cancomment: false,
+            history: new source_history($priorresults, $priorfiles, self::NOW),
+            backurl: new \core\url('/'),
+            formurl: new \core\url('/')
         );
     }
 
@@ -217,21 +218,22 @@ final class run_detail_history_test extends \advanced_testcase {
         $this->assertSame([(int) $commented->id], $priorids);
 
         $detail = new testable_run_detail_history(
-            $instance,
-            $current,
-            $repository->get_results((int) $current->id),
-            $repository->get_files((int) $current->id),
-            null,
-            \context_module::instance(
+            instance: $instance,
+            run: $current,
+            results: $repository->get_results((int) $current->id),
+            files: $repository->get_files((int) $current->id),
+            studentname: null,
+            context: \context_module::instance(
                 get_coursemodule_from_instance('idetestfeedback', $instance->id, $course->id, false, MUST_EXIST)->id
             ),
-            1,
-            false,
-            new source_history(
+            cancomment: false,
+            history: new source_history(
                 $repository->get_source_history($priorids),
                 $repository->get_file_history($priorids),
                 (int) $current->timecreated
-            )
+            ),
+            backurl: new \core\url('/'),
+            formurl: new \core\url('/')
         );
 
         $badges = [];

@@ -27,6 +27,7 @@
  * @covers     ::idetestfeedback_supports
  * @covers     ::idetestfeedback_get_coursemodule_info
  * @covers     ::idetestfeedback_reset_userdata
+ * @covers     ::idetestfeedback_view
  */
 final class mod_idetestfeedback_lib_test extends advanced_testcase {
 
@@ -140,8 +141,8 @@ final class mod_idetestfeedback_lib_test extends advanced_testcase {
             'completion_tracks_views' => [FEATURE_COMPLETION_TRACKS_VIEWS, true],
             'completion_has_rules' => [FEATURE_COMPLETION_HAS_RULES, true],
             'mod_purpose' => [FEATURE_MOD_PURPOSE, MOD_PURPOSE_ASSESSMENT],
-            'groups' => [FEATURE_GROUPS, false],
-            'groupings' => [FEATURE_GROUPINGS, false],
+            'groups' => [FEATURE_GROUPS, true],
+            'groupings' => [FEATURE_GROUPINGS, true],
             'unknown feature' => ['some_unknown_feature', null],
         ];
     }
@@ -255,6 +256,29 @@ final class mod_idetestfeedback_lib_test extends advanced_testcase {
         $this->assertSame(1500, (int) $updated->timeopen);
         $this->assertSame(2500, (int) $updated->timeclose);
         $this->assertCount(1, $status);
+    }
+
+    public function test_view_logs_the_view_and_marks_it_viewed_for_completion(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/completionlib.php');
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $instance = $this->getDataGenerator()->create_module('idetestfeedback', [
+            'course' => $course->id,
+            'completion' => COMPLETION_TRACKING_AUTOMATIC,
+            'completionview' => COMPLETION_VIEW_REQUIRED,
+        ]);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $this->setUser($student);
+        [, $cm] = get_course_and_cm_from_instance($instance->id, 'idetestfeedback');
+
+        $sink = $this->redirectEvents();
+        idetestfeedback_view($instance, $course, $cm, $cm->context);
+        $events = $sink->get_events();
+
+        $this->assertInstanceOf(\mod_idetestfeedback\event\course_module_viewed::class, reset($events));
+        $completion = new completion_info($course);
+        $this->assertSame(COMPLETION_COMPLETE, (int) $completion->get_data($cm, false, $student->id)->completionstate);
     }
 
     public function test_reset_course_form_defaults_enables_the_reset_by_default(): void {

@@ -95,10 +95,35 @@ function idetestfeedback_supports(string $feature): string|bool|null {
         FEATURE_COMPLETION_TRACKS_VIEWS  => true,
         FEATURE_COMPLETION_HAS_RULES     => true,
         FEATURE_MOD_PURPOSE              => MOD_PURPOSE_ASSESSMENT,
-        FEATURE_GROUPS                   => false,
-        FEATURE_GROUPINGS                => false,
+        FEATURE_GROUPS                   => true,
+        FEATURE_GROUPINGS                => true,
         default                          => null,
     };
+}
+
+/**
+ * Logs a view of the activity and marks it viewed for completion.
+ *
+ * @param stdClass $instance the activity instance
+ * @param stdClass $course the course the activity is in
+ * @param cm_info|stdClass $cm the course module
+ * @param \core\context\module $context the activity context
+ */
+function idetestfeedback_view(stdClass $instance, stdClass $course, cm_info|stdClass $cm,
+                              \core\context\module $context): void {
+    global $CFG;
+    require_once($CFG->libdir . '/completionlib.php');
+
+    $event = \mod_idetestfeedback\event\course_module_viewed::create([
+        'objectid' => $instance->id,
+        'context' => $context,
+    ]);
+    $event->add_record_snapshot('course', $course);
+    $event->add_record_snapshot('idetestfeedback', $instance);
+    $event->trigger();
+
+    $completion = new completion_info($course);
+    $completion->set_module_viewed($cm);
 }
 
 /**

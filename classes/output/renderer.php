@@ -16,7 +16,8 @@
 
 namespace mod_idetestfeedback\output;
 
-use plugin_renderer_base;
+use core\output\notification;
+use core\output\plugin_renderer_base;
 
 /**
  * Renderer for the activity's pages.
@@ -51,7 +52,7 @@ class renderer extends plugin_renderer_base {
         $out = $this->render_from_template('mod_idetestfeedback/run_detail', $data);
 
         if (!$data['hasresults']) {
-            $out .= $this->notification(get_string('noresults', 'mod_idetestfeedback'), 'info');
+            $out .= $this->notification(get_string('noresults', 'mod_idetestfeedback'), notification::NOTIFY_INFO);
         } else if (!$data['cancomment']) {
             $out .= $this->render_from_template('mod_idetestfeedback/run_results', $data);
         } else {

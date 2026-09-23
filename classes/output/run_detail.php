@@ -16,17 +16,17 @@
 
 namespace mod_idetestfeedback\output;
 
-use context;
+use core\context;
+use core\output\renderable;
+use core\output\renderer_base;
+use core\output\templatable;
+use core\url;
 use mod_idetestfeedback\local\required_tests;
 use mod_idetestfeedback\local\source_change;
 use mod_idetestfeedback\local\source_code;
 use mod_idetestfeedback\local\source_history;
 use mod_idetestfeedback\local\source_kind;
-use moodle_url;
-use renderable;
-use renderer_base;
 use stdClass;
-use templatable;
 
 /**
  * One test run in full: its summary and every test case result.
@@ -37,8 +37,8 @@ use templatable;
  */
 class run_detail implements renderable, templatable {
 
-    /** @var array<string, stdClass>|null The run's files by path, built on first use. */
-    protected ?array $filesbypath = null;
+    /** @var array<string, stdClass> The run's files, by the path results join to them on. */
+    protected readonly array $filesbypath;
 
     /**
      * @param stdClass $instance the activity instance
@@ -47,9 +47,10 @@ class run_detail implements renderable, templatable {
      * @param stdClass[] $files the test files captured with the run
      * @param string|null $studentname the run's owner, or null to leave it out
      * @param context $context the activity context, for formatting feedback
-     * @param int $cmid the course module id
      * @param bool $cancomment whether the viewer may edit feedback
      * @param source_history $history the same tests as the student's earlier runs reported them
+     * @param url $backurl the run list this run was opened from
+     * @param url $formurl where the feedback form posts to
      * @param int $page zero based page number within the results
      * @param int $perpage results per page, or 0 to show them all
      * @param string $pagingbar the rendered paging bar
@@ -61,13 +62,15 @@ class run_detail implements renderable, templatable {
         protected readonly array $files,
         protected readonly ?string $studentname,
         protected readonly context $context,
-        protected readonly int $cmid,
         protected readonly bool $cancomment,
         protected readonly source_history $history,
+        protected readonly url $backurl,
+        protected readonly url $formurl,
         protected readonly int $page = 0,
         protected readonly int $perpage = 0,
         protected readonly string $pagingbar = ''
     ) {
+        $this->filesbypath = array_column($files, null, 'path');
     }
 
     /**
@@ -81,14 +84,11 @@ class run_detail implements renderable, templatable {
         $entries = required_tests::parse($this->instance->requiredtests ?? null);
         $showrequired = $entries !== [];
         $showfeedback = $this->cancomment || $this->has_feedback();
-        $formparams = ['id' => $this->cmid, 'runid' => $this->run->id];
-        if ($this->page > 0) {
-            $formparams['page'] = $this->page;
-        }
+        $files = $this->file_rows();
 
         return [
-            'backurl' => (new moodle_url('/mod/idetestfeedback/view.php', ['id' => $this->cmid]))->out(false),
-            'formurl' => (new moodle_url('/mod/idetestfeedback/view.php', $formparams))->out(false),
+            'backurl' => $this->backurl->out(false),
+            'formurl' => $this->formurl->out(false),
             'meta' => $this->meta_rows($output, $entries, $showrequired),
             'hasresults' => $this->results !== [],
             'showrequired' => $showrequired,
@@ -97,25 +97,10 @@ class run_detail implements renderable, templatable {
             'colspan' => 6 + (int) $showrequired + (int) $showfeedback,
             'rows' => $this->result_rows($output, $entries, $showrequired),
             'pagingbar' => $this->pagingbar,
-            'hasfiles' => $this->files !== [],
-            'files' => $this->file_rows(),
-            'hascode' => $this->has_code(),
+            'hasfiles' => $files !== [],
+            'files' => $files,
+            'hascode' => array_filter($files, fn(array $file) => $file['hascontent'] && $file['language'] !== '') !== [],
         ];
-    }
-
-    /**
-     * Whether anything on this run is worth loading a syntax highlighter for.
-     *
-     * @return bool
-     */
-    protected function has_code(): bool {
-        foreach ($this->files as $file) {
-            if (trim((string) ($file->content ?? '')) !== '') {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -223,15 +208,23 @@ class run_detail implements renderable, templatable {
         if ($this->run->startedat !== null && $this->run->finishedat !== null) {
             $rows[] = [
                 'label' => get_string('runduration', 'mod_idetestfeedback'),
-                'text' => get_string(
-                    'durationunit',
-                    'mod_idetestfeedback',
-                    (int) $this->run->finishedat - (int) $this->run->startedat
-                ),
+                'text' => self::run_duration((int) $this->run->finishedat - (int) $this->run->startedat),
             ];
         }
 
         return $rows;
+    }
+
+    /**
+     * @param int $ms how long the run took, in milliseconds
+     * @return string milliseconds under a second, format_time() units from there on
+     */
+    protected static function run_duration(int $ms): string {
+        if ($ms < 1000) {
+            return get_string('durationunit', 'mod_idetestfeedback', $ms);
+        }
+
+        return format_time((int) round($ms / 1000));
     }
 
     /**
@@ -351,7 +344,7 @@ class run_detail implements renderable, templatable {
                     ? get_string('durationunit', 'mod_idetestfeedback', (int) $result->durationms)
                     : '',
                 'message' => (string) ($result->message ?? ''),
-                'feedbackname' => 'feedback_' . $result->id,
+                'feedbackname' => 'feedback[' . $result->id . ']',
                 'feedbacklabel' => get_string('feedbackfor', 'mod_idetestfeedback', $result->testname),
                 'feedback' => $feedback,
                 // Stored feedback is plain text, but format_text() still owns the
@@ -398,7 +391,7 @@ class run_detail implements renderable, templatable {
             return $this->badge('sourcefeedbackunchangedfile', 'bg-warning text-dark');
         }
 
-        $file = $this->files_by_path()[(string) ($result->sourcefilepath ?? '')] ?? null;
+        $file = $this->file_of($result);
         $samefile = $this->history->file_since_feedback($result, isset($file->blobid) ? (int) $file->blobid : null);
 
         return $samefile === source_change::UNCHANGED
@@ -423,10 +416,6 @@ class run_detail implements renderable, templatable {
      */
     protected function source_block(stdClass $result): ?array {
         $kind = source_kind::of($result);
-        $path = (string) ($result->sourcefilepath ?? '');
-        $hash = (string) ($result->sourcecodehash ?? '');
-
-        [$code, $truncated] = $this->test_source($result, $kind);
 
         // Naming no file is only a report that the test was not found when the
         // run looked; a run carrying no files at all says nothing either way.
@@ -434,11 +423,16 @@ class run_detail implements renderable, templatable {
             return null;
         }
 
+        $path = (string) ($result->sourcefilepath ?? '');
+        $hash = (string) ($result->sourcecodehash ?? '');
+
+        [$code, $truncated] = $this->test_source($result, $kind);
+
         return [
             'summary' => $this->source_summary($result, $path, $kind),
             'kind' => $kind->value,
             'expandable' => $code !== '' || $hash !== '',
-            'wholefile' => $kind === source_kind::FILE && $this->has_file_content($path),
+            'wholefile' => $kind === source_kind::FILE && trim($this->content_of($this->file_of($result))) !== '',
             'code' => $code,
             'hascode' => $code !== '',
             'language' => self::language_of($path),
@@ -461,7 +455,7 @@ class run_detail implements renderable, templatable {
      * cut out of the file at the line range the IDE recorded.
      *
      * @param stdClass $result one test case result
-     * @param source_kind|null $kind what the result's source block describes
+     * @param source_kind $kind what the result's source block describes
      * @return array{0:string,1:bool} [the code, whether it is cut short]
      */
     protected function test_source(stdClass $result, source_kind $kind): array {
@@ -469,8 +463,7 @@ class run_detail implements renderable, templatable {
             return ['', false];
         }
 
-        $file = $this->files_by_path()[(string) ($result->sourcefilepath ?? '')] ?? null;
-        $content = (string) ($file->content ?? '');
+        $content = $this->content_of($this->file_of($result));
         if ($content === '') {
             return ['', false];
         }
@@ -479,30 +472,19 @@ class run_detail implements renderable, templatable {
     }
 
     /**
-     * Whether this run carries the contents of one of its files, rather than
-     * just the fact that the file was there.
-     *
-     * @param string $path the path a result names
-     * @return bool
+     * @param stdClass $result one test case result
+     * @return stdClass|null the run's copy of the file the result names, if it has one
      */
-    protected function has_file_content(string $path): bool {
-        $file = $this->files_by_path()[$path] ?? null;
-
-        return trim((string) ($file->content ?? '')) !== '';
+    protected function file_of(stdClass $result): ?stdClass {
+        return $this->filesbypath[(string) ($result->sourcefilepath ?? '')] ?? null;
     }
 
     /**
-     * @return array<string, stdClass> the run's files, by the path results join to them on
+     * @param stdClass|null $file one of the run's files
+     * @return string the source the file carries, without any truncation marker
      */
-    protected function files_by_path(): array {
-        if ($this->filesbypath === null) {
-            $this->filesbypath = [];
-            foreach ($this->files as $file) {
-                $this->filesbypath[(string) $file->path] = $file;
-            }
-        }
-
-        return $this->filesbypath;
+    protected function content_of(?stdClass $file): string {
+        return source_code::strip_marker((string) ($file->content ?? ''));
     }
 
     /**
@@ -555,15 +537,16 @@ class run_detail implements renderable, templatable {
         $rows = [];
 
         foreach ($this->files as $file) {
-            $content = source_code::strip_marker((string) ($file->content ?? ''));
+            $content = $this->content_of($file);
+            $hascontent = trim($content) !== '';
 
             $rows[] = [
                 'path' => $file->path,
                 'sha256' => (string) ($file->sha256 ?? ''),
                 'content' => $content,
-                'hascontent' => $content !== '',
+                'hascontent' => $hascontent,
                 'language' => self::language_of((string) $file->path),
-                'linenumbers' => $content === '' ? '' : self::line_numbers($content, 1),
+                'linenumbers' => $hascontent ? self::line_numbers($content, 1) : '',
                 'truncated' => !empty($file->truncated),
             ];
         }

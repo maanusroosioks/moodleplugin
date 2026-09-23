@@ -336,6 +336,23 @@ final class repository_test extends \advanced_testcase {
         $this->assertSame([(int) $ann->id, (int) $zed->id], array_map(fn($u) => (int) $u->id, $students));
     }
 
+    public function test_run_list_queries_narrow_to_a_group(): void {
+        $member = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $outsider = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $group = $this->getDataGenerator()->create_group(['courseid' => $this->course->id]);
+        $this->getDataGenerator()->create_group_member(['groupid' => $group->id, 'userid' => $member->id]);
+        $this->create_run($member->id);
+        $this->create_run($outsider->id);
+
+        $runs = $this->repository->get_runs_for_instance($this->instance->id, ['groupid' => $group->id]);
+        $students = $this->repository->get_students_with_runs($this->instance->id, (int) $group->id);
+
+        $this->assertSame([(int) $member->id], array_values(array_map(fn($r) => (int) $r->userid, $runs)));
+        $this->assertSame(1, $this->repository->count_runs_for_instance($this->instance->id, ['groupid' => $group->id]));
+        $this->assertSame([(int) $member->id], array_map('intval', array_keys($students)));
+        $this->assertCount(2, $this->repository->get_students_with_runs($this->instance->id));
+    }
+
     public function test_get_runs_for_user_is_scoped_and_paginated(): void {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');

@@ -16,10 +16,10 @@
 
 namespace mod_idetestfeedback\output;
 
+use core\output\renderable;
+use core\output\renderer_base;
+use core\output\templatable;
 use mod_idetestfeedback\local\status;
-use renderable;
-use renderer_base;
-use templatable;
 
 /**
  * The coloured badge showing one test case or run status.

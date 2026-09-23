@@ -46,17 +46,18 @@ final class run_detail_paging_test extends \advanced_testcase {
         $results = array_map(fn(int $id) => (object) ['id' => $id], range(1, 5));
 
         $detail = new testable_run_detail_paging(
-            (object) ['requiredtests' => null],
-            (object) ['id' => 1],
-            $results,
-            [],
-            null,
-            \context_system::instance(),
-            1,
-            false,
-            new \mod_idetestfeedback\local\source_history([], [], 0),
-            $page,
-            $perpage
+            instance: (object) ['requiredtests' => null],
+            run: (object) ['id' => 1],
+            results: $results,
+            files: [],
+            studentname: null,
+            context: \context_system::instance(),
+            cancomment: false,
+            history: new \mod_idetestfeedback\local\source_history([], [], 0),
+            backurl: new \core\url('/'),
+            formurl: new \core\url('/'),
+            page: $page,
+            perpage: $perpage
         );
 
         return array_map(fn(\stdClass $result) => $result->id, $detail->page());
