@@ -158,6 +158,7 @@ $string['totalruns'] = 'Total: {$a} run(s)';
 $string['truncated'] = 'Truncated';
 $string['validation_ambiguousemail'] = 'More than one active user was found with the email "{$a}".';
 $string['validation_assignmentnotfound'] = 'No activity was found for the assignment key "{$a}".';
+$string['validation_invalidpayload'] = 'The submitted payload is not a valid JSON object.';
 $string['validation_invalidsourcelines'] = 'The submitted source line numbers are not valid. A located test needs a line range that starts at line 1 or later and does not end before it starts.';
 $string['validation_invalidstatus'] = 'The result status "{$a}" is not valid. Expected one of: PASSED, FAILED, SKIPPED, ERROR.';
 $string['validation_invalidtiming'] = 'The submitted times are not valid. Durations cannot be negative and a run cannot finish before it starts.';

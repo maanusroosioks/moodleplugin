@@ -107,5 +107,175 @@ function xmldb_idetestfeedback_upgrade($oldversion): bool {
         upgrade_mod_savepoint(true, 2026091700, 'idetestfeedback');
     }
 
+    if ($oldversion < 2026092200) {
+        $blobs = new xmldb_table('idetestfeedback_blob');
+        $blobs->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $blobs->add_field('idetestfeedbackid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $blobs->add_field('contenthash', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null);
+        $blobs->add_field('content', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $blobs->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $blobs->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $blobs->add_key('idetestfeedbackid_fk', XMLDB_KEY_FOREIGN, ['idetestfeedbackid'], 'idetestfeedback', ['id']);
+        $blobs->add_index('instance_hash_idx', XMLDB_INDEX_UNIQUE, ['idetestfeedbackid', 'contenthash']);
+
+        if (!$dbman->table_exists($blobs)) {
+            $dbman->create_table($blobs);
+        }
+
+        $files = new xmldb_table('idetestfeedback_file');
+        $field = new xmldb_field('blobid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'path');
+        if (!$dbman->field_exists($files, $field)) {
+            $dbman->add_field($files, $field);
+            $dbman->add_key($files, new xmldb_key('blobid_fk', XMLDB_KEY_FOREIGN, ['blobid'],
+                'idetestfeedback_blob', ['id']));
+        }
+
+        // Neither the hash nor the canonical form is portable SQL, so this one
+        // migration reads its rows in PHP rather than updating them in place.
+        upgrade_set_timeout(3600);
+
+        $now = time();
+        $seen = [];
+        $caching = 0;
+        $rs = $DB->get_recordset_sql(
+            "SELECT f.id, f.content, r.idetestfeedbackid
+               FROM {idetestfeedback_file} f
+               JOIN {idetestfeedback_run} r ON r.id = f.runid
+              WHERE f.content IS NOT NULL
+           ORDER BY r.idetestfeedbackid ASC, f.id ASC"
+        );
+
+        foreach ($rs as $file) {
+            $content = \mod_idetestfeedback\local\source_code::canonicalise((string) $file->content);
+            if ($content === '') {
+                continue;
+            }
+
+            $instanceid = (int) $file->idetestfeedbackid;
+            $hash = \mod_idetestfeedback\local\source_code::hash($content);
+
+            // Rows arrive grouped by activity, so only one activity's hashes are
+            // worth holding.
+            if ($caching !== $instanceid) {
+                $seen = [];
+                $caching = $instanceid;
+            }
+
+            if (!isset($seen[$hash])) {
+                $existing = $DB->get_field('idetestfeedback_blob', 'id',
+                    ['idetestfeedbackid' => $instanceid, 'contenthash' => $hash]);
+
+                $seen[$hash] = $existing ?: $DB->insert_record('idetestfeedback_blob', (object) [
+                    'idetestfeedbackid' => $instanceid,
+                    'contenthash'       => $hash,
+                    'content'           => $content,
+                    'timecreated'       => $now,
+                ]);
+            }
+
+            $DB->set_field('idetestfeedback_file', 'blobid', $seen[$hash], ['id' => $file->id]);
+        }
+        $rs->close();
+
+        // The stored hashes were normalised by the IDE under rules this cannot
+        // reproduce, so they are rebuilt rather than left to read as changes.
+        $DB->execute("UPDATE {idetestfeedback_result} SET sourcecodehash = NULL");
+
+        $rs = $DB->get_recordset_sql(
+            "SELECT res.id, res.sourcekind, res.sourcefilepath, res.sourcestartline,
+                    res.sourceendline, res.sourcecode, res.runid
+               FROM {idetestfeedback_result} res
+              WHERE res.sourcekind IS NOT NULL
+                AND res.sourcekind <> :none
+           ORDER BY res.runid ASC, res.id ASC",
+            ['none' => \mod_idetestfeedback\local\source_kind::NONE->value]
+        );
+
+        foreach ($rs as $row) {
+            $path = (string) ($row->sourcefilepath ?? '');
+            $bodies = [];
+
+            if ($path !== '') {
+                $body = $DB->get_record_sql(
+                    "SELECT b.contenthash, b.content
+                       FROM {idetestfeedback_file} f
+                       JOIN {idetestfeedback_blob} b ON b.id = f.blobid
+                      WHERE f.runid = :runid AND f.path = :path",
+                    ['runid' => $row->runid, 'path' => $path],
+                    IGNORE_MULTIPLE
+                );
+
+                if ($body) {
+                    $bodies[$path] = $body;
+                }
+            }
+
+            $hash = \mod_idetestfeedback\local\capture::result_hash($row, $bodies);
+            if ($hash !== null) {
+                $DB->set_field('idetestfeedback_result', 'sourcecodehash', $hash, ['id' => $row->id]);
+            }
+        }
+        $rs->close();
+
+        foreach (['sha256', 'content'] as $name) {
+            $field = new xmldb_field($name);
+            if ($dbman->field_exists($files, $field)) {
+                $dbman->drop_field($files, $field);
+            }
+        }
+
+        upgrade_mod_savepoint(true, 2026092200, 'idetestfeedback');
+    }
+
+    if ($oldversion < 2026092201) {
+        $result = new xmldb_table('idetestfeedback_result');
+
+        // A test's code now travels only in the run's files, and what a result
+        // names says which part of one it points at, so neither the body nor the
+        // kind is stored beside it any more.
+        foreach (['sourcecode', 'sourcetruncated', 'sourcekind'] as $name) {
+            $field = new xmldb_field($name);
+            if ($dbman->field_exists($result, $field)) {
+                $dbman->drop_field($result, $field);
+            }
+        }
+
+        // Hashes taken from a body that lived on the result cannot be derived
+        // again now that only the files hold one, so they are rebuilt under the
+        // rule that survives; a test the files cannot carry keeps none.
+        upgrade_set_timeout(3600);
+        $DB->execute("UPDATE {idetestfeedback_result} SET sourcecodehash = NULL");
+
+        $rs = $DB->get_recordset_sql(
+            "SELECT res.id, res.runid, res.sourcefilepath, res.sourcestartline, res.sourceendline
+               FROM {idetestfeedback_result} res
+              WHERE res.sourcefilepath IS NOT NULL
+           ORDER BY res.runid ASC, res.id ASC"
+        );
+
+        foreach ($rs as $row) {
+            $path = (string) $row->sourcefilepath;
+            $body = $DB->get_record_sql(
+                "SELECT b.contenthash, b.content
+                   FROM {idetestfeedback_file} f
+                   JOIN {idetestfeedback_blob} b ON b.id = f.blobid
+                  WHERE f.runid = :runid AND f.path = :path",
+                ['runid' => $row->runid, 'path' => $path],
+                IGNORE_MULTIPLE
+            );
+
+            $hash = $body
+                ? \mod_idetestfeedback\local\capture::result_hash($row, [$path => $body])
+                : null;
+
+            if ($hash !== null) {
+                $DB->set_field('idetestfeedback_result', 'sourcecodehash', $hash, ['id' => $row->id]);
+            }
+        }
+        $rs->close();
+
+        upgrade_mod_savepoint(true, 2026092201, 'idetestfeedback');
+    }
+
     return true;
 }

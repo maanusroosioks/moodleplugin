@@ -42,7 +42,7 @@ use mod_idetestfeedback\local\validation_exception;
 class submit_test_run extends external_api {
 
     /** @var int Most test case results accepted in one submission. */
-    private const MAX_RESULTS = 2000;
+    private const MAX_RESULTS = 5000;
 
     /** @var int Most test files accepted in one submission. */
     private const MAX_FILES = 200;
@@ -73,6 +73,26 @@ class submit_test_run extends external_api {
             'commithash'    => new external_value(PARAM_TEXT, 'Git commit hash', VALUE_DEFAULT, null),
             'startedat'     => new external_value(PARAM_INT, 'Run start (epoch milliseconds)', VALUE_DEFAULT, null),
             'finishedat'    => new external_value(PARAM_INT, 'Run end (epoch milliseconds)', VALUE_DEFAULT, null),
+            'payload'       => new external_value(PARAM_RAW,
+                'JSON object holding the run\'s "results" and "testfiles"; see payload_parameters()'),
+            'capturedisabled' => new external_value(PARAM_BOOL, 'The student disabled code capture',
+                VALUE_DEFAULT, 0),
+            'warningacknowledged' => new external_value(PARAM_BOOL,
+                'The student acknowledged the empty-test warning', VALUE_DEFAULT, 0),
+        ]);
+    }
+
+    /**
+     * The shape of what the 'payload' parameter carries.
+     *
+     * The run's lists travel as one JSON string because Moodle's REST server
+     * takes its parameters from $_POST, where every leaf of a nested array is
+     * an input variable of its own and a large run overruns max_input_vars.
+     *
+     * @return external_function_parameters
+     */
+    private static function payload_parameters(): external_function_parameters {
+        return new external_function_parameters([
             'results'       => new external_multiple_structure(
                 new external_single_structure([
                     'testname'   => new external_value(PARAM_RAW, 'Test name'),
@@ -100,10 +120,6 @@ class submit_test_run extends external_api {
                 VALUE_DEFAULT,
                 []
             ),
-            'capturedisabled' => new external_value(PARAM_BOOL, 'The student disabled code capture',
-                VALUE_DEFAULT, 0),
-            'warningacknowledged' => new external_value(PARAM_BOOL,
-                'The student acknowledged the empty-test warning', VALUE_DEFAULT, 0),
         ]);
     }
 
@@ -117,8 +133,7 @@ class submit_test_run extends external_api {
      * @param string|null $commithash the commit the tests ran against
      * @param int|null $startedat when the run started, in epoch milliseconds
      * @param int|null $finishedat when the run finished, in epoch milliseconds
-     * @param array $results the run's test case results
-     * @param array $testfiles the test files captured with the run
+     * @param string $payload JSON holding the run's results and captured test files
      * @param bool $capturedisabled whether the student turned source capture off
      * @param bool $warningacknowledged whether the student submitted past the empty-test warning
      * @return array the new run id
@@ -131,8 +146,7 @@ class submit_test_run extends external_api {
         ?string $commithash,
         ?int $startedat,
         ?int $finishedat,
-        array $results,
-        array $testfiles = [],
+        string $payload,
         bool $capturedisabled = false,
         bool $warningacknowledged = false
     ): array {
@@ -146,11 +160,11 @@ class submit_test_run extends external_api {
             'commithash'          => $commithash,
             'startedat'           => $startedat,
             'finishedat'          => $finishedat,
-            'results'             => $results,
-            'testfiles'           => $testfiles,
+            'payload'             => $payload,
             'capturedisabled'     => $capturedisabled,
             'warningacknowledged' => $warningacknowledged,
         ]);
+        $params = self::decode_payload($params);
 
         self::validate_context(context_system::instance());
         require_capability('mod/idetestfeedback:submit', context_system::instance());
@@ -175,6 +189,23 @@ class submit_test_run extends external_api {
         return new external_single_structure([
             'runid' => new external_value(PARAM_INT, 'Created run ID'),
         ]);
+    }
+
+    /**
+     * Replaces the 'payload' parameter with the lists it carries.
+     *
+     * @param array $params the validated call parameters
+     * @return array the parameters, with 'results' and 'testfiles' unpacked
+     */
+    private static function decode_payload(array $params): array {
+        $decoded = json_decode($params['payload'], true);
+        if (!is_array($decoded)) {
+            throw new validation_exception('validation_invalidpayload');
+        }
+
+        unset($params['payload']);
+
+        return $params + self::validate_parameters(self::payload_parameters(), $decoded);
     }
 
     /**

@@ -59,7 +59,7 @@ final class submit_test_run_test extends \advanced_testcase {
 
     /**
      * @param array $overrides parameters to override the happy-path defaults with
-     * @return array the parameters {@see submit_test_run::execute()} expects
+     * @return array the parameters {@see submit()} sends
      */
     private function params(array $overrides = []): array {
         return array_merge([
@@ -105,6 +105,25 @@ final class submit_test_run_test extends \advanced_testcase {
      * @return array the return value of execute()
      */
     private function submit(array $params): array {
+        $payload = [
+            'results'   => $params['results'] ?? [],
+            'testfiles' => $params['testfiles'] ?? [],
+        ];
+        unset($params['results'], $params['testfiles']);
+        $params['payload'] = json_encode($payload);
+
+        return submit_test_run::execute(...$params);
+    }
+
+    /**
+     * @param array $params from {@see params()}
+     * @param string $payload the raw payload string to send in place of the encoded lists
+     * @return array the return value of execute()
+     */
+    private function submit_payload(array $params, string $payload): array {
+        unset($params['results'], $params['testfiles']);
+        $params['payload'] = $payload;
+
         return submit_test_run::execute(...$params);
     }
 
@@ -623,6 +642,39 @@ final class submit_test_run_test extends \advanced_testcase {
         $files = array_values((new repository($DB))->get_files($returned['runid']));
         $this->assertSame(1, (int) $files[0]->truncated);
         $this->assertStringEndsWith('assert True', $files[0]->content);
+    }
+
+    public function test_it_rejects_a_payload_that_is_not_json(): void {
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_invalidpayload', 'mod_idetestfeedback'));
+
+        $this->submit_payload($this->params(), 'not json at all');
+    }
+
+    public function test_it_rejects_a_payload_that_is_not_an_object(): void {
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string('validation_invalidpayload', 'mod_idetestfeedback'));
+
+        $this->submit_payload($this->params(), '"a string"');
+    }
+
+    public function test_it_rejects_a_payload_carrying_an_unexpected_key(): void {
+        $this->expectException(\invalid_parameter_exception::class);
+
+        $this->submit_payload($this->params(), json_encode(['results' => [], 'bogus' => 1]));
+    }
+
+    public function test_it_accepts_a_run_far_past_the_post_variable_limit(): void {
+        global $DB;
+
+        $results = array_fill(0, 1500, [
+            'testname' => 'test', 'status' => 'PASSED', 'testsuite' => null,
+            'durationms' => null, 'message' => null,
+        ]);
+
+        $returned = $this->submit($this->params(['results' => $results]));
+
+        $this->assertCount(1500, (new repository($DB))->get_results($returned['runid']));
     }
 
     public function test_it_rejects_an_empty_results_array(): void {

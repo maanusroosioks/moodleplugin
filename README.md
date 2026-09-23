@@ -15,7 +15,7 @@ middleware that authenticates the student via OAuth and forwards the test run.
 2. The student pastes that key into their IDE plugin.
 3. When the student runs their tests, the IDE (via the Java middleware) calls the
    `mod_idetestfeedback_submit_test_run` web service with the student's email,
-   the assignment key, and the list of test results.
+   the assignment key, and a JSON payload holding the test results.
 4. The plugin validates the submission, stores one **run** plus its individual
    **results**, and returns the new run ID.
 5. Students and teachers review the results on the activity page.
@@ -75,8 +75,7 @@ no role by default)
 | `commithash` | text | no | |
 | `startedat` | int | no | Epoch **milliseconds**. |
 | `finishedat` | int | no | Epoch **milliseconds**. |
-| `results` | list | yes | Non-empty list of result objects (see below). |
-| `testfiles` | list | no | Test files captured with the run (see below). At most 200. |
+| `payload` | text | yes | JSON object holding `results` and `testfiles` (see below). |
 | `capturedisabled` | bool | no | The student turned off sending source code. Any code posted alongside it is dropped, and with it every hash taken from it (see Validation). |
 | `warningacknowledged` | bool | no | The student was warned that some tests are empty and submitted anyway. |
 
@@ -84,6 +83,36 @@ The parameter names are lowercase: a middleware posting the IDE's camelCase
 payload maps `assignmentKey` → `assignmentkey`, `testFiles` → `testfiles`, and
 so on. A payload carrying a hash of its own is **rejected**: Moodle computes
 every hash it stores, and an unexpected parameter fails validation outright.
+
+The run's two lists travel as one JSON string rather than as nested form
+parameters. Moodle's REST server reads its parameters from `$_POST`, where each
+leaf of a nested array counts against PHP's `max_input_vars`; a run of a few
+hundred tests silently overruns the usual 1000–5000 limit and the request is
+truncated. As one parameter, a run of any size costs one input variable.
+
+```
+POST /webservice/rest/server.php
+Content-Type: application/x-www-form-urlencoded
+
+wstoken=...&wsfunction=mod_idetestfeedback_submit_test_run
+&moodlewsrestformat=json
+&email=student%40example.com&assignmentkey=ABC123&ide=VSCODE
+&payload=%7B%22results%22%3A%5B...%5D%2C%22testfiles%22%3A%5B...%5D%7D
+```
+
+The `payload` object:
+
+| Name | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `results` | list | yes | Non-empty list of result objects (see below). |
+| `testfiles` | list | no | Test files captured with the run (see below). At most 200. |
+
+A `payload` that is not JSON, or that decodes to something other than an object,
+is rejected. Its contents are validated against the same structure definitions
+the other parameters use, so an unexpected key inside it still fails.
+
+The whole request body still has to fit within `post_max_size`; only the input
+variable count is decoupled from run size.
 
 Each `results` entry:
 
@@ -163,6 +192,7 @@ The submission is rejected (with a localised message) when:
 - the user is not enrolled in the activity's course;
 - the current time is before `timeopen` or after `timeclose`;
 - any result has a `status` outside the allowed set;
+- `payload` is not a JSON object;
 - `results` is empty, or holds more than 2000 entries;
 - `ide` is blank;
 - `startedat`, `finishedat` or any `durationms` is negative, or the run finishes
