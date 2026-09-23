@@ -57,7 +57,7 @@ class submit_test_run extends external_api {
         'projectname'    => 255,
         'commithash'     => 100,
         'testsuite'      => 255,
-        'testname'       => 255,
+        'testname'       => 1024,
         'sourcefilepath' => 1024,
         'filepath'       => 1024,
     ];

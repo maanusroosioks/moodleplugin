@@ -205,7 +205,7 @@ final class submit_test_run_test extends \advanced_testcase {
             'ide' => '  ' . str_repeat('i', 60) . '  ',
             'commithash' => '  ' . str_repeat('h', 150) . '  ',
             'results' => [[
-                'testname' => '  ' . str_repeat('n', 300) . '  ',
+                'testname' => '  ' . str_repeat('n', 1100) . '  ',
                 'status' => 'PASSED',
                 'testsuite' => '  ' . str_repeat('s', 300) . '  ',
                 'durationms' => null,
@@ -220,7 +220,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame(str_repeat('h', 100), $run->commithash);
 
         $results = array_values($repository->get_results($returned['runid']));
-        $this->assertSame(str_repeat('n', 255), $results[0]->testname);
+        $this->assertSame(str_repeat('n', 1024), $results[0]->testname);
         $this->assertSame(str_repeat('s', 255), $results[0]->testsuite);
         $this->assertSame(str_repeat('p', 1024), $results[0]->sourcefilepath);
     }

@@ -277,5 +277,18 @@ function xmldb_idetestfeedback_upgrade($oldversion): bool {
         upgrade_mod_savepoint(true, 2026092201, 'idetestfeedback');
     }
 
+    if ($oldversion < 2026092300) {
+        $result = new xmldb_table('idetestfeedback_result');
+        $field = new xmldb_field('testname', XMLDB_TYPE_CHAR, '1024', null, XMLDB_NOTNULL, null, null, 'testsuite');
+        $dbman->change_field_precision($result, $field);
+
+        $blobs = new xmldb_table('idetestfeedback_blob');
+        $DB->execute("UPDATE {idetestfeedback_blob} SET content = '' WHERE content IS NULL");
+        $field = new xmldb_field('content', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null, 'contenthash');
+        $dbman->change_field_notnull($blobs, $field);
+
+        upgrade_mod_savepoint(true, 2026092300, 'idetestfeedback');
+    }
+
     return true;
 }
