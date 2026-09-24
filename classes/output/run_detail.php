@@ -528,21 +528,18 @@ class run_detail implements renderable, templatable {
      * @return string the Prism language name, '' when it is not one we highlight
      */
     protected static function language_of(string $path): string {
-        $languages = [
-            'c' => 'c', 'h' => 'c',
-            'cpp' => 'cpp', 'cc' => 'cpp', 'cxx' => 'cpp', 'hpp' => 'cpp', 'hh' => 'cpp',
+        return match (\core_text::strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+            'c', 'h' => 'c',
+            'cpp', 'cc', 'cxx', 'hpp', 'hh' => 'cpp',
             'cs' => 'csharp',
             'css' => 'css',
-            'htm' => 'markup', 'html' => 'markup', 'svg' => 'markup', 'xml' => 'markup',
+            'htm', 'html', 'svg', 'xml' => 'markup',
             'java' => 'java',
-            'cjs' => 'javascript', 'js' => 'javascript', 'jsx' => 'javascript', 'mjs' => 'javascript',
+            'cjs', 'js', 'jsx', 'mjs' => 'javascript',
             'php' => 'php',
             'py' => 'python',
             'rb' => 'ruby',
-        ];
-
-        $extension = \core_text::strtolower(pathinfo($path, PATHINFO_EXTENSION));
-
-        return $languages[$extension] ?? '';
+            default => '',
+        };
     }
 }
