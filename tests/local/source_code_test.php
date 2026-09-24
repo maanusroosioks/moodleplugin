@@ -29,20 +29,10 @@ final class source_code_test extends \basic_testcase {
     /** @var string A file of five numbered lines. */
     private const FILE = "one\ntwo\nthree\nfour\nfive\n";
 
-    public function test_it_normalises_line_endings(): void {
-        $this->assertSame("a\nb\nc", source_code::normalise_endings("a\r\nb\rc"));
-    }
-
-    public function test_it_drops_the_marker_an_ide_appends_to_a_string_it_cut(): void {
-        $cut = "one\ntwo\n\u{2026} [truncated by moodle-test-submit: 1234 more characters]";
-
-        $this->assertSame("one\ntwo", source_code::strip_marker($cut));
-    }
-
     public function test_it_leaves_source_that_merely_mentions_truncation_alone(): void {
-        $code = "assert log == '\u{2026} [truncated]'\n";
+        $code = "assert log == '\u{2026} [truncated]'";
 
-        $this->assertSame($code, source_code::strip_marker($code));
+        $this->assertSame($code, source_code::canonicalise($code . "\n"));
     }
 
     public function test_it_cuts_an_inclusive_one_based_range_out_of_a_file(): void {
@@ -71,29 +61,29 @@ final class source_code_test extends \basic_testcase {
         $this->assertSame(["two\nthree", false], source_code::excerpt($content, 2, 3));
     }
 
-    public function test_the_same_code_under_three_line_endings_hashes_alike(): void {
-        $hash = source_code::hash("one\ntwo\nthree");
+    public function test_the_same_code_under_three_line_endings_is_canonically_alike(): void {
+        $canonical = source_code::canonicalise("one\ntwo\nthree");
 
-        $this->assertSame($hash, source_code::hash("one\r\ntwo\r\nthree"));
-        $this->assertSame($hash, source_code::hash("one\rtwo\rthree"));
+        $this->assertSame($canonical, source_code::canonicalise("one\r\ntwo\r\nthree"));
+        $this->assertSame($canonical, source_code::canonicalise("one\rtwo\rthree"));
     }
 
-    public function test_trailing_whitespace_does_not_change_the_hash(): void {
-        $this->assertSame(source_code::hash("one\ntwo"), source_code::hash("one   \ntwo\t"));
+    public function test_trailing_whitespace_is_not_canonical(): void {
+        $this->assertSame("one\ntwo", source_code::canonicalise("one   \ntwo\t"));
     }
 
-    public function test_a_final_newline_does_not_change_the_hash(): void {
-        $this->assertSame(source_code::hash("one\ntwo"), source_code::hash("one\ntwo\n\n"));
+    public function test_a_final_newline_is_not_canonical(): void {
+        $this->assertSame("one\ntwo", source_code::canonicalise("one\ntwo\n\n"));
     }
 
-    public function test_a_byte_order_mark_does_not_change_the_hash(): void {
-        $this->assertSame(source_code::hash("one\ntwo"), source_code::hash("\u{FEFF}one\ntwo"));
+    public function test_a_byte_order_mark_is_not_canonical(): void {
+        $this->assertSame("one\ntwo", source_code::canonicalise("\u{FEFF}one\ntwo"));
     }
 
-    public function test_a_cut_string_hashes_as_what_the_marker_left(): void {
+    public function test_a_cut_string_canonicalises_to_what_the_marker_left(): void {
         $cut = "one\ntwo\n\u{2026} [truncated by moodle-test-submit: 1234 more characters]";
 
-        $this->assertSame(source_code::hash("one\ntwo"), source_code::hash($cut));
+        $this->assertSame("one\ntwo", source_code::canonicalise($cut));
     }
 
     public function test_hash_canonical_hashes_its_input_as_is(): void {
@@ -105,27 +95,16 @@ final class source_code_test extends \basic_testcase {
     }
 
     public function test_a_blank_line_inside_the_code_is_kept(): void {
-        $this->assertNotSame(source_code::hash("one\ntwo"), source_code::hash("one\n\ntwo"));
+        $this->assertSame("one\n\ntwo", source_code::canonicalise("one\n\ntwo"));
     }
 
-    public function test_an_edited_comment_is_a_different_hash(): void {
-        $this->assertNotSame(
-            source_code::hash("// adds two numbers\nassertEquals(3, add(1, 2));"),
-            source_code::hash("// sums two numbers\nassertEquals(3, add(1, 2));")
-        );
-    }
-
-    public function test_a_renamed_variable_is_a_different_hash(): void {
-        $this->assertNotSame(
-            source_code::hash('int sum = add(1, 2);'),
-            source_code::hash('int total = add(1, 2);')
-        );
-    }
-
-    public function test_reindented_code_is_a_different_hash(): void {
-        $this->assertNotSame(
-            source_code::hash("if (x) {\n    return 1;\n}"),
-            source_code::hash("if (x) {\n\t\treturn 1;\n}")
-        );
+    public function test_comments_names_and_indentation_are_kept(): void {
+        foreach ([
+            "// adds two numbers\nassertEquals(3, add(1, 2));",
+            'int sum = add(1, 2);',
+            "if (x) {\n\t\treturn 1;\n}",
+        ] as $code) {
+            $this->assertSame($code, source_code::canonicalise($code));
+        }
     }
 }

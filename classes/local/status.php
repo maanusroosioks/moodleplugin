@@ -21,7 +21,7 @@ namespace mod_idetestfeedback\local;
  *
  * Reported by the IDE and stored verbatim, so they are not translated. Values
  * read back from the database are plain strings; resolve them with tryFrom(),
- * which gives null for anything an older version or a manual edit left behind.
+ * which gives null for anything unrecognised.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks

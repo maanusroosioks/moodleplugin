@@ -51,7 +51,8 @@ final class run_detail_paging_test extends \advanced_testcase {
             backurl: new \core\url('/'),
             runurl: new \core\url('/'),
             page: $page,
-            perpage: $perpage
+            perpage: $perpage,
+            pagingbar: ''
         );
 
         return array_map(fn(\stdClass $result) => $result->id, $detail->page());
@@ -63,9 +64,5 @@ final class run_detail_paging_test extends \advanced_testcase {
 
     public function test_the_last_page_holds_what_is_left(): void {
         $this->assertSame([5], $this->ids(2, 2));
-    }
-
-    public function test_no_page_size_shows_every_result(): void {
-        $this->assertSame([1, 2, 3, 4, 5], $this->ids(0, 0));
     }
 }

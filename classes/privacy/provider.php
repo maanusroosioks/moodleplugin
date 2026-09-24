@@ -73,9 +73,7 @@ class provider implements
                 'status'           => 'privacy:metadata:result:status',
                 'durationms'       => 'privacy:metadata:result:durationms',
                 'message'          => 'privacy:metadata:result:message',
-                'timecreated'      => 'privacy:metadata:result:timecreated',
                 'feedback'         => 'privacy:metadata:result:feedback',
-                'feedbackformat'   => 'privacy:metadata:result:feedbackformat',
                 'feedbackby'       => 'privacy:metadata:result:feedbackby',
                 'feedbackmodified' => 'privacy:metadata:result:feedbackmodified',
                 'sourcefilepath'   => 'privacy:metadata:result:sourcefilepath',
@@ -91,7 +89,6 @@ class provider implements
                 'path'        => 'privacy:metadata:file:path',
                 'blobid'      => 'privacy:metadata:file:blobid',
                 'truncated'   => 'privacy:metadata:file:truncated',
-                'timecreated' => 'privacy:metadata:file:timecreated',
             ],
             'privacy:metadata:file'
         );
@@ -218,7 +215,6 @@ class provider implements
                             'status'           => $r->status,
                             'durationms'       => $r->durationms,
                             'message'          => $r->message,
-                            'timecreated'      => transform::datetime($r->timecreated),
                             'feedback'         => $r->feedback,
                             'feedbackmodified' => $r->feedbackmodified
                                 ? transform::datetime($r->feedbackmodified) : null,
@@ -234,7 +230,6 @@ class provider implements
                             'contenthash' => $f->contenthash,
                             'content'     => $f->content,
                             'truncated'   => transform::yesno($f->truncated),
-                            'timecreated' => transform::datetime($f->timecreated),
                         ],
                         $repository->get_files((int) $run->id)
                     )),
@@ -307,7 +302,7 @@ class provider implements
      */
     #[\Override]
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
-        $userid = $contextlist->get_user()->id;
+        $userid = (int) $contextlist->get_user()->id;
 
         foreach ($contextlist->get_contexts() as $context) {
             $instanceid = self::instance_id($context);

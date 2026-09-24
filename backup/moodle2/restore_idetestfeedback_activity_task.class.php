@@ -79,26 +79,11 @@ class restore_idetestfeedback_activity_task extends restore_activity_task {
     }
 
     /**
-     * Defines the restore log rules for the activity.
+     * No legacy log rules: the activity only ever logs through events.
      *
-     * @return restore_log_rule[] the log rules applied when restoring this activity's logs
+     * @return restore_log_rule[]
      */
     public static function define_restore_log_rules() {
-        return [
-            new restore_log_rule('idetestfeedback', 'add', 'view.php?id={course_module}', '{idetestfeedback}'),
-            new restore_log_rule('idetestfeedback', 'update', 'view.php?id={course_module}', '{idetestfeedback}'),
-            new restore_log_rule('idetestfeedback', 'view', 'view.php?id={course_module}', '{idetestfeedback}'),
-        ];
-    }
-
-    /**
-     * Defines the restore log rules for the course.
-     *
-     * @return restore_log_rule[] the log rules applied when restoring course logs
-     */
-    public static function define_restore_log_rules_for_course() {
-        return [
-            new restore_log_rule('idetestfeedback', 'view all', 'index.php?id={course}', null),
-        ];
+        return [];
     }
 }

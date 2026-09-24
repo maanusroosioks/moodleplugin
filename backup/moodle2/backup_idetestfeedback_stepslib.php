@@ -50,13 +50,13 @@ class backup_idetestfeedback_activity_structure_step extends backup_activity_str
         $results = new backup_nested_element('results');
         $result = new backup_nested_element('result', ['id'], [
             'testsuite', 'testname', 'status', 'durationms', 'message',
-            'timecreated', 'feedback', 'feedbackformat', 'feedbackby', 'feedbackmodified',
+            'feedback', 'feedbackby', 'feedbackmodified',
             'sourcefilepath', 'sourcestartline', 'sourceendline',
         ]);
 
         $files = new backup_nested_element('files');
         $file = new backup_nested_element('file', ['id'], [
-            'path', 'content', 'truncated', 'timecreated',
+            'path', 'content', 'truncated',
         ]);
 
         $idetestfeedback->add_child($runs);
@@ -74,7 +74,7 @@ class backup_idetestfeedback_activity_structure_step extends backup_activity_str
             $run->set_source_table('idetestfeedback_run', ['idetestfeedbackid' => backup::VAR_PARENTID], 'id ASC');
             $result->set_source_table('idetestfeedback_result', ['runid' => backup::VAR_PARENTID], 'id ASC');
             $file->set_source_sql(
-                "SELECT f.id, f.path, f.truncated, f.timecreated, b.content
+                "SELECT f.id, f.path, f.truncated, b.content
                    FROM {idetestfeedback_file} f
               LEFT JOIN {idetestfeedback_blob} b ON b.id = f.blobid
                   WHERE f.runid = ?

@@ -55,7 +55,7 @@ class run_detail implements renderable, templatable {
      * @param url $backurl the run list this run was opened from
      * @param url $runurl the run's own page, which the feedback form posts to and files open from
      * @param int $page zero based page number within the results
-     * @param int $perpage results per page, or 0 to show them all
+     * @param int $perpage results per page
      * @param string $pagingbar the rendered paging bar
      */
     public function __construct(
@@ -78,11 +78,11 @@ class run_detail implements renderable, templatable {
         /** @var url The run's own page, which the feedback form posts to and files open from */
         protected readonly url $runurl,
         /** @var int Zero based page number within the results */
-        protected readonly int $page = 0,
-        /** @var int Results per page, or 0 to show them all */
-        protected readonly int $perpage = 0,
+        protected readonly int $page,
+        /** @var int Results per page */
+        protected readonly int $perpage,
         /** @var string The rendered paging bar */
-        protected readonly string $pagingbar = ''
+        protected readonly string $pagingbar
     ) {
         $this->filesbypath = array_column($files, null, 'path');
     }
@@ -288,10 +288,6 @@ class run_detail implements renderable, templatable {
      * @return stdClass[]
      */
     protected function page_results(): array {
-        if ($this->perpage <= 0) {
-            return $this->results;
-        }
-
         return array_slice($this->results, $this->page * $this->perpage, $this->perpage);
     }
 
@@ -328,7 +324,7 @@ class run_detail implements renderable, templatable {
                 // sanitising, so this is the one field the template prints unescaped.
                 'feedbackhtml' => $feedback === '' ? '' : format_text(
                     $result->feedback,
-                    (int) $result->feedbackformat,
+                    FORMAT_PLAIN,
                     ['context' => $this->context]
                 ),
             ];
@@ -387,9 +383,7 @@ class run_detail implements renderable, templatable {
 
         return [
             'summary' => $this->source_summary($result, $kind),
-            'kind' => $kind->value,
             'expandable' => $code !== '' || $wholefile,
-            'wholefile' => $wholefile,
             'code' => $code,
             'hascode' => $code !== '',
             'language' => self::language_of($path),

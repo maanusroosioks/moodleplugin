@@ -105,8 +105,7 @@ class repository {
      */
     public function get_files(int $runid): array {
         return $this->db->get_records_sql(
-            "SELECT f.id, f.runid, f.path, f.blobid, b.contenthash, b.content,
-                    f.truncated, f.timecreated
+            "SELECT f.id, f.path, b.contenthash, b.content, f.truncated
                FROM {idetestfeedback_file} f
           LEFT JOIN {idetestfeedback_blob} b ON b.id = f.blobid
               WHERE f.runid = :runid
@@ -124,8 +123,7 @@ class repository {
      */
     public function get_file(int $fileid, int $runid): ?\stdClass {
         return $this->db->get_record_sql(
-            "SELECT f.id, f.runid, f.path, f.blobid, b.contenthash, b.content,
-                    f.truncated, f.timecreated
+            "SELECT f.id, f.path, b.contenthash, b.content, f.truncated
                FROM {idetestfeedback_file} f
           LEFT JOIN {idetestfeedback_blob} b ON b.id = f.blobid
               WHERE f.id = :fileid
@@ -369,7 +367,7 @@ class repository {
      */
     public function insert_run(\stdClass $run, array $results, array $files = []): int {
         $instanceid = (int) $run->idetestfeedbackid;
-        $bodies = capture::canonicalise_files(array_map(fn($file) => clone $file, $files));
+        $bodies = self::canonicalise_files(array_map(fn($file) => clone $file, $files));
 
         return $this->write_locked($instanceid, function () use ($instanceid, $run, $results, $bodies): int {
             $runid = $this->db->insert_record('idetestfeedback_run', $run);
@@ -388,13 +386,33 @@ class repository {
                     'path'        => $path,
                     'blobid'      => $file->contenthash === null ? null : $blobs[$file->contenthash],
                     'truncated'   => (int) ($file->truncated ?? 0),
-                    'timecreated' => $file->timecreated,
                 ];
             }
             $this->db->insert_records('idetestfeedback_file', $links);
 
             return $runid;
         });
+    }
+
+    /**
+     * Rewrites each file's body in its canonical form and hashes it. A body
+     * that canonicalises to nothing is left without one.
+     *
+     * @param \stdClass[] $files rows carrying path and content
+     * @return array<string, \stdClass> the same rows, by path, with contenthash set
+     */
+    private static function canonicalise_files(array $files): array {
+        $bypath = [];
+
+        foreach ($files as $file) {
+            $content = source_code::canonicalise((string) ($file->content ?? ''));
+
+            $file->content = $content === '' ? null : $content;
+            $file->contenthash = $content === '' ? null : source_code::hash_canonical($content);
+            $bypath[(string) $file->path] = $file;
+        }
+
+        return $bypath;
     }
 
     /**
@@ -473,17 +491,15 @@ class repository {
      * Stores (or clears) a teacher's feedback on a single test case result.
      *
      * @param int $resultid the idetestfeedback_result id
-     * @param string $feedback the feedback text; '' clears it
-     * @param int $format the text format the feedback is stored in
+     * @param string $feedback the feedback text, in plain text; '' clears it
      * @param int $authorid the teacher writing the feedback
      */
-    public function update_result_feedback(int $resultid, string $feedback, int $format, int $authorid): void {
+    public function update_result_feedback(int $resultid, string $feedback, int $authorid): void {
         $cleared = trim($feedback) === '';
 
         $this->db->update_record('idetestfeedback_result', (object) [
             'id'               => $resultid,
             'feedback'         => $cleared ? null : $feedback,
-            'feedbackformat'   => $cleared ? 0 : $format,
             'feedbackby'       => $cleared ? null : $authorid,
             'feedbackmodified' => $cleared ? null : time(),
         ]);

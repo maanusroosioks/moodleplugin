@@ -107,7 +107,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $run = $this->create_run($this->student->id);
         $repository = $this->repository();
         [$result] = array_values($repository->get_results($run->id));
-        $repository->update_result_feedback((int) $result->id, 'Nice', FORMAT_PLAIN, $this->teacher->id);
+        $repository->update_result_feedback((int) $result->id, 'Nice', $this->teacher->id);
 
         $contextlist = provider::get_contexts_for_userid($this->teacher->id);
 
@@ -127,7 +127,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $run = $this->create_run($this->student->id);
         $repository = $this->repository();
         [$result] = array_values($repository->get_results($run->id));
-        $repository->update_result_feedback((int) $result->id, 'Nice', FORMAT_PLAIN, $this->teacher->id);
+        $repository->update_result_feedback((int) $result->id, 'Nice', $this->teacher->id);
 
         $userlist = new userlist($this->context, 'mod_idetestfeedback');
         provider::get_users_in_context($userlist);
@@ -179,14 +179,14 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         );
         $this->assertCount(1, $data->testfiles);
         $this->assertSame('tests/test_calculator.py', $data->testfiles[0]['path']);
-        $this->assertSame(source_code::hash("import pytest\n"), $data->testfiles[0]['contenthash']);
+        $this->assertSame(source_code::hash_canonical('import pytest'), $data->testfiles[0]['contenthash']);
     }
 
     public function test_export_user_data_writes_feedback_the_user_gave_on_others_runs(): void {
         $run = $this->create_run($this->student->id);
         $repository = $this->repository();
         [$result] = array_values($repository->get_results($run->id));
-        $repository->update_result_feedback((int) $result->id, 'Nice work', FORMAT_PLAIN, $this->teacher->id);
+        $repository->update_result_feedback((int) $result->id, 'Nice work', $this->teacher->id);
 
         $approved = new approved_contextlist($this->teacher, 'mod_idetestfeedback', [$this->context->id]);
         provider::export_user_data($approved);
@@ -229,7 +229,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $run = $this->create_run($this->student->id);
         $repository = $this->repository();
         [$result] = array_values($repository->get_results($run->id));
-        $repository->update_result_feedback((int) $result->id, 'Nice', FORMAT_PLAIN, $this->teacher->id);
+        $repository->update_result_feedback((int) $result->id, 'Nice', $this->teacher->id);
 
         $approved = new approved_contextlist($this->teacher, 'mod_idetestfeedback', [$this->context->id]);
         provider::delete_data_for_user($approved);

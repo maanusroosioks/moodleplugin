@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026092304" COMMENT="XMLDB file for mod_idetestfeedback"
+<XMLDB PATH="mod/idetestfeedback/db" VERSION="2026092400" COMMENT="XMLDB file for mod_idetestfeedback"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
 
@@ -67,12 +67,10 @@
                 <FIELD NAME="status"         TYPE="char" LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
                 <FIELD NAME="durationms"     TYPE="int"  LENGTH="10"  NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="message"        TYPE="text" NOTNULL="false" SEQUENCE="false"/>
-                <FIELD NAME="timecreated"    TYPE="int"  LENGTH="10"  NOTNULL="true"  SEQUENCE="false"/>
                 <FIELD NAME="sourcefilepath"  TYPE="char" LENGTH="1024" NOTNULL="false" SEQUENCE="false" COMMENT="The captured file the test was found in; null when it was not found at all"/>
                 <FIELD NAME="sourcestartline" TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="sourceendline"   TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false"/>
                 <FIELD NAME="feedback"         TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional teacher feedback on this test case result"/>
-                <FIELD NAME="feedbackformat"   TYPE="int"  LENGTH="4"  NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
                 <FIELD NAME="feedbackby"       TYPE="int"  LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="User id of the teacher who last edited the feedback"/>
                 <FIELD NAME="feedbackmodified" TYPE="int"  LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="When the feedback was last edited"/>
             </FIELDS>
@@ -107,7 +105,6 @@
                 <FIELD NAME="path"        TYPE="char" LENGTH="1024" NOTNULL="true"  SEQUENCE="false"/>
                 <FIELD NAME="blobid"      TYPE="int"  LENGTH="10"   NOTNULL="false" SEQUENCE="false" COMMENT="The stored body; null when the run captured this path without content"/>
                 <FIELD NAME="truncated"   TYPE="int"  LENGTH="1"    NOTNULL="true"  DEFAULT="0" SEQUENCE="false"/>
-                <FIELD NAME="timecreated" TYPE="int"  LENGTH="10"   NOTNULL="true"  SEQUENCE="false"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary"   TYPE="primary" FIELDS="id"/>

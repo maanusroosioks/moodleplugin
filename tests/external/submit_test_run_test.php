@@ -383,7 +383,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame('tests/conftest.py', $files[0]->path);
         $this->assertSame(1, (int) $files[0]->truncated);
         $this->assertSame('tests/test_calculator.py', $files[1]->path);
-        $this->assertSame(source_code::hash($files[1]->content), $files[1]->contenthash);
+        $this->assertSame(source_code::hash_canonical($files[1]->content), $files[1]->contenthash);
         $this->assertStringContainsString('import pytest', $files[1]->content);
         $this->assertSame(0, (int) $files[1]->truncated);
     }
@@ -460,7 +460,7 @@ final class submit_test_run_test extends \advanced_testcase {
 
         $this->assertSame('tests/test_calculator.py', $files[0]->path);
         $this->assertNull($files[0]->contenthash);
-        $this->assertNull($files[0]->blobid);
+        $this->assertNull($DB->get_field('idetestfeedback_file', 'blobid', ['id' => $files[0]->id]));
     }
 
     public function test_capture_disabled_keeps_where_a_test_lives(): void {
@@ -703,7 +703,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $files = array_values((new repository($DB))->get_files($returned['runid']));
         $this->assertCount(1, $files);
         $this->assertSame('import pytest', $files[0]->content);
-        $this->assertSame(source_code::hash("import pytest\n"), $files[0]->contenthash);
+        $this->assertSame(source_code::hash_canonical('import pytest'), $files[0]->contenthash);
     }
 
     public function test_it_rejects_a_hash_a_client_tries_to_assert(): void {

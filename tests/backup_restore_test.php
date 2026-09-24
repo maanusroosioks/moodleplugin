@@ -115,6 +115,7 @@ final class backup_restore_test extends \advanced_testcase {
                 'sourceendline' => 2,
             ]],
             'files' => [['path' => self::PATH, 'content' => self::BODY]],
+            'timecreated' => 1000,
         ];
         $generator->create_run($run);
         $generator->create_run($run);
@@ -124,6 +125,7 @@ final class backup_restore_test extends \advanced_testcase {
         $copy = $this->roundtrip($instance, $course);
 
         $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $copy->id]));
+        $this->assertSame(1000, (int) $DB->get_field('idetestfeedback_blob', 'timecreated', ['idetestfeedbackid' => $copy->id]));
 
         $repository = new repository($DB);
         $runids = array_keys($DB->get_records('idetestfeedback_run', ['idetestfeedbackid' => $copy->id]));
@@ -134,7 +136,7 @@ final class backup_restore_test extends \advanced_testcase {
             $files = array_values($repository->get_files((int) $runid));
             $this->assertCount(1, $files);
             $this->assertSame(source_code::canonicalise(self::BODY), $files[0]->content);
-            $blobids[] = (int) $files[0]->blobid;
+            $blobids[] = (int) $DB->get_field('idetestfeedback_file', 'blobid', ['id' => $files[0]->id]);
         }
 
         $this->assertSame($blobids[0], $blobids[1]);
@@ -166,7 +168,7 @@ final class backup_restore_test extends \advanced_testcase {
 
         $this->assertCount(1, $files);
         $this->assertSame(self::PATH, $files[0]->path);
-        $this->assertNull($files[0]->blobid);
+        $this->assertNull($DB->get_field('idetestfeedback_file', 'blobid', ['id' => $files[0]->id]));
         $this->assertNull($files[0]->content);
     }
 }

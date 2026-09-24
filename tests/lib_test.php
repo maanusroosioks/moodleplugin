@@ -60,8 +60,8 @@ final class lib_test extends advanced_testcase {
             'intro' => '',
             'introformat' => FORMAT_HTML,
             'completionpassrun' => 0,
-            'timeopen' => null,
-            'timeclose' => null,
+            'timeopen' => 0,
+            'timeclose' => 0,
         ], $overrides);
     }
 
@@ -85,16 +85,6 @@ final class lib_test extends advanced_testcase {
             $DB->get_field('idetestfeedback', 'assignmentkey', ['id' => $first]),
             $DB->get_field('idetestfeedback', 'assignmentkey', ['id' => $second])
         );
-    }
-
-    public function test_add_instance_defaults_null_timeopen_and_timeclose_to_zero(): void {
-        global $DB;
-
-        $id = idetestfeedback_add_instance($this->form_data());
-
-        $instance = $DB->get_record('idetestfeedback', ['id' => $id]);
-        $this->assertSame(0, (int) $instance->timeopen);
-        $this->assertSame(0, (int) $instance->timeclose);
     }
 
     public function test_update_instance_keeps_the_assignment_key(): void {

@@ -19,23 +19,21 @@ namespace mod_idetestfeedback\local;
 /**
  * How much of a file a test case result points at.
  *
- * Derived from the result rather than stored: what a result names is what it
- * found. A FILE hash and a TEST hash describe different things, so the two are
- * never compared with each other.
+ * Derived from the result rather than stored: what a result names is what it found.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-enum source_kind: string {
+enum source_kind {
     // The test was not found in the project's source at all.
-    case NONE = 'NONE';
+    case NONE;
 
-    // The file was found but the test could not be picked out of it; the hash covers the whole file.
-    case FILE = 'FILE';
+    // The file was found but the test could not be picked out of it.
+    case FILE;
 
-    // The declaration was located; the line range and the hash cover just it.
-    case TEST = 'TEST';
+    // The declaration was located; the line range covers just it.
+    case TEST;
 
     /**
      * What a result's source columns describe.
@@ -44,26 +42,12 @@ enum source_kind: string {
      * @return self
      */
     public static function of(\stdClass $result): self {
-        return self::from_parts(
-            $result->sourcefilepath ?? null,
-            $result->sourcestartline ?? null,
-            $result->sourceendline ?? null
-        );
-    }
-
-    /**
-     * What a set of source columns describes.
-     *
-     * @param string|null $filepath the file the test was found in, if any
-     * @param int|null $startline the declaration's first line, if located
-     * @param int|null $endline the declaration's last line, if located
-     * @return self
-     */
-    public static function from_parts(?string $filepath, ?int $startline, ?int $endline): self {
-        if (trim((string) $filepath) === '') {
+        if (trim((string) ($result->sourcefilepath ?? '')) === '') {
             return self::NONE;
         }
 
-        return $startline === null || $endline === null ? self::FILE : self::TEST;
+        return ($result->sourcestartline ?? null) === null || ($result->sourceendline ?? null) === null
+            ? self::FILE
+            : self::TEST;
     }
 }

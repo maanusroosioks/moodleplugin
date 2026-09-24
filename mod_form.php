@@ -78,7 +78,6 @@ class mod_idetestfeedback_mod_form extends moodleform_mod {
             get_string('timeopen', 'mod_idetestfeedback'),
             ['optional' => true]
         );
-        $mform->setDefault('timeopen', 0);
 
         $mform->addElement(
             'date_time_selector',
@@ -86,7 +85,6 @@ class mod_idetestfeedback_mod_form extends moodleform_mod {
             get_string('timeclose', 'mod_idetestfeedback'),
             ['optional' => true]
         );
-        $mform->setDefault('timeclose', 0);
 
         $this->standard_coursemodule_elements();
         $this->add_action_buttons();

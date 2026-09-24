@@ -77,10 +77,7 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
         // The key is unique site-wide, so a duplicate of an activity that still
         // exists has to be issued its own. A restore onto a site that has never
         // seen this key keeps it, so the keys students already hold keep working.
-        if (
-            empty($data->assignmentkey)
-                || $DB->record_exists('idetestfeedback', ['assignmentkey' => $data->assignmentkey])
-        ) {
+        if ($DB->record_exists('idetestfeedback', ['assignmentkey' => $data->assignmentkey])) {
             $data->assignmentkey = assignment_key::generate();
         }
 
@@ -101,14 +98,6 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
 
         $data->idetestfeedbackid = $this->get_new_parentid('idetestfeedback');
         $data->userid = $this->get_mappingid('user', $data->userid);
-
-        // Backups from before 2026092309 name the run's own clock without its unit.
-        foreach (['startedat', 'finishedat'] as $old) {
-            if (property_exists($data, $old)) {
-                $data->{$old . 'ms'} ??= $data->$old;
-                unset($data->$old);
-            }
-        }
 
         $newitemid = $DB->insert_record('idetestfeedback_run', $data);
         $this->set_mapping('idetestfeedback_run', $oldid, $newitemid);
@@ -143,16 +132,19 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
         global $DB;
 
         $data = (object) $data;
-        $instanceid = $this->get_new_parentid('idetestfeedback');
+        $runid = $this->get_new_parentid('idetestfeedback_run');
 
-        $blobid = (new repository($DB))->find_or_create_blob($instanceid, (string) ($data->content ?? ''), time());
+        $blobid = (new repository($DB))->find_or_create_blob(
+            $this->get_new_parentid('idetestfeedback'),
+            (string) ($data->content ?? ''),
+            (int) $DB->get_field('idetestfeedback_run', 'timecreated', ['id' => $runid], MUST_EXIST)
+        );
 
         $DB->insert_record('idetestfeedback_file', (object) [
-            'runid'       => $this->get_new_parentid('idetestfeedback_run'),
-            'path'        => $data->path,
-            'blobid'      => $blobid,
-            'truncated'   => (int) ($data->truncated ?? 0),
-            'timecreated' => $data->timecreated,
+            'runid'     => $runid,
+            'path'      => $data->path,
+            'blobid'    => $blobid,
+            'truncated' => (int) $data->truncated,
         ]);
     }
 

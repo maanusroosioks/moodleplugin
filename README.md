@@ -29,8 +29,8 @@ Five tables (see [db/install.xml](db/install.xml) for the full schema):
 - **`idetestfeedback_run`** — one row per API submission (the student, IDE,
   commit and repository, overall status and per-status counts).
 - **`idetestfeedback_result`** — one row per test case within a run. Also holds
-  the optional per-test teacher feedback (`feedback`, `feedbackformat`,
-  `feedbackby`, `feedbackmodified`; see *Teacher feedback* below).
+  the optional per-test teacher feedback (`feedback`, `feedbackby`,
+  `feedbackmodified`; see *Teacher feedback* below).
 - **`idetestfeedback_file`** — one row per path a run captured. It records
   *that* the run captured something there, not what: the body itself is a
   reference, and is null when the run captured the path without content.
@@ -79,8 +79,7 @@ no role by default)
 
 The parameter names are lowercase: a middleware posting the IDE's camelCase
 payload maps `assignmentKey` → `assignmentkey`, `testFiles` → `testfiles`, and
-so on. A payload carrying a hash of its own is **rejected**: Moodle computes
-every hash it stores, and an unexpected parameter fails validation outright.
+so on. An unexpected parameter fails validation outright.
 
 The run's two lists travel as one JSON string rather than as nested form
 parameters. Moodle's REST server reads its parameters from `$_POST`, where each
@@ -145,9 +144,8 @@ read back off those three fields:
 ### Hashing
 
 Moodle computes every stored hash itself, over the bytes it is about to store.
-Nothing a client sends is taken on trust, and the two hash parameters earlier
-versions accepted have been removed. The only hash kept is the one each file
-body is stored under, so identical bodies share one `idetestfeedback_blob` row.
+Nothing a client sends is taken on trust. The only hash kept is the one each
+file body is stored under, so identical bodies share one `idetestfeedback_blob` row.
 
 Before hashing, a body is canonicalised: a leading UTF-8 byte order mark is
 removed, CRLF and CR become LF, trailing

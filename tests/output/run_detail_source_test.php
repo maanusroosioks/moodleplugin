@@ -65,7 +65,10 @@ final class run_detail_source_test extends \advanced_testcase {
             cancomment: false,
             history: new \mod_idetestfeedback\local\feedback_history([]),
             backurl: new \core\url('/'),
-            runurl: new \core\url('/')
+            runurl: new \core\url('/'),
+            page: 0,
+            perpage: 50,
+            pagingbar: ''
         );
     }
 
@@ -157,7 +160,6 @@ final class run_detail_source_test extends \advanced_testcase {
         ]));
 
         $this->assertSame('', $block['code']);
-        $this->assertTrue($block['wholefile']);
         $this->assertTrue($block['expandable']);
     }
 
@@ -167,7 +169,6 @@ final class run_detail_source_test extends \advanced_testcase {
             'sourceendline' => null,
         ]));
 
-        $this->assertFalse($block['wholefile']);
         $this->assertFalse($block['expandable']);
     }
 

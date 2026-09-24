@@ -157,7 +157,7 @@ final class repository_test extends \advanced_testcase {
         $files = array_values($this->repository->get_files($run->id));
 
         $this->assertSame(['tests/test_alpha.py', 'tests/test_zeta.py'], array_column($files, 'path'));
-        $this->assertSame(source_code::hash('a'), $files[0]->contenthash);
+        $this->assertSame(source_code::hash_canonical('a'), $files[0]->contenthash);
         $this->assertSame('a', $files[0]->content);
     }
 
@@ -171,8 +171,8 @@ final class repository_test extends \advanced_testcase {
 
         $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
         $this->assertSame(
-            array_values($this->repository->get_files($first->id))[0]->blobid,
-            array_values($this->repository->get_files($second->id))[0]->blobid
+            $DB->get_field('idetestfeedback_file', 'blobid', ['runid' => $first->id]),
+            $DB->get_field('idetestfeedback_file', 'blobid', ['runid' => $second->id])
         );
     }
 
@@ -258,7 +258,7 @@ final class repository_test extends \advanced_testcase {
         $run = $this->create_run($student->id);
         [$result] = array_values($this->repository->get_results($run->id));
 
-        $this->repository->update_result_feedback((int) $result->id, 'Nice work', FORMAT_PLAIN, $teacher->id);
+        $this->repository->update_result_feedback((int) $result->id, 'Nice work', $teacher->id);
 
         $mine = $this->repository->get_feedback_authored_by($this->instance->id, $teacher->id);
         $theirs = $this->repository->get_feedback_authored_by($this->instance->id, $otherteacher->id);
@@ -461,7 +461,6 @@ final class repository_test extends \advanced_testcase {
         $results = [(object) [
             'testname' => 'testAdd',
             'status' => status::PASSED->value,
-            'timecreated' => time(),
         ]];
 
         $runid = $this->repository->insert_run($run, $results);
@@ -485,15 +484,15 @@ final class repository_test extends \advanced_testcase {
             'errorcount' => 0,
             'timecreated' => time(),
         ];
-        $results = [(object) ['testname' => 'testAdd', 'status' => status::PASSED->value, 'timecreated' => time()]];
+        $results = [(object) ['testname' => 'testAdd', 'status' => status::PASSED->value]];
         $files = [
-            (object) ['path' => 'tests/empty.py', 'content' => null, 'timecreated' => time()],
-            (object) ['path' => 'tests/test.py', 'content' => "x = 1\n", 'timecreated' => time()],
+            (object) ['path' => 'tests/empty.py', 'content' => null],
+            (object) ['path' => 'tests/test.py', 'content' => "x = 1\n"],
         ];
 
         $runid = $this->repository->insert_run($run, $results, $files);
 
-        $blobids = array_column($this->repository->get_files($runid), 'blobid', 'path');
+        $blobids = $DB->get_records_menu('idetestfeedback_file', ['runid' => $runid], '', 'path, blobid');
         $this->assertNull($blobids['tests/empty.py']);
         $this->assertNotNull($blobids['tests/test.py']);
         $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
@@ -524,7 +523,6 @@ final class repository_test extends \advanced_testcase {
         $results = [(object) [
             'testname' => 'testAdd',
             'status' => str_repeat('X', 5000),
-            'timecreated' => time(),
         ]];
 
         $before = $DB->count_records('idetestfeedback_run', ['idetestfeedbackid' => $this->instance->id]);
@@ -551,13 +549,13 @@ final class repository_test extends \advanced_testcase {
         $run = $this->create_run($student->id);
         [$result] = array_values($this->repository->get_results($run->id));
 
-        $this->repository->update_result_feedback((int) $result->id, '  Great job  ', FORMAT_PLAIN, $teacher->id);
+        $this->repository->update_result_feedback((int) $result->id, '  Great job  ', $teacher->id);
         [$updated] = array_values($this->repository->get_results($run->id));
         $this->assertSame('  Great job  ', $updated->feedback);
         $this->assertSame((int) $teacher->id, (int) $updated->feedbackby);
         $this->assertNotNull($updated->feedbackmodified);
 
-        $this->repository->update_result_feedback((int) $result->id, '   ', FORMAT_PLAIN, $teacher->id);
+        $this->repository->update_result_feedback((int) $result->id, '   ', $teacher->id);
         [$cleared] = array_values($this->repository->get_results($run->id));
         $this->assertNull($cleared->feedback);
         $this->assertNull($cleared->feedbackby);
@@ -638,8 +636,8 @@ final class repository_test extends \advanced_testcase {
             ['testname' => 'b', 'status' => 'PASSED'],
         ]);
         [$resulta, $resultb] = array_values($this->repository->get_results($run->id));
-        $this->repository->update_result_feedback((int) $resulta->id, 'kept', FORMAT_PLAIN, $keepauthor->id);
-        $this->repository->update_result_feedback((int) $resultb->id, 'removed', FORMAT_PLAIN, $removeauthor->id);
+        $this->repository->update_result_feedback((int) $resulta->id, 'kept', $keepauthor->id);
+        $this->repository->update_result_feedback((int) $resultb->id, 'removed', $removeauthor->id);
 
         $this->repository->anonymise_feedback_authors($this->instance->id, [$removeauthor->id]);
 
@@ -655,7 +653,7 @@ final class repository_test extends \advanced_testcase {
         $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
         $run = $this->create_run($student->id);
         [$result] = array_values($this->repository->get_results($run->id));
-        $this->repository->update_result_feedback((int) $result->id, 'kept', FORMAT_PLAIN, $teacher->id);
+        $this->repository->update_result_feedback((int) $result->id, 'kept', $teacher->id);
 
         $this->repository->anonymise_feedback_authors($this->instance->id, []);
 
@@ -674,7 +672,7 @@ final class repository_test extends \advanced_testcase {
 
         $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
         foreach ($this->repository->get_results((int) $run->id) as $result) {
-            $this->repository->update_result_feedback((int) $result->id, 'A note', FORMAT_PLAIN, $teacher->id);
+            $this->repository->update_result_feedback((int) $result->id, 'A note', $teacher->id);
         }
         $DB->set_field('idetestfeedback_result', 'feedbackmodified', $when, ['runid' => $run->id]);
     }
@@ -729,7 +727,7 @@ final class repository_test extends \advanced_testcase {
         $commented = $this->create_run($student->id, [['testname' => 'testAdd', 'status' => 'FAILED']], ['timecreated' => 100]);
         $current = $this->create_run($student->id, overrides: ['timecreated' => 200]);
         [$result] = array_values($this->repository->get_results((int) $commented->id));
-        $this->repository->update_result_feedback((int) $result->id, '', FORMAT_PLAIN, $teacher->id);
+        $this->repository->update_result_feedback((int) $result->id, '', $teacher->id);
 
         $this->assertSame([], $this->repository->get_feedback_history((int) $current->id));
     }
@@ -758,7 +756,7 @@ final class repository_test extends \advanced_testcase {
         $this->assertSame($first, $second);
         $blob = $DB->get_record('idetestfeedback_blob', ['id' => $first]);
         $this->assertSame('x = 1', $blob->content);
-        $this->assertSame(source_code::hash('x = 1'), $blob->contenthash);
+        $this->assertSame(source_code::hash_canonical('x = 1'), $blob->contenthash);
     }
 
     public function test_a_blob_is_hashed_over_exactly_the_content_it_stores(): void {

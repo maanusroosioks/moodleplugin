@@ -62,7 +62,7 @@ class feedback_saver {
                 continue;
             }
 
-            $this->repository->update_result_feedback($resultid, $new, FORMAT_PLAIN, $authorid);
+            $this->repository->update_result_feedback($resultid, $new, $authorid);
 
             if ($new !== '') {
                 $result->feedback = $new;

@@ -48,8 +48,6 @@ class mod_idetestfeedback_generator extends testing_module_generator {
     public function create_run(array $record): stdClass {
         global $DB;
 
-        $now = $record['timecreated'] ?? time();
-
         $results = [];
         foreach ($record['results'] as $r) {
             $results[] = (object) [
@@ -58,9 +56,7 @@ class mod_idetestfeedback_generator extends testing_module_generator {
                 'status' => $r['status'],
                 'durationms' => $r['durationms'] ?? null,
                 'message' => $r['message'] ?? null,
-                'timecreated' => $now,
                 'feedback' => null,
-                'feedbackformat' => 0,
                 'feedbackby' => null,
                 'feedbackmodified' => null,
                 'sourcefilepath' => $r['sourcefilepath'] ?? null,
@@ -85,7 +81,7 @@ class mod_idetestfeedback_generator extends testing_module_generator {
             'failedcount' => $counts[status::FAILED->value],
             'skippedcount' => $counts[status::SKIPPED->value],
             'errorcount' => $counts[status::ERROR->value],
-            'timecreated' => $now,
+            'timecreated' => $record['timecreated'] ?? time(),
             'capturedisabled' => (int) ($record['capturedisabled'] ?? 0),
         ];
 
@@ -95,7 +91,6 @@ class mod_idetestfeedback_generator extends testing_module_generator {
                 'path' => $f['path'],
                 'content' => $f['content'] ?? null,
                 'truncated' => (int) ($f['truncated'] ?? 0),
-                'timecreated' => $now,
             ];
         }
 

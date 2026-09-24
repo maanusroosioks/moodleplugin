@@ -90,7 +90,7 @@ final class feedback_saver_test extends \advanced_testcase {
 
     public function test_save_ignores_results_the_form_did_not_submit(): void {
         $results = $this->results_by_name();
-        $this->repository->update_result_feedback((int) $results['testSub']->id, 'existing', FORMAT_PLAIN, $this->teacher->id);
+        $this->repository->update_result_feedback((int) $results['testSub']->id, 'existing', $this->teacher->id);
 
         $changed = $this->saver->save((int) $this->run->id, [
             (int) $results['testAdd']->id => 'new feedback',
@@ -102,7 +102,7 @@ final class feedback_saver_test extends \advanced_testcase {
 
     public function test_save_persists_a_cleared_value_but_does_not_report_it_as_changed(): void {
         $results = $this->results_by_name();
-        $this->repository->update_result_feedback((int) $results['testAdd']->id, 'existing', FORMAT_PLAIN, $this->teacher->id);
+        $this->repository->update_result_feedback((int) $results['testAdd']->id, 'existing', $this->teacher->id);
 
         $changed = $this->saver->save((int) $this->run->id, [
             (int) $results['testAdd']->id => '   ',
@@ -114,7 +114,7 @@ final class feedback_saver_test extends \advanced_testcase {
 
     public function test_save_skips_results_whose_trimmed_value_is_unchanged(): void {
         $results = $this->results_by_name();
-        $this->repository->update_result_feedback((int) $results['testAdd']->id, 'same', FORMAT_PLAIN, $this->teacher->id);
+        $this->repository->update_result_feedback((int) $results['testAdd']->id, 'same', $this->teacher->id);
 
         $changed = $this->saver->save((int) $this->run->id, [
             (int) $results['testAdd']->id => '  same  ',

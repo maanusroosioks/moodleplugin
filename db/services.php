@@ -31,7 +31,6 @@ $functions = [
         'description' => 'Submit IDE test run results.',
         'type'        => 'write',
         'capabilities' => 'mod/idetestfeedback:submit',
-        'ajax'        => false,
     ],
 ];
 

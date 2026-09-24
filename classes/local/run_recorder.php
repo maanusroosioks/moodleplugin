@@ -81,8 +81,8 @@ class run_recorder {
 
         $run->id = $this->repository->insert_run(
             $run,
-            self::build_results($submission->results, $now),
-            self::build_files($submission->testfiles, $now)
+            self::build_results($submission->results),
+            self::build_files($submission->testfiles)
         );
 
         return $run;
@@ -92,10 +92,9 @@ class run_recorder {
      * The result rows to store.
      *
      * @param array[] $submitted the submitted test case results
-     * @param int $now the run's creation time
      * @return \stdClass[]
      */
-    private static function build_results(array $submitted, int $now): array {
+    private static function build_results(array $submitted): array {
         $results = [];
 
         foreach ($submitted as $entry) {
@@ -107,7 +106,6 @@ class run_recorder {
             $result->status          = $entry['status'];
             $result->durationms      = $entry['durationms'];
             $result->message         = $entry['message'];
-            $result->timecreated     = $now;
             $result->sourcefilepath  = self::clip($source['path'] ?? null, 'sourcefilepath');
             $result->sourcestartline = $source['startline'] ?? null;
             $result->sourceendline   = $source['endline'] ?? null;
@@ -121,10 +119,9 @@ class run_recorder {
      * The file rows to store, one per path and in path order; the first body for a path wins.
      *
      * @param array[] $testfiles the submitted test files
-     * @param int $now the run's creation time
      * @return \stdClass[]
      */
-    private static function build_files(array $testfiles, int $now): array {
+    private static function build_files(array $testfiles): array {
         $unique = [];
         foreach ($testfiles as $entry) {
             $path = self::clip($entry['path'], 'path');
@@ -142,7 +139,6 @@ class run_recorder {
             $file->path        = (string) $path;
             $file->content     = $content;
             $file->truncated   = $truncated;
-            $file->timecreated = $now;
             $files[] = $file;
         }
 

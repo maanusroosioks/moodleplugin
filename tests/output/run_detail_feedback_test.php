@@ -64,7 +64,10 @@ final class run_detail_feedback_test extends \advanced_testcase {
             cancomment: false,
             history: new feedback_history($commented),
             backurl: new \core\url('/'),
-            runurl: new \core\url('/')
+            runurl: new \core\url('/'),
+            page: 0,
+            perpage: 50,
+            pagingbar: ''
         );
     }
 
@@ -121,7 +124,7 @@ final class run_detail_feedback_test extends \advanced_testcase {
             ],
         ]);
         foreach ($repository->get_results((int) $commented->id) as $result) {
-            $repository->update_result_feedback((int) $result->id, 'Check the edge case', FORMAT_PLAIN, $teacher->id);
+            $repository->update_result_feedback((int) $result->id, 'Check the edge case', $teacher->id);
         }
         $DB->set_field('idetestfeedback_result', 'feedbackmodified', 150, ['runid' => $commented->id]);
 

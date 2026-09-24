@@ -36,8 +36,6 @@ function idetestfeedback_add_instance(stdClass $data, ?mod_idetestfeedback_mod_f
     global $DB;
 
     $data->assignmentkey = assignment_key::generate();
-    $data->timeopen      = $data->timeopen ?? 0;
-    $data->timeclose     = $data->timeclose ?? 0;
     $data->timecreated   = time();
     $data->timemodified  = time();
 

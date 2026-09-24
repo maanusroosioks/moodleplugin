@@ -34,24 +34,14 @@ class source_code {
     private const MARKER = '/\n?\x{2026} \[truncated[^\]\n]*\]\s*$/u';
 
     /**
-     * Converts line endings to LF.
-     *
-     * @param string $code source as it was received
-     * @return string the same source with CRLF and CR line endings as LF
-     */
-    public static function normalise_endings(string $code): string {
-        return str_replace(["\r\n", "\r"], "\n", $code);
-    }
-
-    /**
-     * Removes the trailing truncation marker.
+     * Converts line endings to LF and removes the trailing truncation marker.
      *
      * @param string $code source as it was received
      * @return string the same source without the trailing truncation marker, if it had one,
      *     or unchanged but for line endings if it is not valid UTF-8
      */
-    public static function strip_marker(string $code): string {
-        $code = self::normalise_endings($code);
+    private static function strip_marker(string $code): string {
+        $code = str_replace(["\r\n", "\r"], "\n", $code);
 
         return preg_replace(self::MARKER, '', $code) ?? $code;
     }
@@ -69,16 +59,6 @@ class source_code {
         $lines = array_map('rtrim', explode("\n", $code));
 
         return rtrim(implode("\n", $lines), "\n");
-    }
-
-    /**
-     * Hashes source in its canonical form.
-     *
-     * @param string $code source as it was received
-     * @return string the sha256 of its canonical form
-     */
-    public static function hash(string $code): string {
-        return self::hash_canonical(self::canonicalise($code));
     }
 
     /**
