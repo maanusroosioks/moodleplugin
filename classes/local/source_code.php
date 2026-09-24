@@ -47,21 +47,26 @@ class source_code {
      * Removes the trailing truncation marker.
      *
      * @param string $code source as it was received
-     * @return string the same source without the trailing truncation marker, if it had one
+     * @return string the same source without the trailing truncation marker, if it had one,
+     *     or unchanged but for line endings if it is not valid UTF-8
      */
     public static function strip_marker(string $code): string {
-        return (string) preg_replace(self::MARKER, '', self::normalise_endings($code));
+        $code = self::normalise_endings($code);
+
+        return preg_replace(self::MARKER, '', $code) ?? $code;
     }
 
     /**
-     * The form source is compared in: line endings, trailing whitespace and the
-     * final newline only. Anything needing a parser per language is left alone.
+     * The form source is compared in: byte order mark, line endings, trailing
+     * whitespace and the final newline only. Anything needing a parser per
+     * language is left alone.
      *
      * @param string $code source as it was received
      * @return string the same source in the form it is hashed in
      */
     public static function canonicalise(string $code): string {
-        $lines = array_map('rtrim', explode("\n", self::strip_marker($code)));
+        $code = (string) preg_replace('/^\xEF\xBB\xBF/', '', self::strip_marker($code));
+        $lines = array_map('rtrim', explode("\n", $code));
 
         return rtrim(implode("\n", $lines), "\n");
     }

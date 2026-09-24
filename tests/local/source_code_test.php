@@ -86,10 +86,18 @@ final class source_code_test extends \basic_testcase {
         $this->assertSame(source_code::hash("one\ntwo"), source_code::hash("one\ntwo\n\n"));
     }
 
+    public function test_a_byte_order_mark_does_not_change_the_hash(): void {
+        $this->assertSame(source_code::hash("one\ntwo"), source_code::hash("\u{FEFF}one\ntwo"));
+    }
+
     public function test_a_cut_string_hashes_as_what_the_marker_left(): void {
         $cut = "one\ntwo\n\u{2026} [truncated by moodle-test-submit: 1234 more characters]";
 
         $this->assertSame(source_code::hash("one\ntwo"), source_code::hash($cut));
+    }
+
+    public function test_invalid_utf8_is_kept_rather_than_emptied(): void {
+        $this->assertSame("caf\xE9\nbar", source_code::canonicalise("caf\xE9\r\nbar  \n"));
     }
 
     public function test_a_blank_line_inside_the_code_is_kept(): void {
