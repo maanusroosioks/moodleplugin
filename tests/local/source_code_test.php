@@ -99,11 +99,13 @@ final class source_code_test extends \basic_testcase {
     }
 
     public function test_comments_names_and_indentation_are_kept(): void {
-        foreach ([
+        $samples = [
             "// adds two numbers\nassertEquals(3, add(1, 2));",
             'int sum = add(1, 2);',
             "if (x) {\n\t\treturn 1;\n}",
-        ] as $code) {
+        ];
+
+        foreach ($samples as $code) {
             $this->assertSame($code, source_code::canonicalise($code));
         }
     }
