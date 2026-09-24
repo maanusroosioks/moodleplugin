@@ -33,8 +33,8 @@ final class submission {
      * @param string|null $projectname the project the tests ran in
      * @param string|null $commithash the commit the tests ran against
      * @param string|null $repourl the git remote the tests ran in, without credentials
-     * @param int|null $startedat when the run started, in epoch milliseconds
-     * @param int|null $finishedat when the run finished, in epoch milliseconds
+     * @param int|null $startedatms when the run started, in epoch milliseconds
+     * @param int|null $finishedatms when the run finished, in epoch milliseconds
      * @param array[] $results the test case results, statuses uppercased
      * @param array[] $testfiles the captured test files
      * @param bool $capturedisabled whether the student turned source capture off
@@ -53,9 +53,9 @@ final class submission {
         /** @var string|null The git remote the tests ran in, without credentials */
         public readonly ?string $repourl,
         /** @var int|null When the run started, in epoch milliseconds */
-        public readonly ?int $startedat,
+        public readonly ?int $startedatms,
         /** @var int|null When the run finished, in epoch milliseconds */
-        public readonly ?int $finishedat,
+        public readonly ?int $finishedatms,
         /** @var array[] The test case results, statuses uppercased */
         public readonly array $results,
         /** @var array[] The captured test files */

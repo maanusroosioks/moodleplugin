@@ -17,20 +17,19 @@
 namespace mod_idetestfeedback\local;
 
 /**
- * Raised when a submitted test run is rejected.
+ * The key an activity's runs are submitted under.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class validation_exception extends \core\exception\moodle_exception {
+final class assignment_key {
     /**
-     * Creates the exception from one of this plugin's language strings.
+     * Generates a new key for the IDE to submit an activity's runs under.
      *
-     * @param string $errorcode the language string naming the reason
-     * @param mixed $a the placeholder value that string takes, if any
+     * @return string 32 hex characters
      */
-    public function __construct(string $errorcode, mixed $a = null) {
-        parent::__construct($errorcode, 'mod_idetestfeedback', '', $a);
+    public static function generate(): string {
+        return bin2hex(random_bytes(16));
     }
 }

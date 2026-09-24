@@ -38,7 +38,7 @@ class capture {
             $content = source_code::canonicalise((string) ($file->content ?? ''));
 
             $file->content = $content === '' ? null : $content;
-            $file->contenthash = $content === '' ? null : source_code::hash($content);
+            $file->contenthash = $content === '' ? null : source_code::hash_canonical($content);
             $bypath[(string) $file->path] = $file;
         }
 

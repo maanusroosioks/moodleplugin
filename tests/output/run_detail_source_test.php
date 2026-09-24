@@ -65,7 +65,7 @@ final class run_detail_source_test extends \advanced_testcase {
             cancomment: false,
             history: new \mod_idetestfeedback\local\feedback_history([]),
             backurl: new \core\url('/'),
-            formurl: new \core\url('/')
+            runurl: new \core\url('/')
         );
     }
 

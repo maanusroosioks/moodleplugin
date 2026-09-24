@@ -52,8 +52,8 @@ class provider implements
                 'projectname'         => 'privacy:metadata:run:projectname',
                 'commithash'          => 'privacy:metadata:run:commithash',
                 'repourl'             => 'privacy:metadata:run:repourl',
-                'startedat'           => 'privacy:metadata:run:startedat',
-                'finishedat'          => 'privacy:metadata:run:finishedat',
+                'startedatms'         => 'privacy:metadata:run:startedatms',
+                'finishedatms'        => 'privacy:metadata:run:finishedatms',
                 'status'              => 'privacy:metadata:run:status',
                 'passedcount'         => 'privacy:metadata:run:passedcount',
                 'failedcount'         => 'privacy:metadata:run:failedcount',
@@ -200,9 +200,10 @@ class provider implements
                     'commithash'   => $run->commithash,
                     'repourl'      => $run->repourl,
                     // Stored in milliseconds, as the IDE reports them.
-                    'startedat'    => $run->startedat ? transform::datetime(intdiv((int) $run->startedat, 1000)) : null,
-                    'finishedat'   => $run->finishedat
-                        ? transform::datetime(intdiv((int) $run->finishedat, 1000)) : null,
+                    'startedat'    => $run->startedatms
+                        ? transform::datetime(intdiv((int) $run->startedatms, 1000)) : null,
+                    'finishedat'   => $run->finishedatms
+                        ? transform::datetime(intdiv((int) $run->finishedatms, 1000)) : null,
                     'status'       => $run->status,
                     'passedcount'  => $run->passedcount,
                     'failedcount'  => $run->failedcount,
@@ -254,15 +255,15 @@ class provider implements
      * @param repository $repository the activity's database access
      * @param \core\context\module $context the activity context
      * @param int $instanceid the activity instance id
-     * @param int $userid the feedback author
+     * @param int $authorid the feedback author
      */
     private static function export_feedback_given(
         repository $repository,
         \core\context\module $context,
         int $instanceid,
-        int $userid
+        int $authorid
     ): void {
-        $results = $repository->get_feedback_authored_by($instanceid, $userid);
+        $results = $repository->get_feedback_authored_by($instanceid, $authorid);
 
         if (!$results) {
             return;

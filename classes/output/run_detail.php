@@ -53,7 +53,7 @@ class run_detail implements renderable, templatable {
      * @param bool $cancomment whether the viewer may edit feedback
      * @param feedback_history $history the tests a teacher commented on in the student's earlier runs
      * @param url $backurl the run list this run was opened from
-     * @param url $formurl the run's own page, which the feedback form posts to and files open from
+     * @param url $runurl the run's own page, which the feedback form posts to and files open from
      * @param int $page zero based page number within the results
      * @param int $perpage results per page, or 0 to show them all
      * @param string $pagingbar the rendered paging bar
@@ -76,7 +76,7 @@ class run_detail implements renderable, templatable {
         /** @var url The run list this run was opened from */
         protected readonly url $backurl,
         /** @var url The run's own page, which the feedback form posts to and files open from */
-        protected readonly url $formurl,
+        protected readonly url $runurl,
         /** @var int Zero based page number within the results */
         protected readonly int $page = 0,
         /** @var int Results per page, or 0 to show them all */
@@ -106,7 +106,7 @@ class run_detail implements renderable, templatable {
 
         return [
             'backurl' => $this->backurl->out(false),
-            'formurl' => $this->formurl->out(false),
+            'runurl' => $this->runurl->out(false),
             'meta' => $this->meta_rows($output),
             'hasresults' => $this->results !== [],
             'showfeedback' => $showfeedback,
@@ -215,19 +215,19 @@ class run_detail implements renderable, templatable {
     protected function timing_rows(): array {
         $rows = [];
 
-        foreach (['startedat', 'finishedat'] as $field) {
-            if ($this->run->$field !== null) {
+        foreach (['startedat' => $this->run->startedatms, 'finishedat' => $this->run->finishedatms] as $label => $ms) {
+            if ($ms !== null) {
                 $rows[] = [
-                    'label' => get_string($field, 'mod_idetestfeedback'),
-                    'text' => userdate(intdiv((int) $this->run->$field, 1000)),
+                    'label' => get_string($label, 'mod_idetestfeedback'),
+                    'text' => userdate(intdiv((int) $ms, 1000)),
                 ];
             }
         }
 
-        if ($this->run->startedat !== null && $this->run->finishedat !== null) {
+        if ($this->run->startedatms !== null && $this->run->finishedatms !== null) {
             $rows[] = [
                 'label' => get_string('runduration', 'mod_idetestfeedback'),
-                'text' => self::run_duration((int) $this->run->finishedat - (int) $this->run->startedat),
+                'text' => self::run_duration((int) $this->run->finishedatms - (int) $this->run->startedatms),
             ];
         }
 
@@ -386,7 +386,7 @@ class run_detail implements renderable, templatable {
         [$code, $truncated] = $this->test_source($result, $kind);
 
         return [
-            'summary' => $this->source_summary($result, $path, $kind),
+            'summary' => $this->source_summary($result, $kind),
             'kind' => $kind->value,
             'expandable' => $code !== '' || $wholefile,
             'wholefile' => $wholefile,
@@ -456,16 +456,15 @@ class run_detail implements renderable, templatable {
      * The one line shown while a source block is collapsed.
      *
      * @param stdClass $result one test case result
-     * @param string $path the file the code came from, possibly empty
-     * @param source_kind $kind how much of that file the result names
+     * @param source_kind $kind how much of its file the result names
      * @return string
      */
-    protected function source_summary(stdClass $result, string $path, source_kind $kind): string {
+    protected function source_summary(stdClass $result, source_kind $kind): string {
         if ($kind === source_kind::NONE) {
             return get_string('sourcenotfound', 'mod_idetestfeedback');
         }
 
-        $label = $path !== '' ? $path : get_string('sourcecode', 'mod_idetestfeedback');
+        $label = (string) $result->sourcefilepath;
 
         if ($result->sourcestartline === null) {
             return $label;
@@ -499,7 +498,7 @@ class run_detail implements renderable, templatable {
             $row = self::file_row($file);
             $rows[] = [
                 'inline' => $inline,
-                'fileurl' => (new url($this->formurl, ['fileid' => $file->id]))->out(false),
+                'fileurl' => (new url($this->runurl, ['fileid' => $file->id]))->out(false),
             ] + ($inline ? $row : ['content' => '', 'linenumbers' => ''] + $row);
         }
 

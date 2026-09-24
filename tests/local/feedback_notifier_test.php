@@ -34,7 +34,7 @@ final class feedback_notifier_test extends \advanced_testcase {
 
         $course = $this->getDataGenerator()->create_course();
         $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
-        $cm = get_coursemodule_from_instance('idetestfeedback', $instance->id);
+        [, $cm] = get_course_and_cm_from_instance($instance->id, 'idetestfeedback');
         $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
 
@@ -47,7 +47,7 @@ final class feedback_notifier_test extends \advanced_testcase {
         [$result] = array_values($repository->get_results($run->id));
         $result->feedback = 'Check your edge cases';
 
-        $notifier = new feedback_notifier($course, $instance, (int) $cm->id);
+        $notifier = new feedback_notifier($cm);
         $sent = $notifier->notify($run, [$result], $teacher);
 
         $this->assertTrue($sent);
@@ -68,7 +68,7 @@ final class feedback_notifier_test extends \advanced_testcase {
 
         $course = $this->getDataGenerator()->create_course();
         $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
-        $cm = get_coursemodule_from_instance('idetestfeedback', $instance->id);
+        [, $cm] = get_course_and_cm_from_instance($instance->id, 'idetestfeedback');
         $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
 
@@ -81,7 +81,7 @@ final class feedback_notifier_test extends \advanced_testcase {
         [$result] = array_values($repository->get_results($run->id));
         $result->feedback = 'See above';
 
-        $notifier = new feedback_notifier($course, $instance, (int) $cm->id);
+        $notifier = new feedback_notifier($cm);
         $notifier->notify($run, [$result], $teacher);
 
         $messages = $sink->get_messages();

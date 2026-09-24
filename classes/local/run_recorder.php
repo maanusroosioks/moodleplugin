@@ -36,7 +36,7 @@ class run_recorder {
         'testsuite'      => 255,
         'testname'       => 1024,
         'sourcefilepath' => 1024,
-        'filepath'       => 1024,
+        'path'           => 1024,
     ];
 
     /**
@@ -69,8 +69,8 @@ class run_recorder {
         $run->projectname         = self::clip($submission->projectname, 'projectname');
         $run->commithash          = self::clip($submission->commithash, 'commithash');
         $run->repourl             = self::whole_or_null($submission->repourl, 'repourl');
-        $run->startedat           = $submission->startedat;
-        $run->finishedat          = $submission->finishedat;
+        $run->startedatms         = $submission->startedatms;
+        $run->finishedatms        = $submission->finishedatms;
         $run->status              = status::worst($counts)->value;
         $run->passedcount         = $counts[status::PASSED->value];
         $run->failedcount         = $counts[status::FAILED->value];
@@ -79,7 +79,7 @@ class run_recorder {
         $run->timecreated         = $now;
         $run->capturedisabled     = (int) $submission->capturedisabled;
 
-        $run->id = $this->repository->insert_run_with_results(
+        $run->id = $this->repository->insert_run(
             $run,
             self::build_results($submission->results, $now),
             self::build_files($submission->testfiles, $now)
@@ -100,7 +100,6 @@ class run_recorder {
 
         foreach ($submitted as $entry) {
             $source = $entry['source'] ?? [];
-            $filepath = self::clip($source['filepath'] ?? null, 'sourcefilepath');
 
             $result                  = new \stdClass();
             $result->testsuite       = self::clip($entry['testsuite'], 'testsuite');
@@ -109,7 +108,7 @@ class run_recorder {
             $result->durationms      = $entry['durationms'];
             $result->message         = $entry['message'];
             $result->timecreated     = $now;
-            $result->sourcefilepath  = $filepath === '' ? null : $filepath;
+            $result->sourcefilepath  = self::clip($source['path'] ?? null, 'sourcefilepath');
             $result->sourcestartline = $source['startline'] ?? null;
             $result->sourceendline   = $source['endline'] ?? null;
             $results[] = $result;
@@ -128,7 +127,7 @@ class run_recorder {
     private static function build_files(array $testfiles, int $now): array {
         $unique = [];
         foreach ($testfiles as $entry) {
-            $path = self::clip($entry['path'], 'filepath');
+            $path = self::clip($entry['path'], 'path');
             if (!isset($unique[$path])) {
                 $unique[$path] = $entry;
             }
@@ -137,7 +136,7 @@ class run_recorder {
 
         $files = [];
         foreach ($unique as $path => $entry) {
-            [$content, $truncated] = self::clip_code($entry['content'], !empty($entry['truncated']));
+            [$content, $truncated] = self::clip_code($entry['content'], (bool) $entry['truncated']);
 
             $file              = new \stdClass();
             $file->path        = (string) $path;
@@ -154,32 +153,26 @@ class run_recorder {
      * Trims a value and clips it to the width of the column it is stored in.
      *
      * @param string|null $value the submitted value
-     * @param string $field the key into {@see MAX_LENGTHS}
-     * @return string|null
+     * @param string $column the key into {@see MAX_LENGTHS}
+     * @return string|null null when the value is absent or blank
      */
-    private static function clip(?string $value, string $field): ?string {
-        if ($value === null) {
-            return null;
-        }
+    private static function clip(?string $value, string $column): ?string {
+        $value = trim((string) $value);
 
-        return \core_text::substr(trim($value), 0, self::MAX_LENGTHS[$field]);
+        return $value === '' ? null : \core_text::substr($value, 0, self::MAX_LENGTHS[$column]);
     }
 
     /**
      * Trims a value and drops it if it does not fit its column.
      *
      * @param string|null $value the submitted value
-     * @param string $field the key into {@see MAX_LENGTHS}
-     * @return string|null
+     * @param string $column the key into {@see MAX_LENGTHS}
+     * @return string|null null when the value is absent, blank or too long
      */
-    private static function whole_or_null(?string $value, string $field): ?string {
-        if ($value === null) {
-            return null;
-        }
+    private static function whole_or_null(?string $value, string $column): ?string {
+        $value = trim((string) $value);
 
-        $value = trim($value);
-
-        return \core_text::strlen($value) > self::MAX_LENGTHS[$field] ? null : $value;
+        return $value === '' || \core_text::strlen($value) > self::MAX_LENGTHS[$column] ? null : $value;
     }
 
     /**
@@ -188,16 +181,16 @@ class run_recorder {
      *
      * @param string|null $code the submitted code
      * @param bool $truncated whether the IDE already reported it truncated
-     * @return array{0:?string,1:int} [the code to store, the truncated flag]
+     * @return array{0:?string,1:bool} [the code to store, whether it is cut short]
      */
     private static function clip_code(?string $code, bool $truncated): array {
         if ($code === null || strlen($code) <= self::MAX_FILE_BYTES) {
-            return [$code, (int) $truncated];
+            return [$code, $truncated];
         }
 
         $kept = mb_strcut($code, 0, self::MAX_FILE_BYTES, 'UTF-8');
         $break = strrpos($kept, "\n");
 
-        return [$break ? substr($kept, 0, $break) : $kept, 1];
+        return [$break ? substr($kept, 0, $break) : $kept, true];
     }
 }

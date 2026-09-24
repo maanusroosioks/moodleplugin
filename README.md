@@ -68,12 +68,12 @@ no role by default)
 | --- | --- | --- | --- |
 | `email` | email | yes | Identity asserted by the calling middleware. Must match exactly one active (not deleted, not suspended) Moodle user. |
 | `assignmentkey` | alphanumext | yes | The key shown on the activity. |
-| `ide` | text | yes | IDE identifier, e.g. `VSCODE`. Must not be blank. |
+| `ide` | alphanumext | yes | IDE identifier, e.g. `VSCODE`. Must not be blank. |
 | `projectname` | text | no | |
-| `commithash` | text | no | |
+| `commithash` | alphanum | no | |
 | `repourl` | text | no | Git remote, e.g. `https://github.com/ada/calc.git` or `git@github.com:ada/calc.git`. Credentials in it (`user:token@`) are removed before storing. One longer than 1024 characters is not stored. When it points at a web host, the commit hash links to `<repo>/commit/<hash>`. |
-| `startedat` | int | no | Epoch **milliseconds**. |
-| `finishedat` | int | no | Epoch **milliseconds**. |
+| `startedatms` | int | no | Epoch **milliseconds**. |
+| `finishedatms` | int | no | Epoch **milliseconds**. |
 | `payload` | text | yes | JSON object holding `results` and `testfiles` (see below). |
 | `capturedisabled` | bool | no | The student turned off sending source code. Any code posted alongside it is dropped, and with it every hash taken from it (see Validation). |
 
@@ -129,14 +129,14 @@ result points into it.
 
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `filepath` | text | with a line range | Repo-relative path of the file the test is defined in. Joins to `testfiles[].path`. |
+| `path` | text | with a line range | Repo-relative path of the file the test is defined in. Joins to `testfiles[].path`. |
 | `startline` | int | no | 1-based, inclusive. Send both line numbers or neither. |
 | `endline` | int | no | 1-based, inclusive. Must not be below `startline`. |
 
 What the block names is what the IDE found, so no kind is sent or stored — it is
 read back off those three fields:
 
-| `filepath` | line range | means |
+| `path` | line range | means |
 | --- | --- | --- |
 | absent | — | the test was not found in the project's source at all |
 | present | absent | the file was found but the test could not be picked out of it; the run page shows the whole file |
@@ -187,11 +187,11 @@ The submission is rejected (with a localised message) when:
 - `payload` is not a JSON object;
 - `results` is empty, or holds more than 5000 entries;
 - `ide` is blank;
-- `startedat`, `finishedat` or any `durationms` is negative, or the run finishes
+- `startedatms`, `finishedatms` or any `durationms` is negative, or the run finishes
   before it starts;
 - any result has a blank `testname`;
 - `testfiles` holds more than 200 entries, or any entry has a blank `path`;
-- a `source` names a line range but no `filepath`;
+- a `source` names a line range but no `path`;
 - a `source` sends one line number without the other, starts below line 1, or
   ends before it starts.
 
@@ -209,7 +209,7 @@ it is stored without any `testfiles[].content`, whatever the client sent. The ru
 captured code, so the badge and the stored data cannot disagree.
 
 What is *not* dropped is everything that describes where the code was, rather
-than what it was: `source.filepath`, `startline` and `endline`.
+than what it was: `source.path`, `startline` and `endline`.
 
 No file hash survives either, because there are no bytes left to take one from.
 

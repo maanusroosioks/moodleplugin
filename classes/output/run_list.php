@@ -40,7 +40,7 @@ class run_list implements renderable, templatable {
      * @param bool $viewfullnames whether the viewer may see full names
      * @param string $summary a pass rate summary shown above the table
      * @param string $totaltext how many runs matched, shown above the table
-     * @param string $filters the rendered filter menus
+     * @param string $filtermenus the rendered filter menus
      * @param string $pagingbar the rendered paging bar
      */
     public function __construct(
@@ -57,7 +57,7 @@ class run_list implements renderable, templatable {
         /** @var string How many runs matched, shown above the table */
         protected readonly string $totaltext = '',
         /** @var string The rendered filter menus */
-        protected readonly string $filters = '',
+        protected readonly string $filtermenus = '',
         /** @var string The rendered paging bar */
         protected readonly string $pagingbar = ''
     ) {
@@ -75,7 +75,7 @@ class run_list implements renderable, templatable {
             'showstudent' => $this->showstudent,
             'summary' => $this->summary,
             'totaltext' => $this->totaltext,
-            'filters' => $this->filters,
+            'filtermenus' => $this->filtermenus,
             'pagingbar' => $this->pagingbar,
             'rows' => $this->rows($output),
         ];

@@ -49,7 +49,7 @@ final class run_detail_paging_test extends \advanced_testcase {
             cancomment: false,
             history: new \mod_idetestfeedback\local\feedback_history([]),
             backurl: new \core\url('/'),
-            formurl: new \core\url('/'),
+            runurl: new \core\url('/'),
             page: $page,
             perpage: $perpage
         );

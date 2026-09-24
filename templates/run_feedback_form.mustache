@@ -11,14 +11,14 @@
 
     Example context (json):
     {
-        "formurl": "https://example.com/mod/idetestfeedback/view.php?id=3&runid=9",
+        "runurl": "https://example.com/mod/idetestfeedback/view.php?id=3&runid=9",
         "sesskey": "aBcD1234",
         "showfeedback": true,
         "cancomment": true,
         "rows": []
     }
 }}
-<form method="post" action="{{formurl}}">
+<form method="post" action="{{runurl}}">
     <input type="hidden" name="sesskey" value="{{sesskey}}">
     <input type="hidden" name="savefeedback" value="1">
 

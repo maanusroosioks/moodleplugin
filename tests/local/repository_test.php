@@ -290,11 +290,12 @@ final class repository_test extends \advanced_testcase {
         $this->create_run($other->id, [['testname' => 'a', 'status' => 'PASSED']]);
 
         $this->assertCount(3, $this->repository->get_runs_for_instance($this->instance->id));
-        $this->assertCount(2, $this->repository->get_runs_for_instance($this->instance->id, ['userid' => $student->id]));
-        $this->assertCount(2, $this->repository->get_runs_for_instance($this->instance->id, ['status' => 'PASSED']));
+        $this->assertCount(2, $this->repository->get_runs_for_instance($this->instance->id, userid: $student->id));
+        $this->assertCount(2, $this->repository->get_runs_for_instance($this->instance->id, status: status::PASSED));
         $this->assertCount(1, $this->repository->get_runs_for_instance(
             $this->instance->id,
-            ['userid' => $student->id, 'status' => 'FAILED']
+            userid: $student->id,
+            status: status::FAILED
         ));
     }
 
@@ -306,7 +307,7 @@ final class repository_test extends \advanced_testcase {
         $runs = array_values($this->repository->get_runs_for_instance($this->instance->id));
         $this->assertSame([(int) $second->id, (int) $first->id], array_map(fn($r) => (int) $r->id, $runs));
 
-        $page = array_values($this->repository->get_runs_for_instance($this->instance->id, [], 1, 1));
+        $page = array_values($this->repository->get_runs_for_instance($this->instance->id, limitfrom: 1, limitnum: 1));
         $this->assertCount(1, $page);
         $this->assertSame((int) $first->id, (int) $page[0]->id);
     }
@@ -332,7 +333,7 @@ final class repository_test extends \advanced_testcase {
         $this->create_run($student->id, [['testname' => 'a', 'status' => 'FAILED']]);
 
         $this->assertSame(2, $this->repository->count_runs_for_instance($this->instance->id));
-        $this->assertSame(1, $this->repository->count_runs_for_instance($this->instance->id, ['status' => 'PASSED']));
+        $this->assertSame(1, $this->repository->count_runs_for_instance($this->instance->id, status: status::PASSED));
     }
 
     public function test_get_students_with_runs_is_distinct_and_ordered_by_name(): void {
@@ -355,11 +356,11 @@ final class repository_test extends \advanced_testcase {
         $this->create_run($member->id);
         $this->create_run($outsider->id);
 
-        $runs = $this->repository->get_runs_for_instance($this->instance->id, ['groupid' => $group->id]);
+        $runs = $this->repository->get_runs_for_instance($this->instance->id, groupid: (int) $group->id);
         $students = $this->repository->get_students_with_runs($this->instance->id, (int) $group->id);
 
         $this->assertSame([(int) $member->id], array_values(array_map(fn($r) => (int) $r->userid, $runs)));
-        $this->assertSame(1, $this->repository->count_runs_for_instance($this->instance->id, ['groupid' => $group->id]));
+        $this->assertSame(1, $this->repository->count_runs_for_instance($this->instance->id, groupid: (int) $group->id));
         $this->assertSame([(int) $member->id], array_map('intval', array_keys($students)));
         $this->assertCount(2, $this->repository->get_students_with_runs($this->instance->id));
     }
@@ -442,7 +443,7 @@ final class repository_test extends \advanced_testcase {
         $this->assertArrayHasKey($two->id, $found);
     }
 
-    public function test_insert_run_with_results_fills_in_the_runid(): void {
+    public function test_insert_run_fills_in_the_runid(): void {
         global $DB;
 
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
@@ -463,13 +464,13 @@ final class repository_test extends \advanced_testcase {
             'timecreated' => time(),
         ]];
 
-        $runid = $this->repository->insert_run_with_results($run, $results);
+        $runid = $this->repository->insert_run($run, $results);
 
         $this->assertSame($runid, (int) $results[0]->runid);
         $this->assertSame(1, $DB->count_records('idetestfeedback_result', ['runid' => $runid]));
     }
 
-    public function test_insert_run_with_results_links_no_blob_for_a_file_without_content(): void {
+    public function test_insert_run_links_no_blob_for_a_file_without_content(): void {
         global $DB;
 
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
@@ -490,7 +491,7 @@ final class repository_test extends \advanced_testcase {
             (object) ['path' => 'tests/test.py', 'content' => "x = 1\n", 'timecreated' => time()],
         ];
 
-        $runid = $this->repository->insert_run_with_results($run, $results, $files);
+        $runid = $this->repository->insert_run($run, $results, $files);
 
         $blobids = array_column($this->repository->get_files($runid), 'blobid', 'path');
         $this->assertNull($blobids['tests/empty.py']);
@@ -498,7 +499,7 @@ final class repository_test extends \advanced_testcase {
         $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
     }
 
-    public function test_insert_run_with_results_rolls_back_the_run_on_failure(): void {
+    public function test_insert_run_rolls_back_the_run_on_failure(): void {
         global $DB;
 
         // Moodle nests delegated transactions inside phpunit's own test transaction, so a
@@ -530,7 +531,7 @@ final class repository_test extends \advanced_testcase {
 
         $thrown = null;
         try {
-            $this->repository->insert_run_with_results($run, $results);
+            $this->repository->insert_run($run, $results);
         } catch (\dml_exception $e) {
             $thrown = $e;
         }
@@ -758,6 +759,17 @@ final class repository_test extends \advanced_testcase {
         $blob = $DB->get_record('idetestfeedback_blob', ['id' => $first]);
         $this->assertSame('x = 1', $blob->content);
         $this->assertSame(source_code::hash('x = 1'), $blob->contenthash);
+    }
+
+    public function test_a_blob_is_hashed_over_exactly_the_content_it_stores(): void {
+        global $DB;
+
+        $marker = "\u{2026} [truncated]";
+        $id = $this->repository->find_or_create_blob($this->instance->id, "x = 1\n{$marker}\n{$marker}", time());
+
+        $blob = $DB->get_record('idetestfeedback_blob', ['id' => $id]);
+        $this->assertSame("x = 1\n{$marker}", $blob->content);
+        $this->assertSame(hash('sha256', $blob->content), $blob->contenthash);
     }
 
     public function test_find_or_create_blob_stores_nothing_for_an_empty_body(): void {

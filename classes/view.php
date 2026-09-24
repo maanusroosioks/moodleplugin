@@ -201,7 +201,7 @@ class view {
 
         $notified = false;
         if ($changed && optional_param('notify', 0, PARAM_BOOL)) {
-            $notifier = new feedback_notifier($this->course, $this->instance, $this->cmid);
+            $notifier = new feedback_notifier($this->cm);
             $notified = $notifier->notify($this->run, $changed, $this->user);
         }
 
@@ -298,7 +298,7 @@ class view {
             cancomment: $this->cancomment,
             history: new feedback_history($this->repository->get_feedback_history($this->runid)),
             backurl: $this->list_url($this->listpage),
-            formurl: $this->run_url($page),
+            runurl: $this->run_url($page),
             page: $page,
             perpage: self::RESULTS_PER_PAGE,
             pagingbar: $this->renderer->paging_bar(
@@ -357,8 +357,7 @@ class view {
             return $out . $this->renderer->notification(get_string('notingroup'), notification::NOTIFY_INFO);
         }
 
-        $scope = array_filter(['groupid' => $groupid]);
-        $grandtotal = $this->repository->count_runs_for_instance($this->instance->id, $scope);
+        $grandtotal = $this->repository->count_runs_for_instance($this->instance->id, groupid: $groupid);
         if ($grandtotal === 0) {
             return $out . $this->renderer->notification(
                 get_string('noresults', 'mod_idetestfeedback'),
@@ -366,11 +365,15 @@ class view {
             );
         }
 
-        $filters = $this->run_filters();
         $menus = $this->run_filter_menus($groupid);
 
-        $total = $filters
-            ? $this->repository->count_runs_for_instance($this->instance->id, $scope + $filters)
+        $total = $this->filter_params()
+            ? $this->repository->count_runs_for_instance(
+                $this->instance->id,
+                $this->filteruserid,
+                $this->filterstatus,
+                $groupid
+            )
             : $grandtotal;
 
         if ($total === 0) {
@@ -385,7 +388,9 @@ class view {
         return $out . $this->renderer->render(new run_list(
             runs: $this->repository->get_runs_for_instance(
                 $this->instance->id,
-                $scope + $filters,
+                $this->filteruserid,
+                $this->filterstatus,
+                $groupid,
                 $page * self::RUNS_PER_PAGE,
                 self::RUNS_PER_PAGE
             ),
@@ -393,7 +398,7 @@ class view {
             showstudent: true,
             viewfullnames: $this->viewfullnames,
             totaltext: get_string('totalruns', 'mod_idetestfeedback', $total),
-            filters: $menus,
+            filtermenus: $menus,
             pagingbar: $this->renderer->paging_bar($total, $page, self::RUNS_PER_PAGE, $this->list_url())
         ));
     }
@@ -490,26 +495,12 @@ class view {
     }
 
     /**
-     * The active filters, in the shape the repository expects.
-     *
-     * @return array
-     */
-    protected function run_filters(): array {
-        return array_filter(['userid' => $this->filteruserid, 'status' => $this->filterstatus?->value]);
-    }
-
-    /**
      * The active filters, as query parameters for links back into the list.
      *
-     * @return array each repository filter key, prefixed with 'filter'
+     * @return array empty when no filter is active
      */
     protected function filter_params(): array {
-        $params = [];
-        foreach ($this->run_filters() as $key => $value) {
-            $params['filter' . $key] = $value;
-        }
-
-        return $params;
+        return array_filter(['filteruserid' => $this->filteruserid, 'filterstatus' => $this->filterstatus?->value]);
     }
 
     /**

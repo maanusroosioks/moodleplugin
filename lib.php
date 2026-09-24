@@ -22,6 +22,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use mod_idetestfeedback\local\assignment_key;
 use mod_idetestfeedback\local\repository;
 
 /**
@@ -31,10 +32,10 @@ use mod_idetestfeedback\local\repository;
  * @param mod_idetestfeedback_mod_form|null $mform the form the data came from
  * @return int the new instance id
  */
-function idetestfeedback_add_instance(stdClass $data, $mform = null): int {
+function idetestfeedback_add_instance(stdClass $data, ?mod_idetestfeedback_mod_form $mform = null): int {
     global $DB;
 
-    $data->assignmentkey = repository::generate_assignmentkey();
+    $data->assignmentkey = assignment_key::generate();
     $data->timeopen      = $data->timeopen ?? 0;
     $data->timeclose     = $data->timeclose ?? 0;
     $data->timecreated   = time();
@@ -54,7 +55,7 @@ function idetestfeedback_add_instance(stdClass $data, $mform = null): int {
  * @param mod_idetestfeedback_mod_form|null $mform the form the data came from
  * @return bool
  */
-function idetestfeedback_update_instance(stdClass $data, $mform = null): bool {
+function idetestfeedback_update_instance(stdClass $data, ?mod_idetestfeedback_mod_form $mform = null): bool {
     global $DB;
 
     $data->id            = $data->instance;
@@ -156,13 +157,13 @@ function idetestfeedback_supports(string $feature): string|bool|null {
  *
  * @param stdClass $instance the activity instance
  * @param stdClass $course the course the activity is in
- * @param cm_info|stdClass $cm the course module
+ * @param cm_info $cm the course module
  * @param \core\context\module $context the activity context
  */
 function idetestfeedback_view(
     stdClass $instance,
     stdClass $course,
-    cm_info|stdClass $cm,
+    cm_info $cm,
     \core\context\module $context
 ): void {
     global $CFG;
@@ -184,9 +185,9 @@ function idetestfeedback_view(
  * Surfaces the custom completion rule to the course page and completion reports.
  *
  * @param stdClass $coursemodule the course module being displayed
- * @return cached_cm_info|bool the cached info, or false when the instance is gone
+ * @return cached_cm_info|false the cached info, or false when the instance is gone
  */
-function idetestfeedback_get_coursemodule_info($coursemodule) {
+function idetestfeedback_get_coursemodule_info(stdClass $coursemodule): cached_cm_info|false {
     global $DB;
 
     $instance = $DB->get_record(
@@ -217,7 +218,7 @@ function idetestfeedback_get_coursemodule_info($coursemodule) {
  *
  * @param MoodleQuickForm $mform the reset form
  */
-function idetestfeedback_reset_course_form_definition(&$mform): void {
+function idetestfeedback_reset_course_form_definition(MoodleQuickForm &$mform): void {
     $mform->addElement('header', 'idetestfeedbackheader', get_string('modulenameplural', 'mod_idetestfeedback'));
     $mform->addElement('advcheckbox', 'reset_idetestfeedback', get_string('resetruns', 'mod_idetestfeedback'));
 }
@@ -228,7 +229,7 @@ function idetestfeedback_reset_course_form_definition(&$mform): void {
  * @param stdClass $course the course being reset
  * @return array the default state of this activity's reset options
  */
-function idetestfeedback_reset_course_form_defaults($course): array {
+function idetestfeedback_reset_course_form_defaults(stdClass $course): array {
     return ['reset_idetestfeedback' => 1];
 }
 
@@ -239,7 +240,7 @@ function idetestfeedback_reset_course_form_defaults($course): array {
  * @param stdClass $data the submitted course reset form data
  * @return array[] one status row per action taken
  */
-function idetestfeedback_reset_userdata($data): array {
+function idetestfeedback_reset_userdata(stdClass $data): array {
     global $DB;
 
     $componentstr = get_string('modulenameplural', 'mod_idetestfeedback');

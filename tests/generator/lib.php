@@ -78,8 +78,8 @@ class mod_idetestfeedback_generator extends testing_module_generator {
             'projectname' => $record['projectname'] ?? null,
             'commithash' => $record['commithash'] ?? null,
             'repourl' => $record['repourl'] ?? null,
-            'startedat' => $record['startedat'] ?? null,
-            'finishedat' => $record['finishedat'] ?? null,
+            'startedatms' => $record['startedatms'] ?? null,
+            'finishedatms' => $record['finishedatms'] ?? null,
             'status' => $record['status'] ?? status::worst($counts)->value,
             'passedcount' => $counts[status::PASSED->value],
             'failedcount' => $counts[status::FAILED->value],
@@ -99,7 +99,7 @@ class mod_idetestfeedback_generator extends testing_module_generator {
             ];
         }
 
-        $run->id = (new repository($DB))->insert_run_with_results($run, $results, $files);
+        $run->id = (new repository($DB))->insert_run($run, $results, $files);
 
         return $run;
     }

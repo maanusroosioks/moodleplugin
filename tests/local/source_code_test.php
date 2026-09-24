@@ -96,6 +96,10 @@ final class source_code_test extends \basic_testcase {
         $this->assertSame(source_code::hash("one\ntwo"), source_code::hash($cut));
     }
 
+    public function test_hash_canonical_hashes_its_input_as_is(): void {
+        $this->assertSame(hash('sha256', "one  \r\n"), source_code::hash_canonical("one  \r\n"));
+    }
+
     public function test_invalid_utf8_is_kept_rather_than_emptied(): void {
         $this->assertSame("caf\xE9\nbar", source_code::canonicalise("caf\xE9\r\nbar  \n"));
     }

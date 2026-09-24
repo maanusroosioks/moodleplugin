@@ -23,6 +23,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use mod_idetestfeedback\local\assignment_key;
 use mod_idetestfeedback\local\repository;
 
 /**
@@ -80,7 +81,7 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
             empty($data->assignmentkey)
                 || $DB->record_exists('idetestfeedback', ['assignmentkey' => $data->assignmentkey])
         ) {
-            $data->assignmentkey = repository::generate_assignmentkey();
+            $data->assignmentkey = assignment_key::generate();
         }
 
         $newitemid = $DB->insert_record('idetestfeedback', $data);
@@ -100,6 +101,14 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
 
         $data->idetestfeedbackid = $this->get_new_parentid('idetestfeedback');
         $data->userid = $this->get_mappingid('user', $data->userid);
+
+        // Backups from before 2026092309 name the run's own clock without its unit.
+        foreach (['startedat', 'finishedat'] as $old) {
+            if (property_exists($data, $old)) {
+                $data->{$old . 'ms'} ??= $data->$old;
+                unset($data->$old);
+            }
+        }
 
         $newitemid = $DB->insert_record('idetestfeedback_run', $data);
         $this->set_mapping('idetestfeedback_run', $oldid, $newitemid);

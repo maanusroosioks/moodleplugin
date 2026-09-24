@@ -46,5 +46,17 @@ function xmldb_idetestfeedback_upgrade($oldversion): bool {
         upgrade_mod_savepoint(true, 2026092308, 'idetestfeedback');
     }
 
+    if ($oldversion < 2026092309) {
+        $table = new xmldb_table('idetestfeedback_run');
+
+        $field = new xmldb_field('startedat', XMLDB_TYPE_INTEGER, '18', null, null, null, null, 'repourl');
+        $dbman->rename_field($table, $field, 'startedatms');
+
+        $field = new xmldb_field('finishedat', XMLDB_TYPE_INTEGER, '18', null, null, null, null, 'startedatms');
+        $dbman->rename_field($table, $field, 'finishedatms');
+
+        upgrade_mod_savepoint(true, 2026092309, 'idetestfeedback');
+    }
+
     return true;
 }

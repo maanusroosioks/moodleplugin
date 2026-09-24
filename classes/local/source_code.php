@@ -78,7 +78,17 @@ class source_code {
      * @return string the sha256 of its canonical form
      */
     public static function hash(string $code): string {
-        return \hash('sha256', self::canonicalise($code));
+        return self::hash_canonical(self::canonicalise($code));
+    }
+
+    /**
+     * Hashes source that is already canonical, as it is stored.
+     *
+     * @param string $canonical source as canonicalise() returned it
+     * @return string the sha256 of exactly those bytes
+     */
+    public static function hash_canonical(string $canonical): string {
+        return \hash('sha256', $canonical);
     }
 
     /**

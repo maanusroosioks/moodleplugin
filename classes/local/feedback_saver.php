@@ -43,11 +43,11 @@ class feedback_saver {
      *
      * @param int $runid the run being commented on
      * @param array<int, string> $submitted result id => submitted feedback
-     * @param int $byuserid the teacher writing the feedback
+     * @param int $authorid the teacher writing the feedback
      * @return stdClass[] the results that now carry new feedback; cleared
      *         feedback is saved but left out, because there is nothing to announce
      */
-    public function save(int $runid, array $submitted, int $byuserid): array {
+    public function save(int $runid, array $submitted, int $authorid): array {
         $changed = [];
 
         foreach ($this->repository->get_results($runid) as $result) {
@@ -62,7 +62,7 @@ class feedback_saver {
                 continue;
             }
 
-            $this->repository->update_result_feedback($resultid, $new, FORMAT_PLAIN, $byuserid);
+            $this->repository->update_result_feedback($resultid, $new, FORMAT_PLAIN, $authorid);
 
             if ($new !== '') {
                 $result->feedback = $new;

@@ -64,7 +64,7 @@ final class run_detail_feedback_test extends \advanced_testcase {
             cancomment: false,
             history: new feedback_history($commented),
             backurl: new \core\url('/'),
-            formurl: new \core\url('/')
+            runurl: new \core\url('/')
         );
     }
 

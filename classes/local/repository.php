@@ -49,15 +49,6 @@ class repository {
     }
 
     /**
-     * Generates a new key for the IDE to submit an activity's runs under.
-     *
-     * @return string 32 hex characters
-     */
-    public static function generate_assignmentkey(): string {
-        return bin2hex(random_bytes(16));
-    }
-
-    /**
      * Fetches the activity instance that uses a key.
      *
      * @param string $assignmentkey the key the IDE submits under
@@ -171,18 +162,18 @@ class repository {
      * Fetches the feedback one user wrote on results in this activity, without the runs' owners.
      *
      * @param int $instanceid the activity instance id
-     * @param int $userid the feedback author
+     * @param int $authorid the feedback author
      * @return \stdClass[] result rows keyed by id
      */
-    public function get_feedback_authored_by(int $instanceid, int $userid): array {
+    public function get_feedback_authored_by(int $instanceid, int $authorid): array {
         return $this->db->get_records_sql(
             "SELECT res.id, res.runid, res.testsuite, res.testname, res.feedback, res.feedbackmodified
                FROM {idetestfeedback_result} res
                JOIN {idetestfeedback_run} run ON run.id = res.runid
               WHERE run.idetestfeedbackid = :instanceid
-                AND res.feedbackby = :userid
+                AND res.feedbackby = :authorid
            ORDER BY res.id ASC",
-            ['instanceid' => $instanceid, 'userid' => $userid]
+            ['instanceid' => $instanceid, 'authorid' => $authorid]
         );
     }
 
@@ -202,19 +193,23 @@ class repository {
      * Fetches a page of runs for the whole activity, newest first.
      *
      * @param int $instanceid the activity instance id
-     * @param array $filters optional 'userid', 'status' and/or 'groupid' to narrow the list
+     * @param int $userid only this user's runs, or 0 for every user
+     * @param status|null $status only runs with this status, or null for any
+     * @param int $groupid only runs by members of this group, or 0 for every group
      * @param int $limitfrom the first row to return
      * @param int $limitnum how many rows to return, 0 for all of them
      * @return \stdClass[] runs, each carrying the submitting user's name fields
      */
     public function get_runs_for_instance(
         int $instanceid,
-        array $filters = [],
+        int $userid = 0,
+        ?status $status = null,
+        int $groupid = 0,
         int $limitfrom = 0,
         int $limitnum = 0
     ): array {
         $namefields = \core_user\fields::for_name()->get_sql('u')->selects;
-        [$where, $params] = $this->run_filter_sql($instanceid, $filters, 'r');
+        [$where, $params] = $this->run_filter_sql($instanceid, $userid, $status, $groupid, 'r');
 
         return $this->db->get_records_sql(
             "SELECT r.*{$namefields}
@@ -232,11 +227,18 @@ class repository {
      * Counts the runs in the activity.
      *
      * @param int $instanceid the activity instance id
-     * @param array $filters optional 'userid', 'status' and/or 'groupid' to narrow the count
+     * @param int $userid only this user's runs, or 0 for every user
+     * @param status|null $status only runs with this status, or null for any
+     * @param int $groupid only runs by members of this group, or 0 for every group
      * @return int how many runs match
      */
-    public function count_runs_for_instance(int $instanceid, array $filters = []): int {
-        [$where, $params] = $this->run_filter_sql($instanceid, $filters);
+    public function count_runs_for_instance(
+        int $instanceid,
+        int $userid = 0,
+        ?status $status = null,
+        int $groupid = 0
+    ): int {
+        [$where, $params] = $this->run_filter_sql($instanceid, $userid, $status, $groupid);
 
         return $this->db->count_records_select('idetestfeedback_run', $where, $params);
     }
@@ -250,7 +252,7 @@ class repository {
      */
     public function get_students_with_runs(int $instanceid, int $groupid = 0): array {
         $namefields = \core_user\fields::for_name()->get_sql('u')->selects;
-        [$where, $params] = $this->run_filter_sql($instanceid, ['groupid' => $groupid], 'r');
+        [$where, $params] = $this->run_filter_sql($instanceid, 0, null, $groupid, 'r');
 
         return $this->db->get_records_sql(
             "SELECT DISTINCT u.id{$namefields}
@@ -355,8 +357,8 @@ class repository {
     }
 
     /**
-     * Stores a run and its results atomically, so a rejected result cannot
-     * leave behind a run whose counts describe rows that were never written.
+     * Stores a run with its results and files atomically, so a rejected result
+     * cannot leave behind a run whose counts describe rows that were never written.
      *
      * Every hash is derived here, so no caller can supply one of its own.
      *
@@ -365,7 +367,7 @@ class repository {
      * @param \stdClass[] $files its captured test files, left unchanged
      * @return int the new run id
      */
-    public function insert_run_with_results(\stdClass $run, array $results, array $files = []): int {
+    public function insert_run(\stdClass $run, array $results, array $files = []): int {
         $instanceid = (int) $run->idetestfeedbackid;
         $bodies = capture::canonicalise_files(array_map(fn($file) => clone $file, $files));
 
@@ -400,16 +402,16 @@ class repository {
      *
      * @param int $instanceid the activity the bodies belong to
      * @param array<string, \stdClass> $bodies canonicalised files by path
-     * @param int $now when the run was submitted
+     * @param int $timecreated when the run was submitted
      * @return array<string, int> blob id by content hash
      */
-    private function store_blobs(int $instanceid, array $bodies, int $now): array {
+    private function store_blobs(int $instanceid, array $bodies, int $timecreated): array {
         $blobs = [];
 
         foreach ($bodies as $file) {
             $hash = $file->contenthash;
             if ($hash !== null && !isset($blobs[$hash])) {
-                $blobs[$hash] = $this->blob_id($instanceid, $hash, $file->content, $now);
+                $blobs[$hash] = $this->find_or_create_canonical_blob($instanceid, $hash, $file->content, $timecreated);
             }
         }
 
@@ -421,13 +423,21 @@ class repository {
      *
      * @param int $instanceid the activity the body belongs to
      * @param string $content the body as it was received
-     * @param int $now when the body was first seen, if it is new
+     * @param int $timecreated when the body was first seen, if it is new
      * @return int|null the blob id, or null when the body canonicalises to nothing
      */
-    public function find_or_create_blob(int $instanceid, string $content, int $now): ?int {
-        $content = source_code::canonicalise($content);
+    public function find_or_create_blob(int $instanceid, string $content, int $timecreated): ?int {
+        $canonical = source_code::canonicalise($content);
+        if ($canonical === '') {
+            return null;
+        }
 
-        return $content === '' ? null : $this->blob_id($instanceid, source_code::hash($content), $content, $now);
+        return $this->find_or_create_canonical_blob(
+            $instanceid,
+            source_code::hash_canonical($canonical),
+            $canonical,
+            $timecreated
+        );
     }
 
     /**
@@ -435,11 +445,16 @@ class repository {
      *
      * @param int $instanceid the activity the body belongs to
      * @param string $hash the hash of the canonical body
-     * @param string $content the canonical body
-     * @param int $now when the body was first seen, if it is new
+     * @param string $canonical the canonical body
+     * @param int $timecreated when the body was first seen, if it is new
      * @return int the blob id
      */
-    private function blob_id(int $instanceid, string $hash, string $content, int $now): int {
+    private function find_or_create_canonical_blob(
+        int $instanceid,
+        string $hash,
+        string $canonical,
+        int $timecreated
+    ): int {
         $existing = $this->db->get_field(
             'idetestfeedback_blob',
             'id',
@@ -449,8 +464,8 @@ class repository {
         return (int) ($existing ?: $this->db->insert_record('idetestfeedback_blob', (object) [
             'idetestfeedbackid' => $instanceid,
             'contenthash'       => $hash,
-            'content'           => $content,
-            'timecreated'       => $now,
+            'content'           => $canonical,
+            'timecreated'       => $timecreated,
         ]));
     }
 
@@ -460,16 +475,16 @@ class repository {
      * @param int $resultid the idetestfeedback_result id
      * @param string $feedback the feedback text; '' clears it
      * @param int $format the text format the feedback is stored in
-     * @param int $byuserid the teacher writing the feedback
+     * @param int $authorid the teacher writing the feedback
      */
-    public function update_result_feedback(int $resultid, string $feedback, int $format, int $byuserid): void {
+    public function update_result_feedback(int $resultid, string $feedback, int $format, int $authorid): void {
         $cleared = trim($feedback) === '';
 
         $this->db->update_record('idetestfeedback_result', (object) [
             'id'               => $resultid,
             'feedback'         => $cleared ? null : $feedback,
             'feedbackformat'   => $cleared ? 0 : $format,
-            'feedbackby'       => $cleared ? null : $byuserid,
+            'feedbackby'       => $cleared ? null : $authorid,
             'feedbackmodified' => $cleared ? null : time(),
         ]);
     }
@@ -556,14 +571,14 @@ class repository {
      * Detaches teachers from the feedback they wrote, keeping the feedback.
      *
      * @param int $instanceid the activity instance id
-     * @param int[] $userids the teachers to detach
+     * @param int[] $authorids the teachers to detach
      */
-    public function anonymise_feedback_authors(int $instanceid, array $userids): void {
-        if (!$userids) {
+    public function anonymise_feedback_authors(int $instanceid, array $authorids): void {
+        if (!$authorids) {
             return;
         }
 
-        [$insql, $params] = $this->db->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'auser');
+        [$insql, $params] = $this->db->get_in_or_equal($authorids, SQL_PARAMS_NAMED, 'auser');
         $params['instanceid'] = $instanceid;
 
         $this->db->execute(
@@ -614,27 +629,35 @@ class repository {
      * Builds the shared WHERE clause for the run list/count.
      *
      * @param int $instanceid the activity instance id
-     * @param array $filters optional 'userid', 'status' and/or 'groupid'
+     * @param int $userid only this user's runs, or 0 for every user
+     * @param status|null $status only runs with this status, or null for any
+     * @param int $groupid only runs by members of this group, or 0 for every group
      * @param string $alias the table alias to qualify columns with, '' for none
      * @return array [string $where, array $params]
      */
-    private function run_filter_sql(int $instanceid, array $filters, string $alias = ''): array {
+    private function run_filter_sql(
+        int $instanceid,
+        int $userid,
+        ?status $status,
+        int $groupid,
+        string $alias = ''
+    ): array {
         $prefix = $alias === '' ? '' : $alias . '.';
 
         $where = "{$prefix}idetestfeedbackid = :instanceid";
         $params = ['instanceid' => $instanceid];
 
-        if (!empty($filters['userid'])) {
+        if ($userid !== 0) {
             $where .= " AND {$prefix}userid = :fuserid";
-            $params['fuserid'] = $filters['userid'];
+            $params['fuserid'] = $userid;
         }
-        if (!empty($filters['status'])) {
+        if ($status !== null) {
             $where .= " AND {$prefix}status = :fstatus";
-            $params['fstatus'] = $filters['status'];
+            $params['fstatus'] = $status->value;
         }
-        if (!empty($filters['groupid'])) {
+        if ($groupid !== 0) {
             $where .= " AND {$prefix}userid IN (SELECT gm.userid FROM {groups_members} gm WHERE gm.groupid = :fgroupid)";
-            $params['fgroupid'] = $filters['groupid'];
+            $params['fgroupid'] = $groupid;
         }
 
         return [$where, $params];

@@ -57,17 +57,17 @@ class submit_test_run extends external_api {
         return new external_function_parameters([
             'email'         => new external_value(PARAM_EMAIL, 'Email of the user, from the identity the middleware asserted'),
             'assignmentkey' => new external_value(PARAM_ALPHANUMEXT, 'Assignment key shown in the activity'),
-            'ide'           => new external_value(PARAM_TEXT, 'IDE identifier, e.g. VSCODE'),
+            'ide'           => new external_value(PARAM_ALPHANUMEXT, 'IDE identifier, e.g. VSCODE'),
             'projectname'   => new external_value(PARAM_TEXT, 'Project name', VALUE_DEFAULT, null),
-            'commithash'    => new external_value(PARAM_TEXT, 'Git commit hash', VALUE_DEFAULT, null),
+            'commithash'    => new external_value(PARAM_ALPHANUM, 'Git commit hash', VALUE_DEFAULT, null),
             'repourl'       => new external_value(
                 PARAM_TEXT,
                 'Git remote URL; any credentials in it are dropped',
                 VALUE_DEFAULT,
                 null
             ),
-            'startedat'     => new external_value(PARAM_INT, 'Run start (epoch milliseconds)', VALUE_DEFAULT, null),
-            'finishedat'    => new external_value(PARAM_INT, 'Run end (epoch milliseconds)', VALUE_DEFAULT, null),
+            'startedatms'   => new external_value(PARAM_INT, 'Run start (epoch milliseconds)', VALUE_DEFAULT, null),
+            'finishedatms'  => new external_value(PARAM_INT, 'Run end (epoch milliseconds)', VALUE_DEFAULT, null),
             'payload'       => new external_value(
                 PARAM_RAW,
                 'JSON object holding the run\'s "results" and "testfiles"; see payload_parameters()'
@@ -76,7 +76,7 @@ class submit_test_run extends external_api {
                 PARAM_BOOL,
                 'The student disabled code capture',
                 VALUE_DEFAULT,
-                0
+                false
             ),
         ]);
     }
@@ -97,7 +97,7 @@ class submit_test_run extends external_api {
                     'durationms' => new external_value(PARAM_INT, 'Duration ms', VALUE_DEFAULT, null),
                     'message'    => new external_value(PARAM_RAW, 'Failure message', VALUE_DEFAULT, null),
                     'source'     => new external_single_structure([
-                        'filepath'  => new external_value(PARAM_RAW, 'File the test lives in', VALUE_DEFAULT, null),
+                        'path'      => new external_value(PARAM_RAW, 'File the test lives in', VALUE_DEFAULT, null),
                         'startline' => new external_value(
                             PARAM_INT,
                             'First line, 1-based inclusive',
@@ -118,7 +118,7 @@ class submit_test_run extends external_api {
                 new external_single_structure([
                     'path'      => new external_value(PARAM_RAW, 'Repo-relative path'),
                     'content'   => new external_value(PARAM_RAW, 'File contents', VALUE_DEFAULT, null),
-                    'truncated' => new external_value(PARAM_BOOL, 'The content was cut short', VALUE_DEFAULT, 0),
+                    'truncated' => new external_value(PARAM_BOOL, 'The content was cut short', VALUE_DEFAULT, false),
                 ]),
                 'Test files captured with the run',
                 VALUE_DEFAULT,
@@ -136,8 +136,8 @@ class submit_test_run extends external_api {
      * @param string|null $projectname the project the tests ran in
      * @param string|null $commithash the commit the tests ran against
      * @param string|null $repourl the git remote the tests ran in
-     * @param int|null $startedat when the run started, in epoch milliseconds
-     * @param int|null $finishedat when the run finished, in epoch milliseconds
+     * @param int|null $startedatms when the run started, in epoch milliseconds
+     * @param int|null $finishedatms when the run finished, in epoch milliseconds
      * @param string $payload JSON holding the run's results and captured test files
      * @param bool $capturedisabled whether the student turned source capture off
      * @return array the new run id
@@ -149,8 +149,8 @@ class submit_test_run extends external_api {
         ?string $projectname,
         ?string $commithash,
         ?string $repourl,
-        ?int $startedat,
-        ?int $finishedat,
+        ?int $startedatms,
+        ?int $finishedatms,
         string $payload,
         bool $capturedisabled
     ): array {
@@ -166,13 +166,13 @@ class submit_test_run extends external_api {
             'projectname'     => $projectname,
             'commithash'      => $commithash,
             'repourl'         => $repourl,
-            'startedat'       => $startedat,
-            'finishedat'      => $finishedat,
+            'startedatms'     => $startedatms,
+            'finishedatms'    => $finishedatms,
             'payload'         => $payload,
             'capturedisabled' => $capturedisabled,
         ]);
         $submission = self::decode_submission($params);
-        self::validate_payload($submission);
+        self::validate_submission($submission);
 
         $repository = new repository($DB);
 
@@ -232,8 +232,8 @@ class submit_test_run extends external_api {
             projectname: $params['projectname'],
             commithash: $params['commithash'],
             repourl: git_remote::strip_credentials($params['repourl']),
-            startedat: $params['startedat'],
-            finishedat: $params['finishedat'],
+            startedatms: $params['startedatms'],
+            finishedatms: $params['finishedatms'],
             results: $results,
             testfiles: $testfiles,
             capturedisabled: $params['capturedisabled'],
@@ -259,7 +259,7 @@ class submit_test_run extends external_api {
      *
      * @param submission $submission
      */
-    private static function validate_payload(submission $submission): void {
+    private static function validate_submission(submission $submission): void {
         if (trim($submission->email) === '') {
             throw new validation_exception('validation_noemail');
         }
@@ -289,14 +289,14 @@ class submit_test_run extends external_api {
             }
         }
 
-        foreach ([$submission->startedat, $submission->finishedat] as $time) {
+        foreach ([$submission->startedatms, $submission->finishedatms] as $time) {
             if ($time !== null && $time < 0) {
                 throw new validation_exception('validation_invalidtiming');
             }
         }
         if (
-            $submission->startedat !== null && $submission->finishedat !== null
-                && $submission->finishedat < $submission->startedat
+            $submission->startedatms !== null && $submission->finishedatms !== null
+                && $submission->finishedatms < $submission->startedatms
         ) {
             throw new validation_exception('validation_invalidtiming');
         }
@@ -312,7 +312,7 @@ class submit_test_run extends external_api {
             return;
         }
 
-        if (trim((string) $source['filepath']) === '') {
+        if (trim((string) $source['path']) === '') {
             throw new validation_exception('validation_nosourcefilepath');
         }
 

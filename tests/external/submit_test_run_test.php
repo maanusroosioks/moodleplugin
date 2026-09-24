@@ -71,8 +71,8 @@ final class submit_test_run_test extends \advanced_testcase {
             'projectname'   => 'myproject',
             'commithash'    => 'abc123',
             'repourl'       => 'https://github.com/ada/calc.git',
-            'startedat'     => 1758134400000,
-            'finishedat'    => 1758134403120,
+            'startedatms'   => 1758134400000,
+            'finishedatms'  => 1758134403120,
             'results'       => [
                 ['testname' => 'testAdd', 'status' => 'PASSED', 'testsuite' => null,
                     'durationms' => 5, 'message' => null],
@@ -89,7 +89,7 @@ final class submit_test_run_test extends \advanced_testcase {
      */
     private function source(array $overrides = []): array {
         return array_merge([
-            'filepath'  => 'tests/test_calculator.py',
+            'path'      => 'tests/test_calculator.py',
             'startline' => 1,
             'endline'   => 2,
         ], $overrides);
@@ -152,8 +152,8 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame('myproject', $run->projectname);
         $this->assertSame('abc123', $run->commithash);
         $this->assertSame('https://github.com/ada/calc.git', $run->repourl);
-        $this->assertSame(1758134400000, (int) $run->startedat);
-        $this->assertSame(1758134403120, (int) $run->finishedat);
+        $this->assertSame(1758134400000, (int) $run->startedatms);
+        $this->assertSame(1758134403120, (int) $run->finishedatms);
         $this->assertSame(status::PASSED->value, $run->status);
         $this->assertSame(1, (int) $run->passedcount);
 
@@ -217,8 +217,8 @@ final class submit_test_run_test extends \advanced_testcase {
         global $DB;
 
         $returned = $this->submit($this->params([
-            'ide' => '  ' . str_repeat('i', 60) . '  ',
-            'commithash' => '  ' . str_repeat('h', 150) . '  ',
+            'ide' => str_repeat('i', 60),
+            'commithash' => str_repeat('h', 150),
             'repourl' => '  https://example.com/' . str_repeat('r', 1000) . '  ',
             'results' => [[
                 'testname' => '  ' . str_repeat('n', 1100) . '  ',
@@ -226,7 +226,7 @@ final class submit_test_run_test extends \advanced_testcase {
                 'testsuite' => '  ' . str_repeat('s', 300) . '  ',
                 'durationms' => null,
                 'message' => null,
-                'source' => $this->source(['filepath' => str_repeat('p', 1100)]),
+                'source' => $this->source(['path' => str_repeat('p', 1100)]),
             ]],
         ]));
 
@@ -249,16 +249,56 @@ final class submit_test_run_test extends \advanced_testcase {
             'projectname' => null,
             'commithash' => null,
             'repourl' => null,
-            'startedat' => null,
-            'finishedat' => null,
+            'startedatms' => null,
+            'finishedatms' => null,
         ]));
 
         $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
         $this->assertNull($run->projectname);
         $this->assertNull($run->commithash);
         $this->assertNull($run->repourl);
-        $this->assertNull($run->startedat);
-        $this->assertNull($run->finishedat);
+        $this->assertNull($run->startedatms);
+        $this->assertNull($run->finishedatms);
+    }
+
+    public function test_blank_optional_fields_are_stored_as_null(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params([
+            'projectname' => '   ',
+            'commithash' => '',
+            'repourl' => '  ',
+            'results' => [[
+                'testname' => 'testAdd',
+                'status' => 'PASSED',
+                'testsuite' => '  ',
+                'durationms' => null,
+                'message' => null,
+                'source' => ['path' => ' ', 'startline' => null, 'endline' => null],
+            ]],
+        ]));
+
+        $repository = new repository($DB);
+        $run = $repository->get_run($returned['runid'], $this->instance->id);
+        $this->assertNull($run->projectname);
+        $this->assertNull($run->commithash);
+        $this->assertNull($run->repourl);
+
+        $results = array_values($repository->get_results($returned['runid']));
+        $this->assertNull($results[0]->testsuite);
+        $this->assertNull($results[0]->sourcefilepath);
+    }
+
+    public function test_it_rejects_an_ide_that_is_not_an_identifier(): void {
+        $this->expectException(\invalid_parameter_exception::class);
+
+        $this->submit($this->params(['ide' => 'Visual Studio Code']));
+    }
+
+    public function test_it_rejects_a_commithash_that_is_not_alphanumeric(): void {
+        $this->expectException(\invalid_parameter_exception::class);
+
+        $this->submit($this->params(['commithash' => 'abc123; rm -rf']));
     }
 
     public function test_credentials_in_the_repo_url_are_never_stored(): void {
@@ -583,7 +623,7 @@ final class submit_test_run_test extends \advanced_testcase {
             'testsuite' => null,
             'durationms' => null,
             'message' => null,
-            'source' => ['filepath' => null, 'startline' => null, 'endline' => null],
+            'source' => ['path' => null, 'startline' => null, 'endline' => null],
         ]]]));
 
         $results = array_values((new repository($DB))->get_results($returned['runid']));
@@ -622,7 +662,7 @@ final class submit_test_run_test extends \advanced_testcase {
             'testsuite' => null,
             'durationms' => null,
             'message' => null,
-            'source' => $this->source(['filepath' => '']),
+            'source' => $this->source(['path' => '']),
         ]]]));
     }
 
@@ -760,7 +800,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->expectException(validation_exception::class);
         $this->expectExceptionMessage(get_string('validation_noide', 'mod_idetestfeedback'));
 
-        $this->submit($this->params(['ide' => '   ']));
+        $this->submit($this->params(['ide' => '']));
     }
 
     public function test_it_rejects_an_invalid_result_status(): void {
@@ -781,23 +821,23 @@ final class submit_test_run_test extends \advanced_testcase {
         ]]]));
     }
 
-    public function test_it_rejects_a_negative_startedat(): void {
+    public function test_it_rejects_a_negative_startedatms(): void {
         $this->expectException(validation_exception::class);
 
-        $this->submit($this->params(['startedat' => -1]));
+        $this->submit($this->params(['startedatms' => -1]));
     }
 
-    public function test_it_rejects_a_negative_finishedat(): void {
+    public function test_it_rejects_a_negative_finishedatms(): void {
         $this->expectException(validation_exception::class);
 
-        $this->submit($this->params(['finishedat' => -1]));
+        $this->submit($this->params(['finishedatms' => -1]));
     }
 
     public function test_it_rejects_a_run_finishing_before_it_started(): void {
         $this->expectException(validation_exception::class);
         $this->expectExceptionMessage(get_string('validation_invalidtiming', 'mod_idetestfeedback'));
 
-        $this->submit($this->params(['startedat' => 2000, 'finishedat' => 1000]));
+        $this->submit($this->params(['startedatms' => 2000, 'finishedatms' => 1000]));
     }
 
     public function test_it_rejects_an_unknown_email(): void {

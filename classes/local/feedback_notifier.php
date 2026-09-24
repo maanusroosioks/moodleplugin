@@ -16,6 +16,7 @@
 
 namespace mod_idetestfeedback\local;
 
+use cm_info;
 use core\message\message;
 use core\output\html_writer;
 use core\url;
@@ -33,17 +34,11 @@ class feedback_notifier {
     /**
      * Sets up a notifier for one activity.
      *
-     * @param stdClass $course the course the activity is in
-     * @param stdClass $instance the activity instance
-     * @param int $cmid the course module id, for the link back
+     * @param cm_info $cm the activity's course module
      */
     public function __construct(
-        /** @var stdClass The course the activity is in */
-        protected readonly stdClass $course,
-        /** @var stdClass The activity instance */
-        protected readonly stdClass $instance,
-        /** @var int The course module id, for the link back */
-        protected readonly int $cmid
+        /** @var cm_info The activity's course module */
+        protected readonly cm_info $cm
     ) {
     }
 
@@ -52,14 +47,14 @@ class feedback_notifier {
      *
      * @param stdClass $run the run that was commented on
      * @param stdClass[] $results the results that now carry new feedback
-     * @param stdClass $from the teacher who wrote it
+     * @param stdClass $author the teacher who wrote it
      * @return bool whether the message was accepted for delivery
      */
-    public function notify(stdClass $run, array $results, stdClass $from): bool {
+    public function notify(stdClass $run, array $results, stdClass $author): bool {
         $recipient = core_user::get_user((int) $run->userid, '*', MUST_EXIST);
 
         $rundetailurl = new url('/mod/idetestfeedback/view.php', [
-            'id' => $this->cmid,
+            'id' => $this->cm->id,
             'runid' => $run->id,
         ]);
 
@@ -87,13 +82,13 @@ class feedback_notifier {
         $message = new message();
         $message->component = 'mod_idetestfeedback';
         $message->name = 'feedback';
-        $message->courseid = $this->course->id;
-        $message->userfrom = $from;
+        $message->courseid = $this->cm->course;
+        $message->userfrom = $author;
         $message->userto = $recipient;
         $message->subject = get_string(
             'feedbackmsgsubject',
             'mod_idetestfeedback',
-            format_string($this->instance->name)
+            $this->cm->get_formatted_name()
         );
         $message->fullmessage = implode("\n", $textlines);
         $message->fullmessageformat = FORMAT_PLAIN;
