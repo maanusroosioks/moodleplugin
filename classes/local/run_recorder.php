@@ -41,8 +41,6 @@ class run_recorder {
 
     /**
      * Creates the recorder.
-     *
-     * @param repository $repository the activity's database access
      */
     public function __construct(
         /** @var repository The activity's database access */

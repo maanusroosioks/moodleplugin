@@ -28,8 +28,6 @@ use stdClass;
 class feedback_saver {
     /**
      * Creates the saver.
-     *
-     * @param repository $repository the activity's database access
      */
     public function __construct(
         /** @var repository The activity's database access */
@@ -38,14 +36,12 @@ class feedback_saver {
     }
 
     /**
-     * Stores the feedback that actually changed, ignoring results the form did
-     * not post so an absent textarea keeps whatever it already had.
+     * Stores the feedback that changed; results the form did not post are left alone.
      *
      * @param int $runid the run being commented on
      * @param array<int, string> $submitted result id => submitted feedback
      * @param int $authorid the teacher writing the feedback
-     * @return stdClass[] the results that now carry new feedback; cleared
-     *         feedback is saved but left out, because there is nothing to announce
+     * @return stdClass[] the results that now carry new feedback, not those cleared
      */
     public function save(int $runid, array $submitted, int $authorid): array {
         $changed = [];

@@ -44,7 +44,7 @@ final class git_remote {
     /**
      * The web page of a repository hosted on a web forge.
      *
-     * @param string|null $url a remote in http(s), ssh:// or scp-like user@host:path form
+     * @param string|null $url a remote in http(s), ssh://, git:// or scp-like user@host:path form
      * @return string|null the page, or null when the remote cannot be browsed
      */
     public static function web_url(?string $url): ?string {

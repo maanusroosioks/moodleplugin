@@ -33,15 +33,6 @@ use stdClass;
 class run_list implements renderable, templatable {
     /**
      * Creates the run list.
-     *
-     * @param stdClass[] $runs the runs on this page
-     * @param url $detailurl the run detail page, carrying the list state; each row adds its run id
-     * @param bool $showstudent whether to show the student column
-     * @param bool $viewfullnames whether the viewer may see full names
-     * @param string $summary a pass rate summary shown above the table
-     * @param string $totaltext how many runs matched, shown above the table
-     * @param string $filtermenus the rendered filter menus
-     * @param string $pagingbar the rendered paging bar
      */
     public function __construct(
         /** @var stdClass[] The runs on this page */

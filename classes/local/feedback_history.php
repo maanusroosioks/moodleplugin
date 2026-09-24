@@ -65,7 +65,7 @@ class feedback_history {
      *
      * @param string|null $testsuite the suite the IDE reported, if any
      * @param string $testname the test name the IDE reported
-     * @return string the key an occurrence of this test is held under
+     * @return string
      */
     protected static function key(?string $testsuite, string $testname): string {
         return \core_text::strtolower(trim((string) $testsuite))

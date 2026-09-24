@@ -501,10 +501,7 @@ final class repository_test extends \advanced_testcase {
     public function test_insert_run_rolls_back_the_run_on_failure(): void {
         global $DB;
 
-        // Moodle nests delegated transactions inside phpunit's own test transaction, so a
-        // rolled-back nested transaction only becomes visible once the outer one ends too.
-        // Ending the test transaction here makes the repository's transaction the real
-        // outermost one, so the rollback below takes effect immediately.
+        // Without phpunit's own transaction, the repository's is outermost and its rollback takes effect.
         $this->preventResetByRollback();
 
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
@@ -536,7 +533,6 @@ final class repository_test extends \advanced_testcase {
         $this->assertInstanceOf(\dml_exception::class, $thrown);
 
         // The transaction must have rolled back the run insert too.
-
         $this->assertSame(
             $before,
             $DB->count_records('idetestfeedback_run', ['idetestfeedbackid' => $this->instance->id])

@@ -65,7 +65,7 @@ final class feedback_saver_test extends \advanced_testcase {
     /**
      * The results of the test run, by test name.
      *
-     * @return array<int, \stdClass> this run's results keyed by testname
+     * @return array<string, \stdClass>
      */
     private function results_by_name(): array {
         $byid = [];

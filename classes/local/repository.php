@@ -29,8 +29,6 @@ class repository {
 
     /**
      * Creates the repository.
-     *
-     * @param \moodle_database $db the database to read and write through
      */
     public function __construct(
         /** @var \moodle_database The database to read and write through */
@@ -188,7 +186,7 @@ class repository {
     }
 
     /**
-     * Fetches a page of runs for the whole activity, newest first.
+     * Fetches a page of the activity's runs, newest first.
      *
      * @param int $instanceid the activity instance id
      * @param int $userid only this user's runs, or 0 for every user
@@ -292,7 +290,7 @@ class repository {
      *
      * @param int $instanceid the activity instance id
      * @param int $userid the student
-     * @return array [total runs, passing runs] for the user, computed in the DB
+     * @return int[] [total runs, passing runs]
      */
     public function get_pass_stats(int $instanceid, int $userid): array {
         $row = $this->db->get_record_sql(
@@ -355,10 +353,7 @@ class repository {
     }
 
     /**
-     * Stores a run with its results and files atomically, so a rejected result
-     * cannot leave behind a run whose counts describe rows that were never written.
-     *
-     * Every hash is derived here, so no caller can supply one of its own.
+     * Stores a run with its results and files atomically, deriving every content hash itself.
      *
      * @param \stdClass $run the run to insert
      * @param \stdClass[] $results its results; runid is filled in here
@@ -491,7 +486,7 @@ class repository {
      * Stores (or clears) a teacher's feedback on a single test case result.
      *
      * @param int $resultid the idetestfeedback_result id
-     * @param string $feedback the feedback text, in plain text; '' clears it
+     * @param string $feedback the feedback text, in plain text; blank clears it
      * @param int $authorid the teacher writing the feedback
      */
     public function update_result_feedback(int $resultid, string $feedback, int $authorid): void {
@@ -506,9 +501,7 @@ class repository {
     }
 
     /**
-     * Deletes runs and their results, optionally limited to specific users.
-     *
-     * A body outlives the run that stored it while another run points at it.
+     * Deletes runs with their results and files, and any body no run points at any more.
      *
      * @param int $instanceid the activity instance id
      * @param int[]|null $userids null for every user, otherwise only these users

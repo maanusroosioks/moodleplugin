@@ -74,9 +74,7 @@ class restore_idetestfeedback_activity_structure_step extends restore_activity_s
         $data->timeopen = $this->apply_date_offset($data->timeopen);
         $data->timeclose = $this->apply_date_offset($data->timeclose);
 
-        // The key is unique site-wide, so a duplicate of an activity that still
-        // exists has to be issued its own. A restore onto a site that has never
-        // seen this key keeps it, so the keys students already hold keep working.
+        // Keys are unique site-wide: keep this one unless it is taken, as when duplicating.
         if ($DB->record_exists('idetestfeedback', ['assignmentkey' => $data->assignmentkey])) {
             $data->assignmentkey = assignment_key::generate();
         }

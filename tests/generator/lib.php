@@ -36,13 +36,10 @@ use mod_idetestfeedback\local\status;
  */
 class mod_idetestfeedback_generator extends testing_module_generator {
     /**
-     * Stores a run and its results, the way the web service would.
+     * Stores a run with its results and files through the repository, skipping web service validation.
      *
-     * Hashes are derived from the content, so a record cannot assert one.
-     *
-     * @param array $record 'idetestfeedbackid', 'userid' and 'results', where each
-     *        result is ['testname' => …, 'status' => …, 'testsuite' => …]; optional
-     *        'files', each ['path' => …, 'content' => …]
+     * @param array $record 'idetestfeedbackid', 'userid' and 'results' (result columns, testname and
+     *        status required); optionally any other run column, and 'files' (path, content, truncated)
      * @return stdClass the stored run, carrying its new id
      */
     public function create_run(array $record): stdClass {

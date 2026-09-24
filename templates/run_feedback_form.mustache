@@ -5,9 +5,8 @@
     with. The feedback inputs live in mod_idetestfeedback/run_results, which is
     included here as a partial so the same markup backs the read-only view.
 
-    The inputs are plain markup rather than form elements because there is one
-    textarea per result row; mod_idetestfeedback\view reads them back as the
-    feedback[] array after confirming the session key posted below.
+    mod_idetestfeedback\view reads the textareas back as feedback[] after
+    checking the session key posted below.
 
     Example context (json):
     {

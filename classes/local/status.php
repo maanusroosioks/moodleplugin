@@ -19,9 +19,7 @@ namespace mod_idetestfeedback\local;
 /**
  * The statuses a test case result, and a run as a whole, can carry.
  *
- * Reported by the IDE and stored verbatim, so they are not translated. Values
- * read back from the database are plain strings; resolve them with tryFrom(),
- * which gives null for anything unrecognised.
+ * Stored as the IDE reported them (uppercased) and shown untranslated.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
@@ -33,10 +31,7 @@ enum status: string {
     case ERROR = 'ERROR';
     case SKIPPED = 'SKIPPED';
 
-    /**
-     * @var string Filter menu sentinel meaning "any status". Empty so that it can
-     * never collide with a status added later, and so tryFrom() rejects it.
-     */
+    /** @var string Filter value meaning any status; empty so tryFrom() never accepts it. */
     public const ANY = '';
 
     /**

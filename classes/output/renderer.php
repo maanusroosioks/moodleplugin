@@ -31,8 +31,8 @@ use stdClass;
  */
 class renderer extends plugin_renderer_base {
     /**
-     * The run summary, then its results, wrapped in the feedback form when the
-     * viewer may comment.
+     * The run summary, its results (inside the feedback form when the viewer may
+     * comment) and its files.
      *
      * @param run_detail $detail one run in full
      * @return string
@@ -108,11 +108,8 @@ class renderer extends plugin_renderer_base {
     }
 
     /**
-     * Colours the code blocks with the highlighter the core filter ships.
-     *
-     * Its AMD module highlights every language-tagged block on the page, so it
-     * works without the filter being enabled. A site that has uninstalled the
-     * filter simply gets plain code rather than a missing module.
+     * Colours language-tagged code blocks with filter_codehighlighter's Prism build,
+     * which works whether or not the filter is enabled.
      */
     protected function require_highlighter(): void {
         if (\core_component::get_component_directory('filter_codehighlighter') === null) {

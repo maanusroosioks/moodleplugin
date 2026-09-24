@@ -43,7 +43,7 @@ final class feedback_history_test extends \basic_testcase {
     }
 
     /**
-     * Every pair of statuses and the outcome between them.
+     * Status pairs and the outcome between them.
      *
      * @return array[]
      */

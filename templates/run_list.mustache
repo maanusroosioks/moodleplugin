@@ -34,7 +34,7 @@
     <div class="alert alert-info">{{.}}</div>
 {{/summary}}
 
-{{! Core widgets, rendered by the core renderer before they reach the template. }}
+{{! Pre-rendered HTML from the renderer. }}
 {{{filtermenus}}}
 
 {{#totaltext}}
@@ -84,4 +84,5 @@
     </table>
 </div>
 
+{{! Pre-rendered HTML from the renderer. }}
 {{{pagingbar}}}

@@ -17,7 +17,7 @@
 namespace mod_idetestfeedback\output;
 
 /**
- * Tests for the status/run coloured badge.
+ * Tests for the status badge.
  *
  * @package    mod_idetestfeedback
  * @category   test

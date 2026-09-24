@@ -26,18 +26,6 @@ namespace mod_idetestfeedback\local;
 final class submission {
     /**
      * Holds a validated submission.
-     *
-     * @param string $email the student the middleware authenticated
-     * @param string $assignmentkey the key shown on the activity
-     * @param string $ide the IDE the run came from
-     * @param string|null $projectname the project the tests ran in
-     * @param string|null $commithash the commit the tests ran against
-     * @param string|null $repourl the git remote the tests ran in, without credentials
-     * @param int|null $startedatms when the run started, in epoch milliseconds
-     * @param int|null $finishedatms when the run finished, in epoch milliseconds
-     * @param array[] $results the test case results, statuses uppercased
-     * @param array[] $testfiles the captured test files
-     * @param bool $capturedisabled whether the student turned source capture off
      */
     public function __construct(
         /** @var string The student the middleware authenticated */

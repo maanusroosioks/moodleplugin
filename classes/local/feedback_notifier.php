@@ -33,8 +33,6 @@ use stdClass;
 class feedback_notifier {
     /**
      * Sets up a notifier for one activity.
-     *
-     * @param cm_info $cm the activity's course module
      */
     public function __construct(
         /** @var cm_info The activity's course module */

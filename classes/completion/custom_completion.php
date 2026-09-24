@@ -47,7 +47,7 @@ class custom_completion extends activity_custom_completion {
     /**
      * The custom completion rules this activity defines.
      *
-     * @return string[] the rules this activity defines
+     * @return string[]
      */
     #[\Override]
     public static function get_defined_custom_rules(): array {
@@ -69,7 +69,7 @@ class custom_completion extends activity_custom_completion {
     /**
      * The order the completion rules are displayed in.
      *
-     * @return string[] the order the rules are displayed in
+     * @return string[]
      */
     #[\Override]
     public function get_sort_order(): array {

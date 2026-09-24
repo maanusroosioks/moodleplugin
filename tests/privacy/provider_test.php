@@ -61,9 +61,9 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
-     * The repository under test.
+     * The activity's database access.
      *
-     * @return repository the activity's database access
+     * @return repository
      */
     private function repository(): repository {
         global $DB;

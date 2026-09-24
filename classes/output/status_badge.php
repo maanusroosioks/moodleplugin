@@ -32,9 +32,7 @@ use mod_idetestfeedback\local\status;
  */
 class status_badge implements renderable, templatable {
     /**
-     * Constructor.
-     *
-     * @param string $status a status as stored on the run or result row
+     * Creates the badge.
      */
     public function __construct(
         /** @var string A status as stored on the run or result row */
@@ -67,7 +65,6 @@ class status_badge implements renderable, templatable {
     public function export_for_template(renderer_base $output): array {
         $status = status::tryFrom($this->status);
 
-        // ERROR shares the danger background with FAILED and is set apart by a plugin CSS class.
         $classes = match ($status) {
             status::PASSED => 'bg-success',
             status::FAILED, status::ERROR => 'bg-danger',

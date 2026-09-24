@@ -196,7 +196,6 @@ class provider implements
                     'projectname'  => $run->projectname,
                     'commithash'   => $run->commithash,
                     'repourl'      => $run->repourl,
-                    // Stored in milliseconds, as the IDE reports them.
                     'startedat'    => $run->startedatms
                         ? transform::datetime(intdiv((int) $run->startedatms, 1000)) : null,
                     'finishedat'   => $run->finishedatms

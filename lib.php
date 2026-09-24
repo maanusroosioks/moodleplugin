@@ -180,7 +180,7 @@ function idetestfeedback_view(
 }
 
 /**
- * Surfaces the custom completion rule to the course page and completion reports.
+ * The cached course module info: name, description and the custom completion rule.
  *
  * @param stdClass $coursemodule the course module being displayed
  * @return cached_cm_info|false the cached info, or false when the instance is gone

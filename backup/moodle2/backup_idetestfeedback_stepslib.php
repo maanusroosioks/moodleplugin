@@ -68,8 +68,7 @@ class backup_idetestfeedback_activity_structure_step extends backup_activity_str
 
         $idetestfeedback->set_source_table('idetestfeedback', ['id' => backup::VAR_ACTIVITYID]);
 
-        // A run, its results and its files are the students' data, so they only
-        // travel with user info.
+        // Runs, results and files are student data, so they only travel with user info.
         if ($userinfo) {
             $run->set_source_table('idetestfeedback_run', ['idetestfeedbackid' => backup::VAR_PARENTID], 'id ASC');
             $result->set_source_table('idetestfeedback_result', ['runid' => backup::VAR_PARENTID], 'id ASC');

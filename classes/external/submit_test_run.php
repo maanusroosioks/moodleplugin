@@ -325,7 +325,7 @@ class submit_test_run extends external_api {
     }
 
     /**
-     * Resolves the student and activity a submission names, and checks it is welcome.
+     * Resolves the student and activity a submission names, and checks the student may submit now.
      *
      * @param repository $repository the activity's database access
      * @param submission $submission

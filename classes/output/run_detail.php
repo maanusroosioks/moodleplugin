@@ -36,7 +36,7 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class run_detail implements renderable, templatable {
-    /** @var int Most bytes of file content shown on the run page; larger files open on their own page. */
+    /** @var int Total bytes of file content shown inline on the run page; the rest open on their own page. */
     public const INLINE_FILE_BYTES = 1048576;
 
     /** @var array<string, stdClass> The run's files, by the path results join to them on. */
@@ -44,19 +44,6 @@ class run_detail implements renderable, templatable {
 
     /**
      * Creates the run detail.
-     *
-     * @param stdClass $run the run being shown
-     * @param stdClass[] $results the run's test case results
-     * @param stdClass[] $files the test files captured with the run
-     * @param string|null $studentname the run's owner, or null to leave it out
-     * @param context $context the activity context, for formatting feedback
-     * @param bool $cancomment whether the viewer may edit feedback
-     * @param feedback_history $history the tests a teacher commented on in the student's earlier runs
-     * @param url $backurl the run list this run was opened from
-     * @param url $runurl the run's own page, which the feedback form posts to and files open from
-     * @param int $page zero based page number within the results
-     * @param int $perpage results per page
-     * @param string $pagingbar the rendered paging bar
      */
     public function __construct(
         /** @var stdClass The run being shown */
@@ -138,9 +125,8 @@ class run_detail implements renderable, templatable {
     /**
      * Builds the run summary rows.
      *
-     * Each row carries a label plus exactly one of text, code, strong or
-     * badge, so the template decides the markup and nothing is exported
-     * pre-escaped.
+     * Each row carries a label and one of text, code, link, strong, badge or
+     * badges, so the template owns the markup and nothing is exported pre-escaped.
      *
      * @param renderer_base $output
      * @return array[]
@@ -208,7 +194,7 @@ class run_detail implements renderable, templatable {
     }
 
     /**
-     * The run's own clock, as the IDE reported it in milliseconds.
+     * Start, finish and duration rows, from the IDE's millisecond timestamps.
      *
      * @return array[]
      */
@@ -263,10 +249,9 @@ class run_detail implements renderable, templatable {
     }
 
     /**
-     * What the student chose about code capture, which decides how much of this
-     * run can be taken at face value.
+     * A row flagging that the student turned code capture off.
      *
-     * @return array[] at most one row, holding a badge when capture was disabled
+     * @return array[] one row when capture was disabled, otherwise none
      */
     protected function flag_rows(): array {
         if (empty($this->run->capturedisabled)) {
@@ -365,13 +350,12 @@ class run_detail implements renderable, templatable {
      * The code one test case ran, for the collapsible row beneath its result.
      *
      * @param stdClass $result one test case result
-     * @return array|null null when the IDE said nothing at all about this test
+     * @return array|null null when the result names no file and the run captured none
      */
     protected function source_block(stdClass $result): ?array {
         $kind = source_kind::of($result);
 
-        // Naming no file is only a report that the test was not found when the
-        // run looked; a run carrying no files at all says nothing either way.
+        // With no files captured at all, a missing path does not mean the test was not found.
         if ($kind === source_kind::NONE && !$this->files) {
             return null;
         }
@@ -417,7 +401,7 @@ class run_detail implements renderable, templatable {
      * The run's copy of the file a result names.
      *
      * @param stdClass $result one test case result
-     * @return stdClass|null the run's copy of the file the result names, if it has one
+     * @return stdClass|null null when the run has no copy
      */
     protected function file_of(stdClass $result): ?stdClass {
         return $this->filesbypath[(string) ($result->sourcefilepath ?? '')] ?? null;
@@ -475,8 +459,8 @@ class run_detail implements renderable, templatable {
     /**
      * Builds one template row per captured test file.
      *
-     * Bodies are shown in path order until INLINE_FILE_BYTES is spent; the
-     * rest link to a page of their own instead.
+     * Bodies are shown inline, in path order, while they fit in INLINE_FILE_BYTES;
+     * the rest link to a page of their own.
      *
      * @return array[]
      */

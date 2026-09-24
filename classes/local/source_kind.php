@@ -17,9 +17,7 @@
 namespace mod_idetestfeedback\local;
 
 /**
- * How much of a file a test case result points at.
- *
- * Derived from the result rather than stored: what a result names is what it found.
+ * How much of a file a test case result points at, derived from its source columns.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks

@@ -87,13 +87,7 @@ class view {
     /**
      * Sets the page up and settles every access question, before any output.
      *
-     * @param int $cmid the course module id
-     * @param int $runid the run to show in detail, or 0 for the run list
-     * @param int $page zero based page number within the run list, or within the run's results
-     * @param int $filteruserid show only this student's runs, or 0 for all students
      * @param string $filterstatus show only runs with this status, or '' for all statuses
-     * @param int $listpage the run list page a run was opened from, for the way back
-     * @param int $fileid the run's file to show on its own, or 0 for the whole run
      */
     public function __construct(
         /** @var int The course module id */
@@ -179,8 +173,7 @@ class view {
     /**
      * Saves feedback posted from the run detail page and redirects back to it.
      *
-     * The feedback fields are plain markup rather than form elements, so the
-     * session key posted by mod_idetestfeedback/run_feedback_form is confirmed here.
+     * The form is a template rather than a moodleform, so the session key is checked here.
      */
     public function handle_post(): void {
         if (!optional_param('savefeedback', 0, PARAM_BOOL)) {
@@ -216,9 +209,8 @@ class view {
     /**
      * The feedback text posted for each result, keyed by result id.
      *
-     * Only fields that were actually posted, so an absent textarea keeps its
-     * stored feedback. Raw because PARAM_TEXT would strip List<String> and the
-     * like; output is escaped by format_text() and the template.
+     * Raw because PARAM_TEXT would strip List<String> and the like; output is
+     * escaped by format_text() and the template.
      *
      * @return array<int, string> result id => submitted feedback
      */

@@ -17,28 +17,21 @@
 namespace mod_idetestfeedback\local;
 
 /**
- * Reading the source code an IDE captured with a run.
- *
- * A test's body is carried once, in the run's file, and the excerpt a result
- * points at is cut out here rather than stored twice.
+ * Canonicalises, hashes and excerpts the source code an IDE captured with a run.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class source_code {
-    /**
-     * @var string Matches the line an IDE appends to a string it cut short.
-     * The marker is not source, so it is dropped before anything is counted.
-     */
+    /** @var string Matches the marker line an IDE appends to a string it cut short. */
     private const MARKER = '/\n?\x{2026} \[truncated[^\]\n]*\]\s*$/u';
 
     /**
      * Converts line endings to LF and removes the trailing truncation marker.
      *
      * @param string $code source as it was received
-     * @return string the same source without the trailing truncation marker, if it had one,
-     *     or unchanged but for line endings if it is not valid UTF-8
+     * @return string the source without the marker; only line endings change if it is not valid UTF-8
      */
     private static function strip_marker(string $code): string {
         $code = str_replace(["\r\n", "\r"], "\n", $code);
@@ -47,9 +40,8 @@ class source_code {
     }
 
     /**
-     * The form source is compared in: byte order mark, line endings, trailing
-     * whitespace and the final newline only. Anything needing a parser per
-     * language is left alone.
+     * Normalises source for hashing: drops the truncation marker and byte order mark,
+     * converts line endings to LF, and strips trailing whitespace and trailing blank lines.
      *
      * @param string $code source as it was received
      * @return string the same source in the form it is hashed in
