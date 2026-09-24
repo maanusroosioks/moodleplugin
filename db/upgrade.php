@@ -29,9 +29,21 @@
  * @return bool
  */
 function xmldb_idetestfeedback_upgrade($oldversion): bool {
+    global $DB;
+
+    $dbman = $DB->get_manager();
+
     // Pre-release builds had a different schema and no path forward from it.
     if ($oldversion < 2026092306) {
         throw new \core\exception\moodle_exception('upgradefromprerelease', 'mod_idetestfeedback');
+    }
+
+    if ($oldversion < 2026092308) {
+        $table = new xmldb_table('idetestfeedback_run');
+        $field = new xmldb_field('repourl', XMLDB_TYPE_CHAR, '1024', null, null, null, null, 'commithash');
+        $dbman->change_field_precision($table, $field);
+
+        upgrade_mod_savepoint(true, 2026092308, 'idetestfeedback');
     }
 
     return true;

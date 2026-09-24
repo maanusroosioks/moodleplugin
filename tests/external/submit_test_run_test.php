@@ -219,7 +219,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $returned = $this->submit($this->params([
             'ide' => '  ' . str_repeat('i', 60) . '  ',
             'commithash' => '  ' . str_repeat('h', 150) . '  ',
-            'repourl' => '  https://example.com/' . str_repeat('r', 300) . '  ',
+            'repourl' => '  https://example.com/' . str_repeat('r', 1000) . '  ',
             'results' => [[
                 'testname' => '  ' . str_repeat('n', 1100) . '  ',
                 'status' => 'PASSED',
@@ -234,7 +234,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $run = $repository->get_run($returned['runid'], $this->instance->id);
         $this->assertSame(str_repeat('i', 50), $run->ide);
         $this->assertSame(str_repeat('h', 100), $run->commithash);
-        $this->assertSame(\core_text::substr('https://example.com/' . str_repeat('r', 300), 0, 255), $run->repourl);
+        $this->assertSame('https://example.com/' . str_repeat('r', 1000), $run->repourl);
 
         $results = array_values($repository->get_results($returned['runid']));
         $this->assertSame(str_repeat('n', 1024), $results[0]->testname);
@@ -270,6 +270,17 @@ final class submit_test_run_test extends \advanced_testcase {
 
         $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
         $this->assertSame('https://github.com/ada/calc.git', $run->repourl);
+    }
+
+    public function test_a_repo_url_too_long_to_store_whole_is_dropped(): void {
+        global $DB;
+
+        $returned = $this->submit($this->params([
+            'repourl' => 'https://example.com/' . str_repeat('r', 1024),
+        ]));
+
+        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
+        $this->assertNull($run->repourl);
     }
 
     public function test_a_blank_repo_url_is_stored_as_null(): void {

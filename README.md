@@ -71,7 +71,7 @@ no role by default)
 | `ide` | text | yes | IDE identifier, e.g. `VSCODE`. Must not be blank. |
 | `projectname` | text | no | |
 | `commithash` | text | no | |
-| `repourl` | text | no | Git remote, e.g. `https://github.com/ada/calc.git` or `git@github.com:ada/calc.git`. Credentials in it (`user:token@`) are removed before storing. When it points at a web host, the commit hash links to `<repo>/commit/<hash>`. |
+| `repourl` | text | no | Git remote, e.g. `https://github.com/ada/calc.git` or `git@github.com:ada/calc.git`. Credentials in it (`user:token@`) are removed before storing. One longer than 1024 characters is not stored. When it points at a web host, the commit hash links to `<repo>/commit/<hash>`. |
 | `startedat` | int | no | Epoch **milliseconds**. |
 | `finishedat` | int | no | Epoch **milliseconds**. |
 | `payload` | text | yes | JSON object holding `results` and `testfiles` (see below). |
@@ -149,7 +149,8 @@ Nothing a client sends is taken on trust, and the two hash parameters earlier
 versions accepted have been removed. The only hash kept is the one each file
 body is stored under, so identical bodies share one `idetestfeedback_blob` row.
 
-Before hashing, a body is canonicalised: CRLF and CR become LF, trailing
+Before hashing, a body is canonicalised: a leading UTF-8 byte order mark is
+removed, CRLF and CR become LF, trailing
 whitespace goes from each line, and the trailing newline is dropped. Nothing
 else. Comments, tokens and indentation are **not** folded away, because doing
 that needs a parser per language and Moodle has no business owning one.
@@ -163,7 +164,7 @@ Each `testfiles` entry:
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `path` | text | yes | Repo-relative path. Must not be blank. One row per path: a repeated path keeps the first entry. |
-| `content` | text | no | Clipped to 512 KB, setting `truncated`. Stored canonicalised, so it may differ from what was posted by its line endings and trailing whitespace. |
+| `content` | text | no | Clipped to 512 KB, setting `truncated`. Stored canonicalised, so it may differ from what was posted by a byte order mark, its line endings and trailing whitespace. |
 | `truncated` | bool | no | The content is not the whole file. |
 
 ### Returns

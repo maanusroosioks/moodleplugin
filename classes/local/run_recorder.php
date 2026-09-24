@@ -32,7 +32,7 @@ class run_recorder {
         'ide'            => 50,
         'projectname'    => 255,
         'commithash'     => 100,
-        'repourl'        => 255,
+        'repourl'        => 1024,
         'testsuite'      => 255,
         'testname'       => 1024,
         'sourcefilepath' => 1024,
@@ -68,7 +68,7 @@ class run_recorder {
         $run->ide                 = self::clip($submission->ide, 'ide');
         $run->projectname         = self::clip($submission->projectname, 'projectname');
         $run->commithash          = self::clip($submission->commithash, 'commithash');
-        $run->repourl             = self::clip($submission->repourl, 'repourl');
+        $run->repourl             = self::whole_or_null($submission->repourl, 'repourl');
         $run->startedat           = $submission->startedat;
         $run->finishedat          = $submission->finishedat;
         $run->status              = status::worst($counts)->value;
@@ -163,6 +163,23 @@ class run_recorder {
         }
 
         return \core_text::substr(trim($value), 0, self::MAX_LENGTHS[$field]);
+    }
+
+    /**
+     * Trims a value and drops it if it does not fit its column.
+     *
+     * @param string|null $value the submitted value
+     * @param string $field the key into {@see MAX_LENGTHS}
+     * @return string|null
+     */
+    private static function whole_or_null(?string $value, string $field): ?string {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return \core_text::strlen($value) > self::MAX_LENGTHS[$field] ? null : $value;
     }
 
     /**
