@@ -120,6 +120,7 @@ $string['runflags'] = 'Flags';
 $string['runnotfound'] = 'Test run not found.';
 $string['savefeedback'] = 'Save feedback';
 $string['skipped'] = 'Skipped';
+$string['sourcecode'] = 'Source code';
 $string['sourcenotcaptured'] = 'No source code was captured.';
 $string['sourcenotfound'] = 'Not found in the project source';
 $string['sourcewholefile'] = 'The test could not be picked out of this file. The whole file is below.';
