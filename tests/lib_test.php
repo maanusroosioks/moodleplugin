@@ -37,6 +37,7 @@ use stdClass;
 #[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_get_coursemodule_info')]
 #[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_reset_userdata')]
 #[\PHPUnit\Framework\Attributes\CoversFunction('idetestfeedback_view')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('mod_idetestfeedback_core_calendar_provide_event_action')]
 final class lib_test extends advanced_testcase {
     #[\Override]
     protected function setUp(): void {
@@ -63,6 +64,50 @@ final class lib_test extends advanced_testcase {
             'timeopen' => 0,
             'timeclose' => 0,
         ], $overrides);
+    }
+
+    /**
+     * Creates an activity in a course with completion tracking on.
+     *
+     * @param array $options the activity's completion settings
+     * @return array{0:stdClass,1:stdClass} [the course, the activity]
+     */
+    private function completion_activity(array $options): array {
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id] + $options);
+
+        return [$course, $instance];
+    }
+
+    /**
+     * The conditions that find an activity's "expected completed on" calendar event.
+     *
+     * @param int $instanceid the activity
+     * @return array
+     */
+    private static function expected_completion_conditions(int $instanceid): array {
+        return [
+            'modulename' => 'idetestfeedback',
+            'instance' => $instanceid,
+            'eventtype' => \core_completion\api::COMPLETION_EVENT_TYPE_DATE_COMPLETION_EXPECTED,
+        ];
+    }
+
+    /**
+     * Creates an activity holding one run.
+     *
+     * @return array{0:stdClass,1:stdClass,2:stdClass} [the course, the activity, the run]
+     */
+    private function activity_with_run(): array {
+        $course = $this->getDataGenerator()->create_course();
+        $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $run = $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
+            'idetestfeedbackid' => $instance->id,
+            'userid' => $student->id,
+        ]);
+
+        return [$course, $instance, $run];
     }
 
     public function test_add_instance_generates_a_32_character_hex_assignment_key(): void {
@@ -105,18 +150,12 @@ final class lib_test extends advanced_testcase {
     public function test_expected_completion_date_is_put_on_the_calendar_and_taken_off(): void {
         global $DB;
 
-        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
         $expected = time() + DAYSECS;
-        $instance = $this->getDataGenerator()->create_module('idetestfeedback', [
-            'course' => $course->id,
+        [$course, $instance] = $this->completion_activity([
             'completion' => COMPLETION_TRACKING_AUTOMATIC,
             'completionexpected' => $expected,
         ]);
-        $conditions = [
-            'modulename' => 'idetestfeedback',
-            'instance' => $instance->id,
-            'eventtype' => \core_completion\api::COMPLETION_EVENT_TYPE_DATE_COMPLETION_EXPECTED,
-        ];
+        $conditions = self::expected_completion_conditions($instance->id);
 
         $this->assertEquals($expected, $DB->get_field('event', 'timestart', $conditions, MUST_EXIST));
 
@@ -130,14 +169,7 @@ final class lib_test extends advanced_testcase {
     public function test_delete_instance_removes_the_instance_and_its_runs(): void {
         global $DB;
 
-        $course = $this->getDataGenerator()->create_course();
-        $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
-        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
-        $run = $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
-            'idetestfeedbackid' => $instance->id,
-            'userid' => $student->id,
-            'results' => [['testname' => 'testAdd', 'status' => 'PASSED']],
-        ]);
+        [, $instance, $run] = $this->activity_with_run();
 
         $this->assertTrue(idetestfeedback_delete_instance($instance->id));
 
@@ -187,9 +219,7 @@ final class lib_test extends advanced_testcase {
     }
 
     public function test_get_coursemodule_info_surfaces_the_completion_rule(): void {
-        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
-        $instance = $this->getDataGenerator()->create_module('idetestfeedback', [
-            'course' => $course->id,
+        [, $instance] = $this->completion_activity([
             'completion' => COMPLETION_TRACKING_AUTOMATIC,
             'completionpassrun' => 1,
         ]);
@@ -203,9 +233,7 @@ final class lib_test extends advanced_testcase {
     }
 
     public function test_get_coursemodule_info_omits_completion_rules_when_tracking_is_manual(): void {
-        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
-        $instance = $this->getDataGenerator()->create_module('idetestfeedback', [
-            'course' => $course->id,
+        [, $instance] = $this->completion_activity([
             'completion' => COMPLETION_TRACKING_MANUAL,
             'completionpassrun' => 1,
         ]);
@@ -219,14 +247,7 @@ final class lib_test extends advanced_testcase {
     public function test_reset_userdata_deletes_runs_when_requested(): void {
         global $DB;
 
-        $course = $this->getDataGenerator()->create_course();
-        $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
-        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
-        $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
-            'idetestfeedbackid' => $instance->id,
-            'userid' => $student->id,
-            'results' => [['testname' => 'testAdd', 'status' => 'PASSED']],
-        ]);
+        [$course, $instance] = $this->activity_with_run();
 
         $status = idetestfeedback_reset_userdata((object) [
             'courseid' => $course->id,
@@ -241,14 +262,7 @@ final class lib_test extends advanced_testcase {
     public function test_reset_userdata_leaves_runs_when_not_requested(): void {
         global $DB;
 
-        $course = $this->getDataGenerator()->create_course();
-        $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
-        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
-        $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
-            'idetestfeedbackid' => $instance->id,
-            'userid' => $student->id,
-            'results' => [['testname' => 'testAdd', 'status' => 'PASSED']],
-        ]);
+        [$course, $instance] = $this->activity_with_run();
 
         $status = idetestfeedback_reset_userdata((object) ['courseid' => $course->id]);
 
@@ -281,9 +295,7 @@ final class lib_test extends advanced_testcase {
         global $CFG;
         require_once($CFG->libdir . '/completionlib.php');
 
-        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
-        $instance = $this->getDataGenerator()->create_module('idetestfeedback', [
-            'course' => $course->id,
+        [$course, $instance] = $this->completion_activity([
             'completion' => COMPLETION_TRACKING_AUTOMATIC,
             'completionview' => COMPLETION_VIEW_REQUIRED,
         ]);
@@ -298,6 +310,66 @@ final class lib_test extends advanced_testcase {
         $this->assertInstanceOf(\mod_idetestfeedback\event\course_module_viewed::class, reset($events));
         $completion = new completion_info($course);
         $this->assertSame(COMPLETION_COMPLETE, (int) $completion->get_data($cm, false, $student->id)->completionstate);
+    }
+
+    /**
+     * Creates an activity whose expected completion date is on a student's calendar.
+     *
+     * @return array{0:\calendar_event,1:\cm_info,2:stdClass} [the event, the activity, the student]
+     */
+    private function expected_completion_event(): array {
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/calendar/lib.php');
+        require_once($CFG->libdir . '/completionlib.php');
+
+        [$course, $instance] = $this->completion_activity([
+            'completion' => COMPLETION_TRACKING_MANUAL,
+            'completionexpected' => time() + DAYSECS,
+        ]);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        [, $cm] = get_course_and_cm_from_instance($instance->id, 'idetestfeedback');
+
+        $eventid = $DB->get_field('event', 'id', self::expected_completion_conditions($instance->id), MUST_EXIST);
+
+        return [\calendar_event::load($eventid), $cm, $student];
+    }
+
+    /**
+     * The action the calendar offers a student on an event.
+     *
+     * @param \calendar_event $event the event
+     * @param stdClass $student the student it is shown to
+     * @return \core_calendar\local\event\entities\action_interface|null
+     */
+    private static function calendar_action(
+        \calendar_event $event,
+        stdClass $student
+    ): ?\core_calendar\local\event\entities\action_interface {
+        return mod_idetestfeedback_core_calendar_provide_event_action(
+            $event,
+            new \core_calendar\action_factory(),
+            (int) $student->id
+        );
+    }
+
+    public function test_the_calendar_offers_to_view_an_activity_not_yet_completed(): void {
+        [$event, $cm, $student] = $this->expected_completion_event();
+
+        $action = self::calendar_action($event, $student);
+
+        $this->assertNotNull($action);
+        $this->assertSame(get_string('view'), $action->get_name());
+        $this->assertEquals(new \core\url('/mod/idetestfeedback/view.php', ['id' => $cm->id]), $action->get_url());
+        $this->assertTrue($action->is_actionable());
+    }
+
+    public function test_the_calendar_offers_nothing_once_the_activity_is_completed(): void {
+        [$event, $cm, $student] = $this->expected_completion_event();
+        (new completion_info($cm->get_course()))->update_state($cm, COMPLETION_COMPLETE, $student->id);
+
+        $action = self::calendar_action($event, $student);
+
+        $this->assertNull($action);
     }
 
     public function test_reset_course_form_defaults_enables_the_reset_by_default(): void {

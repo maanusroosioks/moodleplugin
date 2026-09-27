@@ -18,7 +18,7 @@ namespace mod_idetestfeedback\output;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once(__DIR__ . '/../fixtures/testable_run_detail_paging.php');
+require_once(__DIR__ . '/../fixtures/testable_run_detail.php');
 
 /**
  * Tests for how the run detail pages its results.
@@ -40,20 +40,7 @@ final class run_detail_paging_test extends \advanced_testcase {
     private function ids(int $page, int $perpage): array {
         $results = array_map(fn(int $id) => (object) ['id' => $id], range(1, 5));
 
-        $detail = new testable_run_detail_paging(
-            run: (object) ['id' => 1],
-            results: $results,
-            files: [],
-            studentname: null,
-            context: \context_system::instance(),
-            cancomment: false,
-            history: new \mod_idetestfeedback\local\feedback_history([]),
-            backurl: new \core\url('/'),
-            runurl: new \core\url('/'),
-            page: $page,
-            perpage: $perpage,
-            pagingbar: ''
-        );
+        $detail = testable_run_detail::create(results: $results, page: $page, perpage: $perpage);
 
         return array_map(fn(\stdClass $result) => $result->id, $detail->page());
     }

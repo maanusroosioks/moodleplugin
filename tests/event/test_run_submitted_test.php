@@ -42,8 +42,7 @@ final class test_run_submitted_test extends \advanced_testcase {
 
         $course = $this->getDataGenerator()->create_course();
         $this->instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
-        $cm = get_coursemodule_from_instance('idetestfeedback', $this->instance->id);
-        $this->context = \context_module::instance($cm->id);
+        $this->context = \context_module::instance($this->instance->cmid);
         $this->student = $this->getDataGenerator()->create_and_enrol($course, 'student');
     }
 
@@ -51,35 +50,30 @@ final class test_run_submitted_test extends \advanced_testcase {
      * Creates the event, with valid defaults.
      *
      * @param array $overrides event data to override the valid defaults with
+     * @param string[] $without keys to leave out of the event data
      * @return test_run_submitted
      */
-    private function create_event(array $overrides = []): test_run_submitted {
-        return test_run_submitted::create(array_merge([
+    private function create_event(array $overrides = [], array $without = []): test_run_submitted {
+        $data = array_merge([
             'objectid' => 42,
             'context' => $this->context,
             'relateduserid' => $this->student->id,
             'other' => ['status' => 'FAILED'],
-        ], $overrides));
+        ], $overrides);
+
+        return test_run_submitted::create(array_diff_key($data, array_flip($without)));
     }
 
     public function test_it_requires_relateduserid(): void {
         $this->expectException(\coding_exception::class);
 
-        test_run_submitted::create([
-            'objectid' => 42,
-            'context' => $this->context,
-            'other' => ['status' => 'FAILED'],
-        ]);
+        $this->create_event(without: ['relateduserid']);
     }
 
     public function test_it_requires_a_status_in_other(): void {
         $this->expectException(\coding_exception::class);
 
-        test_run_submitted::create([
-            'objectid' => 42,
-            'context' => $this->context,
-            'relateduserid' => $this->student->id,
-        ]);
+        $this->create_event(without: ['other']);
     }
 
     public function test_get_url_points_at_the_run_detail_page(): void {

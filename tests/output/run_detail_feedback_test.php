@@ -17,10 +17,11 @@
 namespace mod_idetestfeedback\output;
 
 use mod_idetestfeedback\local\feedback_history;
+use mod_idetestfeedback\local\repository;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once(__DIR__ . '/../fixtures/testable_run_detail_feedback.php');
+require_once(__DIR__ . '/../fixtures/testable_run_detail.php');
 
 /**
  * Tests for how the run detail reports a test case against the feedback it was given.
@@ -52,23 +53,10 @@ final class run_detail_feedback_test extends \advanced_testcase {
      * Builds the run detail under test.
      *
      * @param \stdClass[] $commented earlier results carrying feedback, newest run first
-     * @return testable_run_detail_feedback
+     * @return testable_run_detail
      */
-    private function detail(array $commented): testable_run_detail_feedback {
-        return new testable_run_detail_feedback(
-            run: (object) [],
-            results: [],
-            files: [],
-            studentname: null,
-            context: \context_system::instance(),
-            cancomment: false,
-            history: new feedback_history($commented),
-            backurl: new \core\url('/'),
-            runurl: new \core\url('/'),
-            page: 0,
-            perpage: 50,
-            pagingbar: ''
-        );
+    private function detail(array $commented): testable_run_detail {
+        return testable_run_detail::create(history: new feedback_history($commented));
     }
 
     /**
@@ -107,7 +95,7 @@ final class run_detail_feedback_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        $repository = new \mod_idetestfeedback\local\repository($DB);
+        $repository = new repository($DB);
         $course = $this->getDataGenerator()->create_course();
         $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
         $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
@@ -123,10 +111,7 @@ final class run_detail_feedback_test extends \advanced_testcase {
                 ['testname' => 'testStuck', 'status' => 'FAILED'],
             ],
         ]);
-        foreach ($repository->get_results((int) $commented->id) as $result) {
-            $repository->update_result_feedback((int) $result->id, 'Check the edge case', $teacher->id);
-        }
-        $DB->set_field('idetestfeedback_result', 'feedbackmodified', 150, ['runid' => $commented->id]);
+        $generator->add_feedback($commented, $teacher->id, 'Check the edge case', 150);
 
         $current = $generator->create_run([
             'idetestfeedbackid' => $instance->id,

@@ -76,6 +76,7 @@ final class status_badge_test extends \basic_testcase {
         return [
             'passed' => ['PASSED', 'bg-success text-white'],
             'failed' => ['FAILED', 'bg-danger text-white'],
+            'error is marked apart from failed' => ['ERROR', 'bg-danger text-white idetestfeedback-badge-error'],
             'skipped' => ['SKIPPED', 'bg-secondary text-white'],
             'unknown' => ['BOGUS', 'bg-secondary text-white'],
         ];
@@ -92,13 +93,5 @@ final class status_badge_test extends \basic_testcase {
         $exported = (new status_badge($status))->export_for_template($this->renderer());
 
         $this->assertSame($expected, $exported['classes']);
-    }
-
-    public function test_export_for_template_marks_error_apart_from_failed(): void {
-        $error = (new status_badge('ERROR'))->export_for_template($this->renderer());
-        $failed = (new status_badge('FAILED'))->export_for_template($this->renderer());
-
-        $this->assertSame('bg-danger text-white idetestfeedback-badge-error', $error['classes']);
-        $this->assertSame('bg-danger text-white', $failed['classes']);
     }
 }

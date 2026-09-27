@@ -26,66 +26,65 @@ namespace mod_idetestfeedback\local;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\feedback_notifier::class)]
 final class feedback_notifier_test extends \advanced_testcase {
-    public function test_notify_sends_a_message_naming_the_run_owner_and_feedback(): void {
-        $this->resetAfterTest();
-        $sink = $this->redirectMessages();
+    /** @var \cm_info */
+    private \cm_info $cm;
 
-        global $DB;
+    /** @var \stdClass */
+    private \stdClass $student;
+
+    /** @var \stdClass */
+    private \stdClass $teacher;
+
+    #[\Override]
+    protected function setUp(): void {
+        parent::setUp();
+        $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
         $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
-        [, $cm] = get_course_and_cm_from_instance($instance->id, 'idetestfeedback');
-        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
-        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
+        [, $this->cm] = get_course_and_cm_from_instance($instance->id, 'idetestfeedback');
+        $this->student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $this->teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
+    }
 
+    /**
+     * Stores a one-test run for the student and notifies them of feedback on it.
+     *
+     * @param array $testresult the run's only test case result
+     * @param string $feedback the feedback the teacher wrote on it
+     * @return \stdClass the one message sent
+     */
+    private function notify(array $testresult, string $feedback): \stdClass {
+        global $DB;
+
+        $sink = $this->redirectMessages();
         $run = $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
-            'idetestfeedbackid' => $instance->id,
-            'userid' => $student->id,
-            'results' => [['testname' => 'testAdd', 'status' => 'FAILED']],
+            'idetestfeedbackid' => $this->cm->instance,
+            'userid' => $this->student->id,
+            'results' => [$testresult],
         ]);
-        $repository = new repository($DB);
-        [$result] = array_values($repository->get_results($run->id));
-        $result->feedback = 'Check your edge cases';
+        [$result] = array_values((new repository($DB))->get_results($run->id));
+        $result->feedback = $feedback;
 
-        $notifier = new feedback_notifier($cm);
-        $sent = $notifier->notify($run, [$result], $teacher);
-
-        $this->assertTrue($sent);
+        $this->assertTrue((new feedback_notifier($this->cm))->notify($run, [$result], $this->teacher));
         $messages = $sink->get_messages();
         $this->assertCount(1, $messages);
-        $message = reset($messages);
-        $this->assertSame((int) $student->id, (int) $message->useridto);
-        $this->assertSame((int) $teacher->id, (int) $message->useridfrom);
+
+        return reset($messages);
+    }
+
+    public function test_notify_sends_a_message_naming_the_run_owner_and_feedback(): void {
+        $message = $this->notify(['testname' => 'testAdd', 'status' => 'FAILED'], 'Check your edge cases');
+
+        $this->assertSame((int) $this->student->id, (int) $message->useridto);
+        $this->assertSame((int) $this->teacher->id, (int) $message->useridfrom);
         $this->assertStringContainsString('Check your edge cases', $message->fullmessage);
         $this->assertStringContainsString('testAdd', $message->fullmessage);
     }
 
     public function test_notify_labels_a_result_with_its_suite(): void {
-        $this->resetAfterTest();
-        $sink = $this->redirectMessages();
+        $message = $this->notify(['testname' => 'testAdd', 'testsuite' => 'CalcTest', 'status' => 'FAILED'], 'See above');
 
-        global $DB;
-
-        $course = $this->getDataGenerator()->create_course();
-        $instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $course->id]);
-        [, $cm] = get_course_and_cm_from_instance($instance->id, 'idetestfeedback');
-        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
-        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
-
-        $run = $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
-            'idetestfeedbackid' => $instance->id,
-            'userid' => $student->id,
-            'results' => [['testname' => 'testAdd', 'testsuite' => 'CalcTest', 'status' => 'FAILED']],
-        ]);
-        $repository = new repository($DB);
-        [$result] = array_values($repository->get_results($run->id));
-        $result->feedback = 'See above';
-
-        $notifier = new feedback_notifier($cm);
-        $notifier->notify($run, [$result], $teacher);
-
-        $messages = $sink->get_messages();
-        $message = reset($messages);
         $this->assertStringContainsString('CalcTest#testAdd', $message->fullmessage);
     }
 }

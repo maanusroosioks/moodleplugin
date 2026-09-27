@@ -18,7 +18,7 @@ namespace mod_idetestfeedback\output;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once(__DIR__ . '/../fixtures/testable_run_detail_source.php');
+require_once(__DIR__ . '/../fixtures/testable_run_detail.php');
 
 /**
  * Tests for how the run detail finds the code a test case ran.
@@ -53,23 +53,10 @@ final class run_detail_source_test extends \advanced_testcase {
      * Builds the run detail under test.
      *
      * @param array $files the stored file rows of the run
-     * @return testable_run_detail_source
+     * @return testable_run_detail
      */
-    private function detail(array $files): testable_run_detail_source {
-        return new testable_run_detail_source(
-            run: (object) [],
-            results: [],
-            files: $files,
-            studentname: null,
-            context: \context_system::instance(),
-            cancomment: false,
-            history: new \mod_idetestfeedback\local\feedback_history([]),
-            backurl: new \core\url('/'),
-            runurl: new \core\url('/'),
-            page: 0,
-            perpage: 50,
-            pagingbar: ''
-        );
+    private function detail(array $files): testable_run_detail {
+        return testable_run_detail::create(files: $files);
     }
 
     /**
@@ -115,8 +102,8 @@ final class run_detail_source_test extends \advanced_testcase {
     }
 
     public function test_a_short_run_is_timed_in_milliseconds_and_a_long_one_in_minutes(): void {
-        $this->assertSame('250 ms', testable_run_detail_source::duration(250));
-        $this->assertSame(format_time(125), testable_run_detail_source::duration(125000));
+        $this->assertSame('250 ms', testable_run_detail::duration(250));
+        $this->assertSame(format_time(125), testable_run_detail::duration(125000));
     }
 
     public function test_a_body_the_run_did_not_capture_shows_nothing(): void {

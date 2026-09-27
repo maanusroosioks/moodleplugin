@@ -16,14 +16,40 @@
 
 namespace mod_idetestfeedback\output;
 
+use core\url;
+use mod_idetestfeedback\local\feedback_history;
+
 /**
- * Exposes the protected language mapping so it can be tested on its own.
+ * Exposes the run detail's protected builders so they can be tested on their own.
  *
  * @package    mod_idetestfeedback
  * @copyright  2026 Maanus Roosioks
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class testable_run_detail extends run_detail {
+    /**
+     * Builds a run detail with empty defaults for every argument not given.
+     *
+     * @param mixed ...$args named constructor arguments
+     * @return self
+     */
+    public static function create(mixed ...$args): self {
+        return new self(...$args + [
+            'run' => (object) [],
+            'results' => [],
+            'files' => [],
+            'studentname' => null,
+            'context' => \context_system::instance(),
+            'cancomment' => false,
+            'history' => new feedback_history([]),
+            'backurl' => new url('/'),
+            'runurl' => new url('/'),
+            'page' => 0,
+            'perpage' => 50,
+            'pagingbar' => '',
+        ]);
+    }
+
     /**
      * Exposes language_of().
      *
@@ -32,5 +58,53 @@ class testable_run_detail extends run_detail {
      */
     public static function language(string $path): string {
         return self::language_of($path);
+    }
+
+    /**
+     * Exposes run_duration().
+     *
+     * @param int $ms a run's duration in milliseconds
+     * @return string the duration as shown
+     */
+    public static function duration(int $ms): string {
+        return self::run_duration($ms);
+    }
+
+    /**
+     * Exposes page_results().
+     *
+     * @return \stdClass[] the results on the current page
+     */
+    public function page(): array {
+        return $this->page_results();
+    }
+
+    /**
+     * Exposes feedback_badges().
+     *
+     * @param \stdClass $result one test case result
+     * @return array[] the exported badges
+     */
+    public function badges(\stdClass $result): array {
+        return $this->feedback_badges($result);
+    }
+
+    /**
+     * Exposes source_block().
+     *
+     * @param \stdClass $result one test case result
+     * @return array|null the exported source block
+     */
+    public function block(\stdClass $result): ?array {
+        return $this->source_block($result);
+    }
+
+    /**
+     * Exposes file_rows().
+     *
+     * @return array[] the exported file rows
+     */
+    public function files(): array {
+        return $this->file_rows();
     }
 }

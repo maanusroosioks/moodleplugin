@@ -20,7 +20,6 @@ use core_privacy\local\request\approved_contextlist;
 use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
-use mod_idetestfeedback\local\repository;
 use mod_idetestfeedback\local\source_code;
 
 /**
@@ -55,33 +54,31 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
 
         $this->course = $this->getDataGenerator()->create_course();
         $this->instance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $this->course->id]);
-        $this->context = \context_module::instance(get_coursemodule_from_instance('idetestfeedback', $this->instance->id)->id);
+        $this->context = \context_module::instance($this->instance->cmid);
         $this->student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $this->teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
     }
 
     /**
-     * The activity's database access.
+     * The activity's test data generator.
      *
-     * @return repository
+     * @return \mod_idetestfeedback_generator
      */
-    private function repository(): repository {
-        global $DB;
-
-        return new repository($DB);
+    private function generator(): \mod_idetestfeedback_generator {
+        return $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback');
     }
 
     /**
      * Stores a run for a user in the test activity.
      *
      * @param int $userid the run's owner
-     * @return \stdClass the stored run, with a single test case result
+     * @param array $record other run fields, e.g. 'files'
+     * @return \stdClass the stored run, with a single passing test unless the record says otherwise
      */
-    private function create_run(int $userid): \stdClass {
-        return $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
+    private function create_run(int $userid, array $record = []): \stdClass {
+        return $this->generator()->create_run($record + [
             'idetestfeedbackid' => $this->instance->id,
             'userid' => $userid,
-            'results' => [['testname' => 'testAdd', 'status' => 'PASSED']],
         ]);
     }
 
@@ -105,9 +102,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
 
     public function test_get_contexts_for_userid_includes_a_feedback_authors_context(): void {
         $run = $this->create_run($this->student->id);
-        $repository = $this->repository();
-        [$result] = array_values($repository->get_results($run->id));
-        $repository->update_result_feedback((int) $result->id, 'Nice', $this->teacher->id);
+        $this->generator()->add_feedback($run, $this->teacher->id, 'Nice');
 
         $contextlist = provider::get_contexts_for_userid($this->teacher->id);
 
@@ -125,9 +120,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
 
     public function test_get_users_in_context_lists_run_owners_and_feedback_authors(): void {
         $run = $this->create_run($this->student->id);
-        $repository = $this->repository();
-        [$result] = array_values($repository->get_results($run->id));
-        $repository->update_result_feedback((int) $result->id, 'Nice', $this->teacher->id);
+        $this->generator()->add_feedback($run, $this->teacher->id, 'Nice');
 
         $userlist = new userlist($this->context, 'mod_idetestfeedback');
         provider::get_users_in_context($userlist);
@@ -161,15 +154,9 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     public function test_export_user_data_writes_the_test_files_captured_with_a_run(): void {
-        $run = $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
-            'idetestfeedbackid' => $this->instance->id,
-            'userid' => $this->student->id,
-            'results' => [['testname' => 'testAdd', 'status' => 'PASSED']],
-            'files' => [[
-                'path' => 'tests/test_calculator.py',
-                'content' => "import pytest\n",
-            ]],
-        ]);
+        $run = $this->create_run($this->student->id, ['files' => [
+            ['path' => 'tests/test_calculator.py', 'content' => "import pytest\n"],
+        ]]);
 
         $approved = new approved_contextlist($this->student, 'mod_idetestfeedback', [$this->context->id]);
         provider::export_user_data($approved);
@@ -184,9 +171,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
 
     public function test_export_user_data_writes_feedback_the_user_gave_on_others_runs(): void {
         $run = $this->create_run($this->student->id);
-        $repository = $this->repository();
-        [$result] = array_values($repository->get_results($run->id));
-        $repository->update_result_feedback((int) $result->id, 'Nice work', $this->teacher->id);
+        $this->generator()->add_feedback($run, $this->teacher->id, 'Nice work');
 
         $approved = new approved_contextlist($this->teacher, 'mod_idetestfeedback', [$this->context->id]);
         provider::export_user_data($approved);
@@ -226,15 +211,15 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     public function test_delete_data_for_user_detaches_their_authored_feedback(): void {
+        global $DB;
+
         $run = $this->create_run($this->student->id);
-        $repository = $this->repository();
-        [$result] = array_values($repository->get_results($run->id));
-        $repository->update_result_feedback((int) $result->id, 'Nice', $this->teacher->id);
+        $this->generator()->add_feedback($run, $this->teacher->id, 'Nice');
 
         $approved = new approved_contextlist($this->teacher, 'mod_idetestfeedback', [$this->context->id]);
         provider::delete_data_for_user($approved);
 
-        [$result] = array_values($repository->get_results($run->id));
+        $result = $DB->get_record('idetestfeedback_result', ['runid' => $run->id]);
         $this->assertNull($result->feedbackby);
         $this->assertSame('Nice', $result->feedback);
     }

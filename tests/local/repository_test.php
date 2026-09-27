@@ -26,6 +26,9 @@ namespace mod_idetestfeedback\local;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\repository::class)]
 final class repository_test extends \advanced_testcase {
+    /** @var array A captured test file, as run overrides for {@see create_run()}. */
+    private const FILES = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
+
     /** @var repository */
     private repository $repository;
 
@@ -34,6 +37,15 @@ final class repository_test extends \advanced_testcase {
 
     /** @var \stdClass */
     private \stdClass $instance;
+
+    /** @var \stdClass */
+    private \stdClass $student;
+
+    /** @var \stdClass */
+    private \stdClass $teacher;
+
+    /** @var \mod_idetestfeedback_generator */
+    private \mod_idetestfeedback_generator $generator;
 
     #[\Override]
     protected function setUp(): void {
@@ -47,26 +59,55 @@ final class repository_test extends \advanced_testcase {
         $this->instance = $this->getDataGenerator()->create_module('idetestfeedback', [
             'course' => $this->course->id,
         ]);
+        $this->student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $this->teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
+        $this->generator = $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback');
     }
 
     /**
      * Stores a run through the repository.
      *
      * @param int $userid the student to attribute the run to
-     * @param array $results the test case results, defaults to a single passing test
-     * @param array $overrides extra run fields, e.g. 'status' or 'timecreated'
+     * @param array|null $results the test case results, or null for a single passing test
+     * @param array $overrides extra run fields, e.g. 'files' or 'timecreated'
      * @return \stdClass the stored run
      */
-    private function create_run(
-        int $userid,
-        array $results = [['testname' => 'testAdd', 'status' => 'PASSED']],
-        array $overrides = []
-    ): \stdClass {
-        return $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run(array_merge([
+    private function create_run(int $userid, ?array $results = null, array $overrides = []): \stdClass {
+        return $this->generator->create_run(array_filter(['results' => $results]) + $overrides + [
             'idetestfeedbackid' => $this->instance->id,
             'userid' => $userid,
-            'results' => $results,
-        ], $overrides));
+        ]);
+    }
+
+    /**
+     * A run row ready to insert, for a single passing test.
+     *
+     * @return \stdClass
+     */
+    private function run_row(): \stdClass {
+        return (object) [
+            'idetestfeedbackid' => $this->instance->id,
+            'userid' => $this->student->id,
+            'ide' => 'VSCODE',
+            'status' => status::PASSED->value,
+            'passedcount' => 1,
+            'failedcount' => 0,
+            'skippedcount' => 0,
+            'errorcount' => 0,
+            'timecreated' => time(),
+        ];
+    }
+
+    /**
+     * How many file bodies an activity stores.
+     *
+     * @param int $instanceid the activity
+     * @return int
+     */
+    private function blob_count(int $instanceid): int {
+        global $DB;
+
+        return $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $instanceid]);
     }
 
     public function test_get_instance_returns_the_instance(): void {
@@ -93,8 +134,7 @@ final class repository_test extends \advanced_testcase {
 
     public function test_get_run_is_scoped_to_its_own_instance(): void {
         $otherinstance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $this->course->id]);
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id);
+        $run = $this->create_run($this->student->id);
 
         $this->assertNotNull($this->repository->get_run($run->id, $this->instance->id));
         $this->assertNull($this->repository->get_run($run->id, $otherinstance->id));
@@ -102,8 +142,7 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_get_results_are_ordered_by_status_then_suite_then_name(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id, [
+        $run = $this->create_run($this->student->id, [
             ['testsuite' => 'A', 'testname' => 'passed', 'status' => 'PASSED'],
             ['testsuite' => 'B', 'testname' => 'skipped', 'status' => 'SKIPPED'],
             ['testsuite' => 'B', 'testname' => 'errorB', 'status' => 'ERROR'],
@@ -122,8 +161,7 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_get_results_put_a_result_without_a_suite_first_within_its_status(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id, [
+        $run = $this->create_run($this->student->id, [
             ['testsuite' => 'A', 'testname' => 'inSuite', 'status' => 'FAILED'],
             ['testname' => 'noSuite', 'status' => 'FAILED'],
         ]);
@@ -135,8 +173,7 @@ final class repository_test extends \advanced_testcase {
 
     public function test_get_results_put_an_unknown_status_last(): void {
         global $DB;
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id, [
+        $run = $this->create_run($this->student->id, [
             ['testname' => 'legacy', 'status' => 'PASSED'],
             ['testname' => 'passed', 'status' => 'PASSED'],
         ]);
@@ -148,8 +185,7 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_get_files_are_returned_by_path(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id, overrides: ['files' => [
+        $run = $this->create_run($this->student->id, overrides: ['files' => [
             ['path' => 'tests/test_zeta.py', 'content' => 'z'],
             ['path' => 'tests/test_alpha.py', 'content' => 'a'],
         ]]);
@@ -163,13 +199,11 @@ final class repository_test extends \advanced_testcase {
 
     public function test_one_student_running_twice_stores_the_body_once(): void {
         global $DB;
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
 
-        $first = $this->create_run($student->id, overrides: $files);
-        $second = $this->create_run($student->id, overrides: $files);
+        $first = $this->create_run($this->student->id, overrides: self::FILES);
+        $second = $this->create_run($this->student->id, overrides: self::FILES);
 
-        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(1, $this->blob_count($this->instance->id));
         $this->assertSame(
             $DB->get_field('idetestfeedback_file', 'blobid', ['runid' => $first->id]),
             $DB->get_field('idetestfeedback_file', 'blobid', ['runid' => $second->id])
@@ -177,90 +211,70 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_two_students_submitting_the_same_body_share_one_row(): void {
-        global $DB;
-        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
         $one = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $two = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
 
-        $this->create_run($one->id, overrides: $files);
-        $this->create_run($two->id, overrides: $files);
+        $this->create_run($one->id, overrides: self::FILES);
+        $this->create_run($two->id, overrides: self::FILES);
 
-        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(1, $this->blob_count($this->instance->id));
     }
 
     public function test_the_same_body_in_two_activities_is_stored_once_each(): void {
-        global $DB;
         $other = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $this->course->id]);
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
 
-        $this->create_run($student->id, overrides: $files);
-        $this->create_run($student->id, overrides: array_merge($files, ['idetestfeedbackid' => $other->id]));
+        $this->create_run($this->student->id, overrides: self::FILES);
+        $this->create_run($this->student->id, overrides: array_merge(self::FILES, ['idetestfeedbackid' => $other->id]));
 
-        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
-        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $other->id]));
+        $this->assertSame(1, $this->blob_count($this->instance->id));
+        $this->assertSame(1, $this->blob_count($other->id));
     }
 
     public function test_a_body_outlives_the_run_that_stored_it_while_another_points_at_it(): void {
-        global $DB;
-        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
         $one = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $two = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
 
-        $this->create_run($one->id, overrides: $files);
-        $this->create_run($two->id, overrides: $files);
+        $this->create_run($one->id, overrides: self::FILES);
+        $this->create_run($two->id, overrides: self::FILES);
 
         $this->repository->delete_runs($this->instance->id, [$one->id]);
-        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(1, $this->blob_count($this->instance->id));
 
         $this->repository->delete_runs($this->instance->id, [$two->id]);
-        $this->assertSame(0, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(0, $this->blob_count($this->instance->id));
     }
 
     public function test_deleting_an_instance_reclaims_its_bodies(): void {
-        global $DB;
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $this->create_run($student->id, overrides: [
-            'files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']],
-        ]);
+        $this->create_run($this->student->id, overrides: self::FILES);
 
         $this->repository->delete_instance($this->instance->id);
 
-        $this->assertSame(0, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(0, $this->blob_count($this->instance->id));
     }
 
     public function test_the_sweep_leaves_another_activitys_bodies_alone(): void {
-        global $DB;
         $other = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $this->course->id]);
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $files = ['files' => [['path' => 'tests/test_calculator.py', 'content' => 'import pytest']]];
 
-        $this->create_run($student->id, overrides: $files);
-        $this->create_run($student->id, overrides: array_merge($files, ['idetestfeedbackid' => $other->id]));
+        $this->create_run($this->student->id, overrides: self::FILES);
+        $this->create_run($this->student->id, overrides: array_merge(self::FILES, ['idetestfeedbackid' => $other->id]));
 
         $this->repository->delete_runs($this->instance->id);
 
-        $this->assertSame(0, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
-        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $other->id]));
+        $this->assertSame(0, $this->blob_count($this->instance->id));
+        $this->assertSame(1, $this->blob_count($other->id));
     }
 
     public function test_get_files_is_empty_for_a_run_with_none(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id);
+        $run = $this->create_run($this->student->id);
 
         $this->assertSame([], $this->repository->get_files($run->id));
     }
 
     public function test_get_feedback_authored_by_excludes_other_authors_and_instances(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
         $otherteacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
-        $run = $this->create_run($student->id);
-        [$result] = array_values($this->repository->get_results($run->id));
+        $this->generator->add_feedback($this->create_run($this->student->id), $this->teacher->id, 'Nice work');
 
-        $this->repository->update_result_feedback((int) $result->id, 'Nice work', $teacher->id);
-
-        $mine = $this->repository->get_feedback_authored_by($this->instance->id, $teacher->id);
+        $mine = $this->repository->get_feedback_authored_by($this->instance->id, $this->teacher->id);
         $theirs = $this->repository->get_feedback_authored_by($this->instance->id, $otherteacher->id);
 
         $this->assertCount(1, $mine);
@@ -282,27 +296,25 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_get_runs_for_instance_filters_by_userid_and_status(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
 
-        $this->create_run($student->id, [['testname' => 'a', 'status' => 'PASSED']]);
-        $this->create_run($student->id, [['testname' => 'a', 'status' => 'FAILED']]);
+        $this->create_run($this->student->id, [['testname' => 'a', 'status' => 'PASSED']]);
+        $this->create_run($this->student->id, [['testname' => 'a', 'status' => 'FAILED']]);
         $this->create_run($other->id, [['testname' => 'a', 'status' => 'PASSED']]);
 
         $this->assertCount(3, $this->repository->get_runs_for_instance($this->instance->id));
-        $this->assertCount(2, $this->repository->get_runs_for_instance($this->instance->id, userid: $student->id));
+        $this->assertCount(2, $this->repository->get_runs_for_instance($this->instance->id, userid: $this->student->id));
         $this->assertCount(2, $this->repository->get_runs_for_instance($this->instance->id, status: status::PASSED));
         $this->assertCount(1, $this->repository->get_runs_for_instance(
             $this->instance->id,
-            userid: $student->id,
+            userid: $this->student->id,
             status: status::FAILED
         ));
     }
 
     public function test_get_runs_for_instance_orders_newest_first_and_paginates(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $first = $this->create_run($student->id, overrides: ['timecreated' => 1000]);
-        $second = $this->create_run($student->id, overrides: ['timecreated' => 2000]);
+        $first = $this->create_run($this->student->id, overrides: ['timecreated' => 1000]);
+        $second = $this->create_run($this->student->id, overrides: ['timecreated' => 2000]);
 
         $runs = array_values($this->repository->get_runs_for_instance($this->instance->id));
         $this->assertSame([(int) $second->id, (int) $first->id], array_map(fn($r) => (int) $r->id, $runs));
@@ -328,9 +340,8 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_count_runs_for_instance_matches_the_same_filters(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $this->create_run($student->id, [['testname' => 'a', 'status' => 'PASSED']]);
-        $this->create_run($student->id, [['testname' => 'a', 'status' => 'FAILED']]);
+        $this->create_run($this->student->id, [['testname' => 'a', 'status' => 'PASSED']]);
+        $this->create_run($this->student->id, [['testname' => 'a', 'status' => 'FAILED']]);
 
         $this->assertSame(2, $this->repository->count_runs_for_instance($this->instance->id));
         $this->assertSame(1, $this->repository->count_runs_for_instance($this->instance->id, status: status::PASSED));
@@ -366,47 +377,43 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_get_runs_for_user_is_scoped_and_paginated(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $this->create_run($student->id, overrides: ['timecreated' => 1000]);
-        $this->create_run($student->id, overrides: ['timecreated' => 2000]);
+        $this->create_run($this->student->id, overrides: ['timecreated' => 1000]);
+        $this->create_run($this->student->id, overrides: ['timecreated' => 2000]);
         $this->create_run($other->id);
 
-        $this->assertCount(2, $this->repository->get_runs_for_user($this->instance->id, $student->id));
-        $this->assertCount(1, $this->repository->get_runs_for_user($this->instance->id, $student->id, 0, 1));
+        $this->assertCount(2, $this->repository->get_runs_for_user($this->instance->id, $this->student->id));
+        $this->assertCount(1, $this->repository->get_runs_for_user($this->instance->id, $this->student->id, 0, 1));
     }
 
     public function test_get_pass_stats_counts_total_and_passed(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $this->create_run($student->id, [['testname' => 'a', 'status' => 'PASSED']]);
-        $this->create_run($student->id, [['testname' => 'a', 'status' => 'FAILED']]);
-        $this->create_run($student->id, [['testname' => 'a', 'status' => 'PASSED']]);
+        $this->create_run($this->student->id, [['testname' => 'a', 'status' => 'PASSED']]);
+        $this->create_run($this->student->id, [['testname' => 'a', 'status' => 'FAILED']]);
+        $this->create_run($this->student->id, [['testname' => 'a', 'status' => 'PASSED']]);
 
-        [$total, $passed] = $this->repository->get_pass_stats($this->instance->id, $student->id);
+        [$total, $passed] = $this->repository->get_pass_stats($this->instance->id, $this->student->id);
 
         $this->assertSame(3, $total);
         $this->assertSame(2, $passed);
     }
 
     public function test_get_pass_stats_for_a_student_with_no_runs(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
 
-        $this->assertSame([0, 0], $this->repository->get_pass_stats($this->instance->id, $student->id));
+        $this->assertSame([0, 0], $this->repository->get_pass_stats($this->instance->id, $this->student->id));
     }
 
     public function test_has_fully_passing_run_requires_no_skips(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
 
-        $this->assertFalse($this->repository->has_fully_passing_run($this->instance->id, $student->id));
+        $this->assertFalse($this->repository->has_fully_passing_run($this->instance->id, $this->student->id));
 
-        $this->create_run($student->id, [
+        $this->create_run($this->student->id, [
             ['testname' => 'a', 'status' => 'PASSED'],
             ['testname' => 'b', 'status' => 'SKIPPED'],
         ]);
-        $this->assertFalse($this->repository->has_fully_passing_run($this->instance->id, $student->id));
+        $this->assertFalse($this->repository->has_fully_passing_run($this->instance->id, $this->student->id));
 
-        $this->create_run($student->id, [['testname' => 'a', 'status' => 'PASSED']]);
-        $this->assertTrue($this->repository->has_fully_passing_run($this->instance->id, $student->id));
+        $this->create_run($this->student->id, [['testname' => 'a', 'status' => 'PASSED']]);
+        $this->assertTrue($this->repository->has_fully_passing_run($this->instance->id, $this->student->id));
     }
 
     public function test_get_active_users_by_email_matches_case_insensitively(): void {
@@ -446,18 +453,7 @@ final class repository_test extends \advanced_testcase {
     public function test_insert_run_fills_in_the_runid(): void {
         global $DB;
 
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = (object) [
-            'idetestfeedbackid' => $this->instance->id,
-            'userid' => $student->id,
-            'ide' => 'VSCODE',
-            'status' => status::PASSED->value,
-            'passedcount' => 1,
-            'failedcount' => 0,
-            'skippedcount' => 0,
-            'errorcount' => 0,
-            'timecreated' => time(),
-        ];
+        $run = $this->run_row();
         $results = [(object) [
             'testname' => 'testAdd',
             'status' => status::PASSED->value,
@@ -472,18 +468,7 @@ final class repository_test extends \advanced_testcase {
     public function test_insert_run_links_no_blob_for_a_file_without_content(): void {
         global $DB;
 
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = (object) [
-            'idetestfeedbackid' => $this->instance->id,
-            'userid' => $student->id,
-            'ide' => 'VSCODE',
-            'status' => status::PASSED->value,
-            'passedcount' => 1,
-            'failedcount' => 0,
-            'skippedcount' => 0,
-            'errorcount' => 0,
-            'timecreated' => time(),
-        ];
+        $run = $this->run_row();
         $results = [(object) ['testname' => 'testAdd', 'status' => status::PASSED->value]];
         $files = [
             (object) ['path' => 'tests/empty.py', 'content' => null],
@@ -495,7 +480,7 @@ final class repository_test extends \advanced_testcase {
         $blobids = $DB->get_records_menu('idetestfeedback_file', ['runid' => $runid], '', 'path, blobid');
         $this->assertNull($blobids['tests/empty.py']);
         $this->assertNotNull($blobids['tests/test.py']);
-        $this->assertSame(1, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(1, $this->blob_count($this->instance->id));
     }
 
     public function test_insert_run_rolls_back_the_run_on_failure(): void {
@@ -504,18 +489,7 @@ final class repository_test extends \advanced_testcase {
         // Without phpunit's own transaction, the repository's is outermost and its rollback takes effect.
         $this->preventResetByRollback();
 
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = (object) [
-            'idetestfeedbackid' => $this->instance->id,
-            'userid' => $student->id,
-            'ide' => 'VSCODE',
-            'status' => status::PASSED->value,
-            'passedcount' => 1,
-            'failedcount' => 0,
-            'skippedcount' => 0,
-            'errorcount' => 0,
-            'timecreated' => time(),
-        ];
+        $run = $this->run_row();
         // A status wider than the column can hold fails the insert at the database level.
         $results = [(object) [
             'testname' => 'testAdd',
@@ -540,18 +514,16 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_update_result_feedback_stores_and_clears(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
-        $run = $this->create_run($student->id);
+        $run = $this->create_run($this->student->id);
         [$result] = array_values($this->repository->get_results($run->id));
 
-        $this->repository->update_result_feedback((int) $result->id, '  Great job  ', $teacher->id);
+        $this->repository->update_result_feedback((int) $result->id, '  Great job  ', $this->teacher->id);
         [$updated] = array_values($this->repository->get_results($run->id));
         $this->assertSame('  Great job  ', $updated->feedback);
-        $this->assertSame((int) $teacher->id, (int) $updated->feedbackby);
+        $this->assertSame((int) $this->teacher->id, (int) $updated->feedbackby);
         $this->assertNotNull($updated->feedbackmodified);
 
-        $this->repository->update_result_feedback((int) $result->id, '   ', $teacher->id);
+        $this->repository->update_result_feedback((int) $result->id, '   ', $this->teacher->id);
         [$cleared] = array_values($this->repository->get_results($run->id));
         $this->assertNull($cleared->feedback);
         $this->assertNull($cleared->feedbackby);
@@ -561,8 +533,7 @@ final class repository_test extends \advanced_testcase {
     public function test_delete_runs_removes_everything_for_the_instance_by_default(): void {
         global $DB;
 
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id, overrides: ['files' => [
+        $run = $this->create_run($this->student->id, overrides: ['files' => [
             ['path' => 'tests/test_calculator.py', 'content' => 'x'],
         ]]);
 
@@ -590,8 +561,7 @@ final class repository_test extends \advanced_testcase {
     public function test_delete_runs_with_an_empty_user_list_does_nothing(): void {
         global $DB;
 
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $this->create_run($student->id);
+        $this->create_run($this->student->id);
 
         $this->repository->delete_runs($this->instance->id, []);
 
@@ -611,8 +581,7 @@ final class repository_test extends \advanced_testcase {
     public function test_delete_instance_removes_the_instance_and_its_runs(): void {
         global $DB;
 
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $run = $this->create_run($student->id, overrides: ['files' => [
+        $run = $this->create_run($this->student->id, overrides: ['files' => [
             ['path' => 'tests/test_calculator.py', 'content' => 'x'],
         ]]);
 
@@ -624,10 +593,9 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_anonymise_feedback_authors_detaches_only_the_given_users(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $keepauthor = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
         $removeauthor = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
-        $run = $this->create_run($student->id, [
+        $run = $this->create_run($this->student->id, [
             ['testname' => 'a', 'status' => 'PASSED'],
             ['testname' => 'b', 'status' => 'PASSED'],
         ]);
@@ -645,47 +613,40 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_anonymise_feedback_authors_with_an_empty_user_list_does_nothing(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
-        $run = $this->create_run($student->id);
-        [$result] = array_values($this->repository->get_results($run->id));
-        $this->repository->update_result_feedback((int) $result->id, 'kept', $teacher->id);
+        $run = $this->create_run($this->student->id);
+        $this->generator->add_feedback($run, $this->teacher->id, 'kept');
 
         $this->repository->anonymise_feedback_authors($this->instance->id, []);
 
         [$result] = array_values($this->repository->get_results($run->id));
-        $this->assertSame((int) $teacher->id, (int) $result->feedbackby);
+        $this->assertSame((int) $this->teacher->id, (int) $result->feedbackby);
     }
 
     /**
-     * Writes feedback on every result of a run.
+     * Stores a run of the student's with a single failing test.
      *
-     * @param \stdClass $run the run to comment on
-     * @param int $when when the feedback was written
+     * @param string $testname the test that failed
+     * @param int $timecreated when the run was submitted
+     * @return \stdClass the stored run
      */
-    private function comment_on(\stdClass $run, int $when): void {
-        global $DB;
+    private function failing_run(string $testname, int $timecreated): \stdClass {
+        $results = [['testname' => $testname, 'status' => 'FAILED']];
 
-        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
-        foreach ($this->repository->get_results((int) $run->id) as $result) {
-            $this->repository->update_result_feedback((int) $result->id, 'A note', $teacher->id);
-        }
-        $DB->set_field('idetestfeedback_result', 'feedbackmodified', $when, ['runid' => $run->id]);
+        return $this->create_run($this->student->id, $results, ['timecreated' => $timecreated]);
     }
 
     public function test_get_feedback_history_returns_commented_earlier_runs_newest_first(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $older = $this->create_run($student->id, [['testname' => 'testOlder', 'status' => 'FAILED']], ['timecreated' => 100]);
-        $this->create_run($student->id, [['testname' => 'testUncommented', 'status' => 'FAILED']], ['timecreated' => 150]);
-        $newer = $this->create_run($student->id, [
+        $older = $this->failing_run('testOlder', 100);
+        $this->failing_run('testUncommented', 150);
+        $newer = $this->create_run($this->student->id, [
             ['testname' => 'testNewerA', 'status' => 'PASSED'],
             ['testname' => 'testNewerB', 'status' => 'ERROR'],
         ], ['timecreated' => 200]);
-        $current = $this->create_run($student->id, overrides: ['timecreated' => 300]);
-        $later = $this->create_run($student->id, [['testname' => 'testLater', 'status' => 'FAILED']], ['timecreated' => 400]);
-        $this->comment_on($older, 110);
-        $this->comment_on($newer, 210);
-        $this->comment_on($later, 410);
+        $current = $this->create_run($this->student->id, overrides: ['timecreated' => 300]);
+        $later = $this->failing_run('testLater', 400);
+        $this->generator->add_feedback($older, $this->teacher->id, modified: 110);
+        $this->generator->add_feedback($newer, $this->teacher->id, modified: 210);
+        $this->generator->add_feedback($later, $this->teacher->id, modified: 410);
 
         $rows = array_values($this->repository->get_feedback_history((int) $current->id));
 
@@ -695,13 +656,12 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_get_feedback_history_breaks_ties_on_the_same_second_by_id(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $first = $this->create_run($student->id, [['testname' => 'testFirst', 'status' => 'FAILED']], ['timecreated' => 100]);
-        $second = $this->create_run($student->id, [['testname' => 'testSecond', 'status' => 'FAILED']], ['timecreated' => 100]);
-        $third = $this->create_run($student->id, [['testname' => 'testThird', 'status' => 'FAILED']], ['timecreated' => 100]);
-        $this->comment_on($first, 50);
-        $this->comment_on($second, 50);
-        $this->comment_on($third, 50);
+        $first = $this->failing_run('testFirst', 100);
+        $second = $this->failing_run('testSecond', 100);
+        $third = $this->failing_run('testThird', 100);
+        $this->generator->add_feedback($first, $this->teacher->id, modified: 50);
+        $this->generator->add_feedback($second, $this->teacher->id, modified: 50);
+        $this->generator->add_feedback($third, $this->teacher->id, modified: 50);
 
         $rows = array_values($this->repository->get_feedback_history((int) $second->id));
 
@@ -709,35 +669,33 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_get_feedback_history_ignores_feedback_written_after_the_run(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $commented = $this->create_run($student->id, [['testname' => 'testAdd', 'status' => 'FAILED']], ['timecreated' => 100]);
-        $current = $this->create_run($student->id, overrides: ['timecreated' => 200]);
-        $this->comment_on($commented, 250);
+        $commented = $this->failing_run('testAdd', 100);
+        $current = $this->create_run($this->student->id, overrides: ['timecreated' => 200]);
+        $this->generator->add_feedback($commented, $this->teacher->id, modified: 250);
 
         $this->assertSame([], $this->repository->get_feedback_history((int) $current->id));
     }
 
     public function test_get_feedback_history_ignores_cleared_feedback(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
-        $teacher = $this->getDataGenerator()->create_and_enrol($this->course, 'teacher');
-        $commented = $this->create_run($student->id, [['testname' => 'testAdd', 'status' => 'FAILED']], ['timecreated' => 100]);
-        $current = $this->create_run($student->id, overrides: ['timecreated' => 200]);
+        $commented = $this->failing_run('testAdd', 100);
+        $current = $this->create_run($this->student->id, overrides: ['timecreated' => 200]);
         [$result] = array_values($this->repository->get_results((int) $commented->id));
-        $this->repository->update_result_feedback((int) $result->id, '', $teacher->id);
+        $this->repository->update_result_feedback((int) $result->id, '', $this->teacher->id);
 
         $this->assertSame([], $this->repository->get_feedback_history((int) $current->id));
     }
 
     public function test_get_feedback_history_is_scoped_to_the_user_and_instance(): void {
-        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $other = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $otherinstance = $this->getDataGenerator()->create_module('idetestfeedback', ['course' => $this->course->id]);
-        $this->comment_on($this->create_run($other->id, overrides: ['timecreated' => 100]), 110);
-        $this->comment_on($this->create_run($student->id, overrides: [
+        $otherstudents = $this->create_run($other->id, overrides: ['timecreated' => 100]);
+        $otheractivitys = $this->create_run($this->student->id, overrides: [
             'idetestfeedbackid' => $otherinstance->id,
             'timecreated' => 100,
-        ]), 110);
-        $current = $this->create_run($student->id, overrides: ['timecreated' => 200]);
+        ]);
+        $this->generator->add_feedback($otherstudents, $this->teacher->id, modified: 110);
+        $this->generator->add_feedback($otheractivitys, $this->teacher->id, modified: 110);
+        $current = $this->create_run($this->student->id, overrides: ['timecreated' => 200]);
 
         $this->assertSame([], $this->repository->get_feedback_history((int) $current->id));
         $this->assertSame([], $this->repository->get_feedback_history(0));
@@ -767,9 +725,7 @@ final class repository_test extends \advanced_testcase {
     }
 
     public function test_find_or_create_blob_stores_nothing_for_an_empty_body(): void {
-        global $DB;
-
         $this->assertNull($this->repository->find_or_create_blob($this->instance->id, " \n\n", time()));
-        $this->assertSame(0, $DB->count_records('idetestfeedback_blob', ['idetestfeedbackid' => $this->instance->id]));
+        $this->assertSame(0, $this->blob_count($this->instance->id));
     }
 }

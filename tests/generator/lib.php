@@ -38,15 +38,16 @@ class mod_idetestfeedback_generator extends testing_module_generator {
     /**
      * Stores a run with its results and files through the repository, skipping web service validation.
      *
-     * @param array $record 'idetestfeedbackid', 'userid' and 'results' (result columns, testname and
-     *        status required); optionally any other run column, and 'files' (path, content, truncated)
+     * @param array $record 'idetestfeedbackid' and 'userid'; optionally 'results' (result columns, testname
+     *        and status required, one passing testAdd by default), any other run column, and 'files'
+     *        (path, content, truncated)
      * @return stdClass the stored run, carrying its new id
      */
     public function create_run(array $record): stdClass {
         global $DB;
 
         $results = [];
-        foreach ($record['results'] as $r) {
+        foreach ($record['results'] ?? [['testname' => 'testAdd', 'status' => 'PASSED']] as $r) {
             $results[] = (object) [
                 'testsuite' => $r['testsuite'] ?? null,
                 'testname' => $r['testname'],
@@ -94,5 +95,26 @@ class mod_idetestfeedback_generator extends testing_module_generator {
         $run->id = (new repository($DB))->insert_run($run, $results, $files);
 
         return $run;
+    }
+
+    /**
+     * Writes the same feedback on every result of a run.
+     *
+     * @param stdClass $run the run to comment on
+     * @param int $authorid the teacher writing it
+     * @param string $feedback the feedback text
+     * @param int|null $modified when it was written, or null for now
+     */
+    public function add_feedback(stdClass $run, int $authorid, string $feedback = 'A note', ?int $modified = null): void {
+        global $DB;
+
+        $repository = new repository($DB);
+        foreach ($repository->get_results((int) $run->id) as $result) {
+            $repository->update_result_feedback((int) $result->id, $feedback, $authorid);
+        }
+
+        if ($modified !== null) {
+            $DB->set_field('idetestfeedback_result', 'feedbackmodified', $modified, ['runid' => $run->id]);
+        }
     }
 }

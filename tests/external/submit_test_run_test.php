@@ -44,8 +44,13 @@ final class submit_test_run_test extends \advanced_testcase {
     /** @var \stdClass */
     private \stdClass $student;
 
+    /** @var repository */
+    private repository $repository;
+
     #[\Override]
     protected function setUp(): void {
+        global $DB;
+
         parent::setUp();
         $this->resetAfterTest();
         $this->setAdminUser();
@@ -55,6 +60,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->student = $this->getDataGenerator()->create_and_enrol($this->course, 'student', [
             'email' => 'student@example.com',
         ]);
+        $this->repository = new repository($DB);
     }
 
     /**
@@ -73,12 +79,19 @@ final class submit_test_run_test extends \advanced_testcase {
             'repourl'       => 'https://github.com/ada/calc.git',
             'startedatms'   => 1758134400000,
             'finishedatms'  => 1758134403120,
-            'results'       => [
-                ['testname' => 'testAdd', 'status' => 'PASSED', 'testsuite' => null,
-                    'durationms' => 5, 'message' => null],
-            ],
+            'results'       => [$this->testcase(['durationms' => 5])],
             'capturedisabled' => false,
         ], $overrides);
+    }
+
+    /**
+     * Builds one test case result, leaving out the fields that default to null.
+     *
+     * @param array $overrides fields to add or override
+     * @return array one result, as the IDE sends it
+     */
+    private function testcase(array $overrides = []): array {
+        return array_merge(['testname' => 'testAdd', 'status' => 'PASSED'], $overrides);
     }
 
     /**
@@ -119,10 +132,8 @@ final class submit_test_run_test extends \advanced_testcase {
             'results'   => $params['results'] ?? [],
             'testfiles' => $params['testfiles'] ?? [],
         ];
-        unset($params['results'], $params['testfiles']);
-        $params['payload'] = json_encode($payload);
 
-        return submit_test_run::execute(...$params);
+        return $this->submit_payload($params, json_encode($payload));
     }
 
     /**
@@ -139,14 +150,82 @@ final class submit_test_run_test extends \advanced_testcase {
         return submit_test_run::execute(...$params);
     }
 
-    public function test_a_valid_submission_stores_the_run_and_its_results(): void {
+    /**
+     * Submits a located test and its file, marked truncated by the IDE.
+     *
+     * @param bool $capturedisabled whether the student turned source capture off
+     * @return array the return value of execute()
+     */
+    private function submit_captured(bool $capturedisabled): array {
+        return $this->submit($this->params([
+            'capturedisabled' => $capturedisabled,
+            'results' => [$this->testcase(['source' => $this->source()])],
+            'testfiles' => [[
+                'path' => 'tests/test_calculator.py',
+                'content' => self::DECLARATION,
+                'truncated' => true,
+            ]],
+        ]));
+    }
+
+    /**
+     * The run a submission stored.
+     *
+     * @param array $returned the return value of execute()
+     * @return \stdClass
+     */
+    private function stored_run(array $returned): \stdClass {
+        return $this->repository->get_run($returned['runid'], $this->instance->id);
+    }
+
+    /**
+     * The results a submission stored, in display order.
+     *
+     * @param array $returned the return value of execute()
+     * @return \stdClass[]
+     */
+    private function stored_results(array $returned): array {
+        return array_values($this->repository->get_results($returned['runid']));
+    }
+
+    /**
+     * The files a submission stored, by path.
+     *
+     * @param array $returned the return value of execute()
+     * @return \stdClass[]
+     */
+    private function stored_files(array $returned): array {
+        return array_values($this->repository->get_files($returned['runid']));
+    }
+
+    /**
+     * Expects the submission to be rejected with the given reason.
+     *
+     * @param string $identifier the validation language string
+     * @param mixed $a its placeholder value
+     */
+    private function expect_rejection(string $identifier, mixed $a = null): void {
+        $this->expectException(validation_exception::class);
+        $this->expectExceptionMessage(get_string($identifier, 'mod_idetestfeedback', $a));
+    }
+
+    /**
+     * Takes a capability away from a role in the activity.
+     *
+     * @param string $capability the capability
+     * @param string $role the role's short name
+     */
+    private function prohibit(string $capability, string $role): void {
         global $DB;
 
-        $result = $this->submit($this->params());
+        $roleid = $DB->get_field('role', 'id', ['shortname' => $role], MUST_EXIST);
+        assign_capability($capability, CAP_PROHIBIT, $roleid, \context_module::instance($this->instance->cmid));
+    }
 
-        $repository = new repository($DB);
-        $run = $repository->get_run($result['runid'], $this->instance->id);
-        $this->assertNotNull($run);
+    public function test_a_valid_submission_stores_the_run_and_its_results(): void {
+        $returned = $this->submit($this->params());
+
+        $run = $this->stored_run($returned);
         $this->assertSame((int) $this->student->id, (int) $run->userid);
         $this->assertSame('VSCODE', $run->ide);
         $this->assertSame('myproject', $run->projectname);
@@ -157,7 +236,7 @@ final class submit_test_run_test extends \advanced_testcase {
         $this->assertSame(status::PASSED->value, $run->status);
         $this->assertSame(1, (int) $run->passedcount);
 
-        $results = array_values($repository->get_results($run->id));
+        $results = $this->stored_results($returned);
         $this->assertCount(1, $results);
         $this->assertSame('testAdd', $results[0]->testname);
         $this->assertSame(5, (int) $results[0]->durationms);
@@ -186,65 +265,45 @@ final class submit_test_run_test extends \advanced_testcase {
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('run_status_provider')]
     public function test_run_status_is_the_worst_outcome_reported(array $statuses, status $expected): void {
-        global $DB;
-
-        $results = array_map(fn($s) => [
-            'testname' => 'test_' . $s, 'status' => $s, 'testsuite' => null,
-            'durationms' => null, 'message' => null,
-        ], $statuses);
+        $results = array_map(fn($s) => $this->testcase(['testname' => 'test_' . $s, 'status' => $s]), $statuses);
 
         $returned = $this->submit($this->params(['results' => $results]));
 
-        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
-        $this->assertSame($expected->value, $run->status);
+        $this->assertSame($expected->value, $this->stored_run($returned)->status);
     }
 
     public function test_result_status_is_normalised_to_uppercase(): void {
-        global $DB;
-
         // The 'status' parameter is PARAM_ALPHA, which already rejects whitespace;
         // only the case is left for the server to normalise.
-        $returned = $this->submit($this->params(['results' => [
-            ['testname' => 'testAdd', 'status' => 'passed', 'testsuite' => null,
-                'durationms' => null, 'message' => null],
-        ]]));
+        $returned = $this->submit($this->params(['results' => [$this->testcase(['status' => 'passed'])]]));
 
-        $results = array_values((new repository($DB))->get_results($returned['runid']));
-        $this->assertSame(status::PASSED->value, $results[0]->status);
+        $this->assertSame(status::PASSED->value, $this->stored_results($returned)[0]->status);
     }
 
     public function test_string_fields_are_trimmed_and_clipped_to_column_width(): void {
-        global $DB;
-
         $returned = $this->submit($this->params([
             'ide' => str_repeat('i', 60),
             'commithash' => str_repeat('h', 150),
             'repourl' => '  https://example.com/' . str_repeat('r', 1000) . '  ',
-            'results' => [[
+            'results' => [$this->testcase([
                 'testname' => '  ' . str_repeat('n', 1100) . '  ',
-                'status' => 'PASSED',
                 'testsuite' => '  ' . str_repeat('s', 300) . '  ',
-                'durationms' => null,
-                'message' => null,
                 'source' => $this->source(['path' => str_repeat('p', 1100)]),
-            ]],
+            ])],
         ]));
 
-        $repository = new repository($DB);
-        $run = $repository->get_run($returned['runid'], $this->instance->id);
+        $run = $this->stored_run($returned);
         $this->assertSame(str_repeat('i', 50), $run->ide);
         $this->assertSame(str_repeat('h', 100), $run->commithash);
         $this->assertSame('https://example.com/' . str_repeat('r', 1000), $run->repourl);
 
-        $results = array_values($repository->get_results($returned['runid']));
+        $results = $this->stored_results($returned);
         $this->assertSame(str_repeat('n', 1024), $results[0]->testname);
         $this->assertSame(str_repeat('s', 255), $results[0]->testsuite);
         $this->assertSame(str_repeat('p', 1024), $results[0]->sourcefilepath);
     }
 
     public function test_null_optional_fields_are_stored_as_null(): void {
-        global $DB;
-
         $returned = $this->submit($this->params([
             'projectname' => null,
             'commithash' => null,
@@ -253,7 +312,7 @@ final class submit_test_run_test extends \advanced_testcase {
             'finishedatms' => null,
         ]));
 
-        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
+        $run = $this->stored_run($returned);
         $this->assertNull($run->projectname);
         $this->assertNull($run->commithash);
         $this->assertNull($run->repourl);
@@ -262,29 +321,22 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     public function test_blank_optional_fields_are_stored_as_null(): void {
-        global $DB;
-
         $returned = $this->submit($this->params([
             'projectname' => '   ',
             'commithash' => '',
             'repourl' => '  ',
-            'results' => [[
-                'testname' => 'testAdd',
-                'status' => 'PASSED',
+            'results' => [$this->testcase([
                 'testsuite' => '  ',
-                'durationms' => null,
-                'message' => null,
                 'source' => ['path' => ' ', 'startline' => null, 'endline' => null],
-            ]],
+            ])],
         ]));
 
-        $repository = new repository($DB);
-        $run = $repository->get_run($returned['runid'], $this->instance->id);
+        $run = $this->stored_run($returned);
         $this->assertNull($run->projectname);
         $this->assertNull($run->commithash);
         $this->assertNull($run->repourl);
 
-        $results = array_values($repository->get_results($returned['runid']));
+        $results = $this->stored_results($returned);
         $this->assertNull($results[0]->testsuite);
         $this->assertNull($results[0]->sourcefilepath);
     }
@@ -302,67 +354,41 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     public function test_credentials_in_the_repo_url_are_never_stored(): void {
-        global $DB;
-
         $returned = $this->submit($this->params([
             'repourl' => 'https://ada:ghp_secret@github.com/ada/calc.git',
         ]));
 
-        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
-        $this->assertSame('https://github.com/ada/calc.git', $run->repourl);
+        $this->assertSame('https://github.com/ada/calc.git', $this->stored_run($returned)->repourl);
     }
 
     public function test_a_repo_url_too_long_to_store_whole_is_dropped(): void {
-        global $DB;
-
         $returned = $this->submit($this->params([
             'repourl' => 'https://example.com/' . str_repeat('r', 1024),
         ]));
 
-        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
-        $this->assertNull($run->repourl);
-    }
-
-    public function test_a_blank_repo_url_is_stored_as_null(): void {
-        global $DB;
-
-        $returned = $this->submit($this->params(['repourl' => '   ']));
-
-        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
-        $this->assertNull($run->repourl);
+        $this->assertNull($this->stored_run($returned)->repourl);
     }
 
     public function test_it_stores_the_source_block_of_a_result(): void {
-        global $DB;
+        $returned = $this->submit($this->params([
+            'results' => [$this->testcase(['source' => $this->source()])],
+            'testfiles' => $this->sourcefile(),
+        ]));
 
-        $returned = $this->submit($this->params(['results' => [[
-            'testname' => 'test_add_returns_sum',
-            'status' => 'PASSED',
-            'testsuite' => 'test_calculator',
-            'durationms' => 12,
-            'message' => null,
-            'source' => $this->source(),
-        ]], 'testfiles' => $this->sourcefile()]));
-
-        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $results = $this->stored_results($returned);
         $this->assertSame('tests/test_calculator.py', $results[0]->sourcefilepath);
         $this->assertSame(1, (int) $results[0]->sourcestartline);
         $this->assertSame(2, (int) $results[0]->sourceendline);
     }
 
     public function test_a_result_without_a_source_block_stores_nulls(): void {
-        global $DB;
+        $results = $this->stored_results($this->submit($this->params()));
 
-        $returned = $this->submit($this->params());
-
-        $results = array_values((new repository($DB))->get_results($returned['runid']));
         $this->assertNull($results[0]->sourcefilepath);
         $this->assertNull($results[0]->sourcestartline);
     }
 
     public function test_it_stores_the_submitted_test_files(): void {
-        global $DB;
-
         $returned = $this->submit($this->params(['testfiles' => [
             [
                 'path' => 'tests/test_calculator.py',
@@ -376,7 +402,7 @@ final class submit_test_run_test extends \advanced_testcase {
             ],
         ]]));
 
-        $files = array_values((new repository($DB))->get_files($returned['runid']));
+        $files = $this->stored_files($returned);
         $this->assertCount(2, $files);
 
         // Files are ordered by path, so conftest.py comes first.
@@ -389,157 +415,66 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     public function test_a_submission_with_no_test_files_stores_none(): void {
-        global $DB;
-
-        $returned = $this->submit($this->params());
-
-        $this->assertSame([], (new repository($DB))->get_files($returned['runid']));
+        $this->assertSame([], $this->stored_files($this->submit($this->params())));
     }
 
     public function test_it_stores_the_capture_flag(): void {
-        global $DB;
-
         $returned = $this->submit($this->params(['capturedisabled' => true]));
 
-        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
-        $this->assertSame(1, (int) $run->capturedisabled);
+        $this->assertSame(1, (int) $this->stored_run($returned)->capturedisabled);
     }
 
     public function test_a_run_with_capture_disabled_stores_no_code(): void {
         global $DB;
 
-        $returned = $this->submit($this->params([
-            'capturedisabled' => true,
-            'results' => [[
-                'testname' => 'test_add_returns_sum',
-                'status' => 'PASSED',
-                'testsuite' => 'test_calculator',
-                'durationms' => 12,
-                'message' => null,
-                'source' => $this->source(),
-            ]],
-            'testfiles' => [[
-                'path' => 'tests/test_calculator.py',
-                'content' => "import pytest\n",
-                'truncated' => true,
-            ]],
-        ]));
-
-        $repository = new repository($DB);
-        $results = array_values($repository->get_results($returned['runid']));
-        $files = array_values($repository->get_files($returned['runid']));
+        $files = $this->stored_files($this->submit_captured(true));
 
         $this->assertCount(1, $files);
-        $this->assertNull($files[0]->content);
-        $this->assertSame(0, (int) $files[0]->truncated);
-    }
-
-    public function test_capture_disabled_leaves_no_body_hash(): void {
-        global $DB;
-
-        $returned = $this->submit($this->params([
-            'capturedisabled' => true,
-            'results' => [[
-                'testname' => 'test_add_returns_sum',
-                'status' => 'PASSED',
-                'testsuite' => 'test_calculator',
-                'durationms' => 12,
-                'message' => null,
-                'source' => $this->source(),
-            ]],
-            'testfiles' => [[
-                'path' => 'tests/test_calculator.py',
-                'content' => "import pytest\n",
-                'truncated' => false,
-            ]],
-        ]));
-
-        $repository = new repository($DB);
-        $results = array_values($repository->get_results($returned['runid']));
-        $files = array_values($repository->get_files($returned['runid']));
-
         $this->assertSame('tests/test_calculator.py', $files[0]->path);
+        $this->assertNull($files[0]->content);
         $this->assertNull($files[0]->contenthash);
+        $this->assertSame(0, (int) $files[0]->truncated);
         $this->assertNull($DB->get_field('idetestfeedback_file', 'blobid', ['id' => $files[0]->id]));
     }
 
     public function test_capture_disabled_keeps_where_a_test_lives(): void {
-        global $DB;
+        $results = $this->stored_results($this->submit_captured(true));
 
-        $returned = $this->submit($this->params([
-            'capturedisabled' => true,
-            'results' => [[
-                'testname' => 'test_add_returns_sum',
-                'status' => 'PASSED',
-                'testsuite' => 'test_calculator',
-                'durationms' => 12,
-                'message' => null,
-                'source' => $this->source(),
-            ]],
-        ]));
-
-        $results = array_values((new repository($DB))->get_results($returned['runid']));
         $this->assertSame('tests/test_calculator.py', $results[0]->sourcefilepath);
         $this->assertSame(1, (int) $results[0]->sourcestartline);
         $this->assertSame(2, (int) $results[0]->sourceendline);
     }
 
     public function test_a_run_with_capture_enabled_keeps_its_code(): void {
-        global $DB;
+        $files = $this->stored_files($this->submit_captured(false));
 
-        $returned = $this->submit($this->params([
-            'results' => [[
-                'testname' => 'test_add_returns_sum',
-                'status' => 'PASSED',
-                'testsuite' => 'test_calculator',
-                'durationms' => 12,
-                'message' => null,
-                'source' => $this->source(),
-            ]],
-            'testfiles' => $this->sourcefile(),
-        ]));
-
-        $repository = new repository($DB);
-        $results = array_values($repository->get_results($returned['runid']));
-        $files = array_values($repository->get_files($returned['runid']));
-
-        $this->assertSame(self::DECLARATION, $files[0]->content);
         $this->assertCount(1, $files);
+        $this->assertSame(self::DECLARATION, $files[0]->content);
+        $this->assertSame(1, (int) $files[0]->truncated);
     }
 
     public function test_the_capture_flag_defaults_to_off(): void {
-        global $DB;
-
-        $returned = $this->submit($this->params());
-
-        $run = (new repository($DB))->get_run($returned['runid'], $this->instance->id);
-        $this->assertSame(0, (int) $run->capturedisabled);
+        $this->assertSame(0, (int) $this->stored_run($this->submit($this->params()))->capturedisabled);
     }
 
     public function test_oversized_file_content_is_clipped_and_marked_truncated(): void {
-        global $DB;
-
-        $returned = $this->submit($this->params(['testfiles' => [[
+        $files = $this->stored_files($this->submit($this->params(['testfiles' => [[
             'path' => 'tests/big.py',
             'content' => str_repeat('y', 600000),
             'truncated' => false,
-        ]]]));
+        ]]])));
 
-        $files = array_values((new repository($DB))->get_files($returned['runid']));
         $this->assertSame(524288, strlen($files[0]->content));
         $this->assertSame(1, (int) $files[0]->truncated);
     }
 
     public function test_oversized_multibyte_content_is_clipped_by_bytes_on_a_character_boundary(): void {
-        global $DB;
-
-        $returned = $this->submit($this->params(['testfiles' => [[
+        $files = $this->stored_files($this->submit($this->params(['testfiles' => [[
             'path' => 'tests/big.py',
             'content' => str_repeat('õ', 300000),
             'truncated' => false,
-        ]]]));
+        ]]])));
 
-        $files = array_values((new repository($DB))->get_files($returned['runid']));
         $this->assertLessThanOrEqual(524288, strlen($files[0]->content));
         $this->assertTrue(mb_check_encoding($files[0]->content, 'UTF-8'));
         $this->assertSame(1, (int) $files[0]->truncated);
@@ -550,15 +485,13 @@ final class submit_test_run_test extends \advanced_testcase {
             'path' => 'tests/test.py', 'content' => null, 'truncated' => false,
         ]);
 
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_toomanyfiles', 'mod_idetestfeedback', 200));
+        $this->expect_rejection('validation_toomanyfiles', 200);
 
         $this->submit($this->params(['testfiles' => $files]));
     }
 
     public function test_it_rejects_a_file_without_a_path(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_nofilepath', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_nofilepath');
 
         $this->submit($this->params(['testfiles' => [
             ['path' => '   ', 'content' => null, 'truncated' => false],
@@ -586,17 +519,11 @@ final class submit_test_run_test extends \advanced_testcase {
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('invalid_source_lines_provider')]
     public function test_it_rejects_an_impossible_source_line_range(int $startline, int $endline): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_invalidsourcelines', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_invalidsourcelines');
 
-        $this->submit($this->params(['results' => [[
-            'testname' => 'testAdd',
-            'status' => 'PASSED',
-            'testsuite' => null,
-            'durationms' => null,
-            'message' => null,
-            'source' => $this->source(['startline' => $startline, 'endline' => $endline]),
-        ]]]));
+        $this->submit($this->params(['results' => [
+            $this->testcase(['source' => $this->source(['startline' => $startline, 'endline' => $endline])]),
+        ]]));
     }
 
     public function test_it_triggers_a_test_run_submitted_event(): void {
@@ -615,92 +542,52 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     public function test_a_source_of_kind_none_stores_nothing_about_where_the_test_lives(): void {
-        global $DB;
+        $returned = $this->submit($this->params(['results' => [
+            $this->testcase(['source' => ['path' => null, 'startline' => null, 'endline' => null]]),
+        ]]));
 
-        $returned = $this->submit($this->params(['results' => [[
-            'testname' => 'testAdd',
-            'status' => 'PASSED',
-            'testsuite' => null,
-            'durationms' => null,
-            'message' => null,
-            'source' => ['path' => null, 'startline' => null, 'endline' => null],
-        ]]]));
-
-        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $results = $this->stored_results($returned);
         $this->assertNull($results[0]->sourcefilepath);
         $this->assertNull($results[0]->sourcestartline);
         $this->assertNull($results[0]->sourceendline);
     }
 
     public function test_a_source_of_kind_file_drops_line_numbers_it_cannot_mean(): void {
-        global $DB;
+        $returned = $this->submit($this->params([
+            'results' => [$this->testcase(['source' => $this->source(['startline' => null, 'endline' => null])])],
+            'testfiles' => $this->sourcefile(),
+        ]));
 
-        $returned = $this->submit($this->params(['results' => [[
-            'testname' => 'testAdd',
-            'status' => 'PASSED',
-            'testsuite' => null,
-            'durationms' => null,
-            'message' => null,
-            'source' => $this->source(['startline' => null, 'endline' => null]),
-        ]], 'testfiles' => $this->sourcefile()]));
-
-        $results = array_values((new repository($DB))->get_results($returned['runid']));
+        $results = $this->stored_results($returned);
         $this->assertSame('tests/test_calculator.py', $results[0]->sourcefilepath);
         $this->assertNull($results[0]->sourcestartline);
         $this->assertNull($results[0]->sourceendline);
     }
 
     public function test_it_rejects_a_located_source_without_a_file(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(
-            get_string('validation_nosourcefilepath', 'mod_idetestfeedback')
-        );
+        $this->expect_rejection('validation_nosourcefilepath');
 
-        $this->submit($this->params(['results' => [[
-            'testname' => 'testAdd',
-            'status' => 'PASSED',
-            'testsuite' => null,
-            'durationms' => null,
-            'message' => null,
-            'source' => $this->source(['path' => '']),
-        ]]]));
+        $this->submit($this->params(['results' => [$this->testcase(['source' => $this->source(['path' => ''])])]]));
     }
 
     public function test_it_rejects_half_a_line_range(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_invalidsourcelines', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_invalidsourcelines');
 
-        $this->submit($this->params(['results' => [[
-            'testname' => 'testAdd',
-            'status' => 'PASSED',
-            'testsuite' => null,
-            'durationms' => null,
-            'message' => null,
-            'source' => $this->source(['endline' => null]),
-        ]]]));
+        $this->submit($this->params(['results' => [$this->testcase(['source' => $this->source(['endline' => null])])]]));
     }
 
     public function test_it_rejects_a_result_without_a_test_name(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_notestname', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_notestname');
 
-        $this->submit($this->params(['results' => [
-            ['testname' => '  ', 'status' => 'PASSED', 'testsuite' => null,
-                'durationms' => null, 'message' => null],
-        ]]));
+        $this->submit($this->params(['results' => [$this->testcase(['testname' => '  '])]]));
     }
 
     public function test_it_stores_one_row_per_test_file_path(): void {
-        global $DB;
+        $files = $this->stored_files($this->submit($this->params(['testfiles' => [
+            ['path' => 'tests/test_calculator.py', 'content' => "import pytest\n", 'truncated' => false],
+            ['path' => 'tests/test_calculator.py', 'content' => "import sys\n", 'truncated' => false],
+        ]])));
 
-        $returned = $this->submit($this->params(['testfiles' => [
-            ['path' => 'tests/test_calculator.py', 'content' => "import pytest\n",
-                'truncated' => false],
-            ['path' => 'tests/test_calculator.py', 'content' => "import sys\n",
-                'truncated' => false],
-        ]]));
-
-        $files = array_values((new repository($DB))->get_files($returned['runid']));
         $this->assertCount(1, $files);
         $this->assertSame('import pytest', $files[0]->content);
         $this->assertSame(source_code::hash_canonical('import pytest'), $files[0]->contenthash);
@@ -720,40 +607,30 @@ final class submit_test_run_test extends \advanced_testcase {
     public function test_it_rejects_a_normalised_code_hash_a_client_tries_to_assert(): void {
         $this->expectException(\invalid_parameter_exception::class);
 
-        $this->submit($this->params(['results' => [[
-            'testname' => 'testAdd',
-            'status' => 'PASSED',
-            'testsuite' => null,
-            'durationms' => null,
-            'message' => null,
-            'source' => $this->source(['normalizedcodehash' => 'b1946ac92492d234']),
-        ]]]));
+        $this->submit($this->params(['results' => [
+            $this->testcase(['source' => $this->source(['normalizedcodehash' => 'b1946ac92492d234'])]),
+        ]]));
     }
 
     public function test_clipping_a_file_keeps_whole_lines(): void {
-        global $DB;
-
-        $returned = $this->submit($this->params(['testfiles' => [[
+        $files = $this->stored_files($this->submit($this->params(['testfiles' => [[
             'path' => 'tests/big.py',
             'content' => str_repeat("assert True\n", 60000),
             'truncated' => false,
-        ]]]));
+        ]]])));
 
-        $files = array_values((new repository($DB))->get_files($returned['runid']));
         $this->assertSame(1, (int) $files[0]->truncated);
         $this->assertStringEndsWith('assert True', $files[0]->content);
     }
 
     public function test_it_rejects_a_payload_that_is_not_json(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_invalidpayload', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_invalidpayload');
 
         $this->submit_payload($this->params(), 'not json at all');
     }
 
     public function test_it_rejects_a_payload_that_is_not_an_object(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_invalidpayload', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_invalidpayload');
 
         $this->submit_payload($this->params(), '"a string"');
     }
@@ -765,84 +642,63 @@ final class submit_test_run_test extends \advanced_testcase {
     }
 
     public function test_it_accepts_a_run_far_past_the_post_variable_limit(): void {
-        global $DB;
+        $returned = $this->submit($this->params(['results' => array_fill(0, 1500, $this->testcase())]));
 
-        $results = array_fill(0, 1500, [
-            'testname' => 'test', 'status' => 'PASSED', 'testsuite' => null,
-            'durationms' => null, 'message' => null,
-        ]);
-
-        $returned = $this->submit($this->params(['results' => $results]));
-
-        $this->assertCount(1500, (new repository($DB))->get_results($returned['runid']));
+        $this->assertCount(1500, $this->stored_results($returned));
     }
 
     public function test_it_rejects_an_empty_results_array(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_noresults', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_noresults');
 
         $this->submit($this->params(['results' => []]));
     }
 
     public function test_it_rejects_more_than_the_maximum_number_of_results(): void {
-        $results = array_fill(0, 5001, [
-            'testname' => 'test', 'status' => 'PASSED', 'testsuite' => null,
-            'durationms' => null, 'message' => null,
-        ]);
+        $this->expect_rejection('validation_toomanyresults', 5000);
 
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_toomanyresults', 'mod_idetestfeedback', 5000));
-
-        $this->submit($this->params(['results' => $results]));
+        $this->submit($this->params(['results' => array_fill(0, 5001, $this->testcase())]));
     }
 
     public function test_it_rejects_a_blank_ide(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_noide', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_noide');
 
         $this->submit($this->params(['ide' => '']));
     }
 
     public function test_it_rejects_an_invalid_result_status(): void {
-        $this->expectException(validation_exception::class);
+        $this->expect_rejection('validation_invalidstatus', 'BOGUS');
 
-        $this->submit($this->params(['results' => [
-            ['testname' => 'testAdd', 'status' => 'BOGUS', 'testsuite' => null,
-                'durationms' => null, 'message' => null],
-        ]]));
+        $this->submit($this->params(['results' => [$this->testcase(['status' => 'BOGUS'])]]));
     }
 
-    public function test_it_rejects_a_negative_duration(): void {
-        $this->expectException(validation_exception::class);
-
-        $this->submit($this->params(['results' => [[
-            'testname' => 'testAdd', 'status' => 'PASSED', 'testsuite' => null,
-            'durationms' => -1, 'message' => null,
-        ]]]));
+    /**
+     * Data provider for test_it_rejects_impossible_timing().
+     *
+     * @return array[] [parameters to override the valid defaults with]
+     */
+    public static function invalid_timing_provider(): array {
+        return [
+            'negative duration' => [['results' => [['testname' => 'testAdd', 'status' => 'PASSED', 'durationms' => -1]]]],
+            'negative start' => [['startedatms' => -1]],
+            'negative finish' => [['finishedatms' => -1]],
+            'finishing before it started' => [['startedatms' => 2000, 'finishedatms' => 1000]],
+        ];
     }
 
-    public function test_it_rejects_a_negative_startedatms(): void {
-        $this->expectException(validation_exception::class);
+    /**
+     * Impossible run and test timings are rejected.
+     *
+     * @param array $overrides the parameters carrying the impossible timing
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('invalid_timing_provider')]
+    public function test_it_rejects_impossible_timing(array $overrides): void {
+        $this->expect_rejection('validation_invalidtiming');
 
-        $this->submit($this->params(['startedatms' => -1]));
-    }
-
-    public function test_it_rejects_a_negative_finishedatms(): void {
-        $this->expectException(validation_exception::class);
-
-        $this->submit($this->params(['finishedatms' => -1]));
-    }
-
-    public function test_it_rejects_a_run_finishing_before_it_started(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_invalidtiming', 'mod_idetestfeedback'));
-
-        $this->submit($this->params(['startedatms' => 2000, 'finishedatms' => 1000]));
+        $this->submit($this->params($overrides));
     }
 
     public function test_it_rejects_an_unknown_email(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_usernotfound', 'mod_idetestfeedback', 'nobody@example.com'));
+        $this->expect_rejection('validation_usernotfound', 'nobody@example.com');
 
         $this->submit($this->params(['email' => 'nobody@example.com']));
     }
@@ -850,8 +706,7 @@ final class submit_test_run_test extends \advanced_testcase {
     public function test_it_rejects_an_empty_email(): void {
         $this->getDataGenerator()->create_and_enrol($this->course, 'student', ['email' => '']);
 
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_noemail', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_noemail');
 
         $this->submit($this->params(['email' => '']));
     }
@@ -867,25 +722,15 @@ final class submit_test_run_test extends \advanced_testcase {
     public function test_it_rejects_a_submission_to_a_hidden_activity(): void {
         set_coursemodule_visible($this->instance->cmid, 0);
 
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_activityunavailable', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_activityunavailable');
 
         $this->submit($this->params());
     }
 
     public function test_it_rejects_a_student_who_may_not_view_the_activity(): void {
-        global $DB;
+        $this->prohibit('mod/idetestfeedback:view', 'student');
 
-        $studentrole = $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
-        assign_capability(
-            'mod/idetestfeedback:view',
-            CAP_PROHIBIT,
-            $studentrole,
-            \context_module::instance($this->instance->cmid)
-        );
-
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_activityunavailable', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_activityunavailable');
 
         $this->submit($this->params());
     }
@@ -895,25 +740,15 @@ final class submit_test_run_test extends \advanced_testcase {
             'email' => 'teacher@example.com',
         ]);
 
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_cannotrecordruns', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_cannotrecordruns');
 
         $this->submit($this->params(['email' => $teacher->email]));
     }
 
     public function test_it_rejects_a_student_who_may_not_record_runs(): void {
-        global $DB;
+        $this->prohibit('mod/idetestfeedback:recordruns', 'student');
 
-        $studentrole = $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
-        assign_capability(
-            'mod/idetestfeedback:recordruns',
-            CAP_PROHIBIT,
-            $studentrole,
-            \context_module::instance($this->instance->cmid)
-        );
-
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_cannotrecordruns', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_cannotrecordruns');
 
         $this->submit($this->params());
     }
@@ -921,19 +756,13 @@ final class submit_test_run_test extends \advanced_testcase {
     public function test_it_rejects_an_ambiguous_email(): void {
         $this->getDataGenerator()->create_user(['email' => 'student@example.com']);
 
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(
-            get_string('validation_ambiguousemail', 'mod_idetestfeedback', 'student@example.com')
-        );
+        $this->expect_rejection('validation_ambiguousemail', 'student@example.com');
 
         $this->submit($this->params());
     }
 
     public function test_it_rejects_an_unknown_assignment_key(): void {
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(
-            get_string('validation_assignmentnotfound', 'mod_idetestfeedback', 'nosuchkey')
-        );
+        $this->expect_rejection('validation_assignmentnotfound', 'nosuchkey');
 
         $this->submit($this->params(['assignmentkey' => 'nosuchkey']));
     }
@@ -941,26 +770,27 @@ final class submit_test_run_test extends \advanced_testcase {
     public function test_it_rejects_a_user_who_is_not_enrolled(): void {
         $stranger = $this->getDataGenerator()->create_user(['email' => 'stranger@example.com']);
 
-        $this->expectException(validation_exception::class);
-        $this->expectExceptionMessage(get_string('validation_notenrolled', 'mod_idetestfeedback'));
+        $this->expect_rejection('validation_notenrolled');
 
         $this->submit($this->params(['email' => $stranger->email]));
     }
 
     public function test_it_rejects_a_submission_before_the_window_opens(): void {
         global $DB;
-        $DB->set_field('idetestfeedback', 'timeopen', time() + DAYSECS, ['id' => $this->instance->id]);
+        $timeopen = time() + DAYSECS;
+        $DB->set_field('idetestfeedback', 'timeopen', $timeopen, ['id' => $this->instance->id]);
 
-        $this->expectException(validation_exception::class);
+        $this->expect_rejection('validation_windownotopen', userdate($timeopen));
 
         $this->submit($this->params());
     }
 
     public function test_it_rejects_a_submission_after_the_window_closes(): void {
         global $DB;
-        $DB->set_field('idetestfeedback', 'timeclose', time() - DAYSECS, ['id' => $this->instance->id]);
+        $timeclose = time() - DAYSECS;
+        $DB->set_field('idetestfeedback', 'timeclose', $timeclose, ['id' => $this->instance->id]);
 
-        $this->expectException(validation_exception::class);
+        $this->expect_rejection('validation_windowclosed', userdate($timeclose));
 
         $this->submit($this->params());
     }

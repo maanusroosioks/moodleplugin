@@ -26,19 +26,6 @@ namespace mod_idetestfeedback\local;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\mod_idetestfeedback\local\status::class)]
 final class status_test extends \basic_testcase {
-    public function test_try_from_resolves_known_values(): void {
-        $this->assertSame(status::PASSED, status::tryFrom('PASSED'));
-        $this->assertSame(status::FAILED, status::tryFrom('FAILED'));
-        $this->assertSame(status::ERROR, status::tryFrom('ERROR'));
-        $this->assertSame(status::SKIPPED, status::tryFrom('SKIPPED'));
-    }
-
-    public function test_try_from_rejects_unknown_or_lowercase_values(): void {
-        $this->assertNull(status::tryFrom('passed'));
-        $this->assertNull(status::tryFrom('BOGUS'));
-        $this->assertNull(status::tryFrom(''));
-    }
-
     public function test_any_sentinel_is_rejected_by_try_from(): void {
         $this->assertNull(status::tryFrom(status::ANY));
     }

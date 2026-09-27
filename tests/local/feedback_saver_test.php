@@ -123,6 +123,22 @@ final class feedback_saver_test extends \advanced_testcase {
         $this->assertCount(0, $changed);
     }
 
+    public function test_save_ignores_a_result_of_another_run(): void {
+        $otherrun = $this->getDataGenerator()->get_plugin_generator('mod_idetestfeedback')->create_run([
+            'idetestfeedbackid' => $this->run->idetestfeedbackid,
+            'userid' => $this->run->userid,
+            'results' => [['testname' => 'testMul', 'status' => 'FAILED']],
+        ]);
+        $otherresult = current($this->repository->get_results($otherrun->id));
+
+        $changed = $this->saver->save((int) $this->run->id, [
+            (int) $otherresult->id => 'Injected',
+        ], $this->teacher->id);
+
+        $this->assertSame([], $changed);
+        $this->assertNull(current($this->repository->get_results($otherrun->id))->feedback);
+    }
+
     public function test_save_with_nothing_submitted_changes_nothing(): void {
         $changed = $this->saver->save((int) $this->run->id, [], $this->teacher->id);
 
