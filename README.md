@@ -74,12 +74,18 @@ no role by default)
 | `repourl` | text | no | Git remote, e.g. `https://github.com/ada/calc.git` or `git@github.com:ada/calc.git`. Credentials in it (`user:token@`) are removed before storing. One longer than 1024 characters is not stored. When it points at a web host, the commit hash links to `<repo>/commit/<hash>`. |
 | `startedatms` | int | no | Epoch **milliseconds**. |
 | `finishedatms` | int | no | Epoch **milliseconds**. |
-| `payload` | text | yes | JSON object holding `results` and `testfiles` (see below). |
+| `payload` | string | yes | JSON object holding `results` and `testfiles` (see below). |
 | `capturedisabled` | bool | no | The student turned off sending source code. Any code posted alongside it is dropped, and with it every hash taken from it (see Validation). |
 
 The parameter names are lowercase: a middleware posting the IDE's camelCase
 payload maps `assignmentKey` → `assignmentkey`, `testFiles` → `testfiles`, and
 so on. An unexpected parameter fails validation outright.
+
+Typed parameters are checked, not silently cleaned: a value Moodle's cleaning
+would change is rejected with `invalid_parameter_exception`. An `email` that
+isn't a valid address, an `ide` or `assignmentkey` with characters outside
+letters, digits, `-` and `_`, or a `projectname` or `repourl` containing HTML
+tags all fail this way. `string` values are taken as sent.
 
 The run's two lists travel as one JSON string rather than as nested form
 parameters. Moodle's REST server reads its parameters from `$_POST`, where each
@@ -93,7 +99,7 @@ Content-Type: application/x-www-form-urlencoded
 
 wstoken=...&wsfunction=mod_idetestfeedback_submit_test_run
 &moodlewsrestformat=json
-&email=student%40example.com&assignmentkey=ABC123&ide=VSCODE
+&email=student%40example.com&assignmentkey=3f9c2a7b1e8d4c6a9b0e2f5d7c1a4b8e&ide=VSCODE
 &payload=%7B%22results%22%3A%5B...%5D%2C%22testfiles%22%3A%5B...%5D%7D
 ```
 
@@ -115,11 +121,11 @@ Each `results` entry:
 
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `testname` | text | yes | Must not be blank. |
-| `status` | alpha | yes | One of `PASSED`, `FAILED`, `SKIPPED`, `ERROR`. |
-| `testsuite` | text | no | |
+| `testname` | string | yes | Must not be blank. |
+| `status` | alpha | yes | One of `PASSED`, `FAILED`, `SKIPPED`, `ERROR`, in any letter case. |
+| `testsuite` | string | no | |
 | `durationms` | int | no | |
-| `message` | text | no | Failure / error message. |
+| `message` | string | no | Failure / error message. |
 | `source` | object | no | Where the test case came from (see below). |
 
 Each `results[].source` object says where in the run's `testfiles` the test came
@@ -128,7 +134,7 @@ result points into it.
 
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `path` | text | with a line range | Repo-relative path of the file the test is defined in. Joins to `testfiles[].path`. |
+| `path` | string | with a line range | Repo-relative path of the file the test is defined in. Joins to `testfiles[].path`. |
 | `startline` | int | no | 1-based, inclusive. Send both line numbers or neither. |
 | `endline` | int | no | 1-based, inclusive. Must not be below `startline`. |
 
@@ -147,10 +153,10 @@ Moodle computes every stored hash itself, over the bytes it is about to store.
 Nothing a client sends is taken on trust. The only hash kept is the one each
 file body is stored under, so identical bodies share one `idetestfeedback_blob` row.
 
-Before hashing, a body is canonicalised: a leading UTF-8 byte order mark is
-removed, CRLF and CR become LF, trailing
-whitespace goes from each line, and the trailing newline is dropped. Nothing
-else. Comments, tokens and indentation are **not** folded away, because doing
+Before hashing, a body is canonicalised: CRLF and CR become LF, a trailing IDE
+truncation marker (`… [truncated …]`) and a leading UTF-8 byte order mark are
+removed, trailing whitespace goes from each line, and trailing newlines are
+dropped. Nothing else. Comments, tokens and indentation are **not** folded away, because doing
 that needs a parser per language and Moodle has no business owning one.
 
 A test's body is always cut out of the run's copy of its file at
@@ -161,8 +167,8 @@ Each `testfiles` entry:
 
 | Name | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `path` | text | yes | Repo-relative path. Must not be blank. One row per path: a repeated path keeps the first entry. |
-| `content` | text | no | Clipped to 512 KB, setting `truncated`. Stored canonicalised, so it may differ from what was posted by a byte order mark, its line endings and trailing whitespace. |
+| `path` | string | yes | Repo-relative path. Must not be blank. One row per path: a repeated path keeps the first entry. |
+| `content` | string | no | Clipped to 512 KB, setting `truncated`. Stored canonicalised, so it may differ from what was posted by a byte order mark, its line endings and trailing whitespace. |
 | `truncated` | bool | no | The content is not the whole file. |
 
 ### Returns
@@ -171,27 +177,49 @@ Each `testfiles` entry:
 { "runid": 123 }
 ```
 
+### Errors
+
+A rejected submission stores nothing and returns Moodle's standard error object
+instead of `runid`, with the message in the site language:
+
+```json
+{
+  "exception": "mod_idetestfeedback\\local\\validation_exception",
+  "errorcode": "validation_usernotfound",
+  "message": "No active user was found with the email \"student@example.com\"."
+}
+```
+
+Match on `errorcode`; the message is for people.
+
 ### Validation
 
-The submission is rejected (with a localised message) when:
+Checks run in this order, and the first failure is the one returned:
 
-- no active user matches `email`, or more than one does;
-- no activity matches `assignmentkey`;
-- the user is not enrolled in the activity's course;
-- the activity is hidden from the user, or the user lacks
-  `mod/idetestfeedback:view` or `mod/idetestfeedback:recordruns` in it;
-- the current time is before `timeopen` or after `timeclose`;
-- any result has a `status` outside the allowed set;
-- `payload` is not a JSON object;
-- `results` is empty, or holds more than 5000 entries;
-- `ide` is blank;
-- `startedatms`, `finishedatms` or any `durationms` is negative, or the run finishes
-  before it starts;
-- any result has a blank `testname`;
-- `testfiles` holds more than 200 entries, or any entry has a blank `path`;
-- a `source` names a line range but no `path`;
-- a `source` sends one line number without the other, starts below line 1, or
-  ends before it starts.
+| Rejected when | `errorcode` |
+| --- | --- |
+| The calling account lacks `mod/idetestfeedback:submit` | `nopermissions` (`required_capability_exception`) |
+| A parameter is missing, unexpected, or fails cleaning | `invalidparameter` (`invalid_parameter_exception`) |
+| `payload` is not a JSON object | `validation_invalidpayload` |
+| `results` holds more than 5000 entries, or `testfiles` more than 200 | `validation_toomanyresults`, `validation_toomanyfiles` |
+| The `payload` contents don't match the structure above | `invalidparameter` |
+| `email` is empty | `validation_noemail` |
+| `results` is empty | `validation_noresults` |
+| `ide` is blank | `validation_noide` |
+| A result has a blank `testname` | `validation_notestname` |
+| A result has a `status` outside the allowed set | `validation_invalidstatus` |
+| A result has a negative `durationms` | `validation_invalidtiming` |
+| A `source` names a line range but no `path` | `validation_nosourcefilepath` |
+| A `source` sends one line number without the other, starts below line 1, or ends before it starts | `validation_invalidsourcelines` |
+| A `testfiles` entry has a blank `path` | `validation_nofilepath` |
+| `startedatms` or `finishedatms` is negative, or the run finishes before it starts | `validation_invalidtiming` |
+| No active user has the `email`, or more than one does | `validation_usernotfound`, `validation_ambiguousemail` |
+| No activity uses the `assignmentkey` | `validation_assignmentnotfound` |
+| The user is not actively enrolled in the activity's course | `validation_notenrolled` |
+| The activity is hidden from the user, or the user lacks `mod/idetestfeedback:view` in it | `validation_activityunavailable` |
+| The user lacks `mod/idetestfeedback:recordruns` in the activity | `validation_cannotrecordruns` |
+| The current time is before `timeopen` or after `timeclose` | `validation_windownotopen`, `validation_windowclosed` |
+| Another write to the same activity held its lock for over 30 seconds | `locktimeout` |
 
 Oversized `testfiles[].content` does not reject the submission:
 it is clipped and stored with `truncated` set, which is what the run detail page
@@ -203,13 +231,11 @@ shown; every file after that links to a page of its own instead, so a run at the
 limits does not turn into one enormous page.
 
 `capturedisabled` is enforced rather than taken on trust. A submission that sets
-it is stored without any `testfiles[].content`, whatever the client sent. The run detail page badges such a run as having no
-captured code, so the badge and the stored data cannot disagree.
-
-What is *not* dropped is everything that describes where the code was, rather
-than what it was: `source.path`, `startline` and `endline`.
-
-No file hash survives either, because there are no bytes left to take one from.
+it is stored without any `testfiles[].content`, whatever the client sent, and so
+without any file hash either. What describes where the code was is kept:
+`testfiles[].path`, `source.path`, `startline` and `endline`. The run detail
+page badges such a run as having no captured code, so the badge and the stored
+data cannot disagree.
 
 The stored run's overall `status` is derived from its results: `ERROR` if any
 result errored, otherwise `FAILED` if any failed, otherwise `PASSED` if at least
@@ -272,32 +298,41 @@ notification preferences.
 
 1. Copy this directory to `public/mod/idetestfeedback` in your Moodle tree
    (this repo is already checked out at that path).
-2. Bump `$plugin->version` in [version.php](version.php) if you changed the
-   schema or strings.
-3. Run the upgrade:
+2. Run the upgrade:
    ```
    php admin/cli/upgrade.php
    ```
    or visit **Site administration → Notifications**.
-4. Enable web services and create a token for the service account:
-   - **Site administration → Server → Web services → Overview**, or
-   - assign `mod/idetestfeedback:submit` to the service account and issue a token
-     for the *IDE Test Results Service*.
+3. Set up the account the middleware calls Moodle as:
+   1. Create a user for the middleware. It needs no course enrolments.
+   2. Create a role that can be assigned in the system context, allowing
+      `mod/idetestfeedback:submit` and `webservice/rest:use`, and assign it to
+      that user in the system context. No role has either capability by default.
+   3. Under **Site administration → Server → Web services**, enable web services
+      and the REST protocol. Enable the *IDE Test Results Service*, which is
+      installed disabled, and add the user to its authorised users.
+   4. Create a token for the user on that service and configure the middleware
+      with it.
 
 ### Requirements
 
-- Moodle 4.5+ (`$plugin->requires = 2024100700`).
+- Moodle 4.5 to 5.3 (`$plugin->requires = 2024100700`, `$plugin->supported = [405, 503]`).
 
 Languages: English. Translations are managed through AMOS.
 
 ## Tests
 
+Run these in the Moodle root inside the `webserver` container (see below).
+Initialise PHPUnit once, and again after any schema change, then run the
+plugin's suite:
+
 ```bash
-vendor/bin/phpunit --filter mod_idetestfeedback
+php public/admin/tool/phpunit/cli/init.php
+vendor/bin/phpunit --testsuite mod_idetestfeedback_testsuite
 ```
 
-- `tests/custom_completion_test.php` — the `completionpassrun` rule, including
-  the skipped-test behaviour described above.
+Tests create runs with `create_run()` from `tests/generator/lib.php`, which
+stores a run without going through the web service.
 
 ## Development environment
 
@@ -315,10 +350,21 @@ export MOODLE_DOCKER_DB_PORT=5433
 bin/moodle-docker-compose up -d
 ```
 
-After changing plugin files, apply the upgrade inside the container:
+After changing anything under `db/`, bump `$plugin->version` in
+[version.php](version.php) and apply the upgrade inside the container. After
+changing language strings or templates, purging caches is enough:
 
 ```bash
 bin/moodle-docker-compose exec webserver php admin/cli/upgrade.php
+bin/moodle-docker-compose exec webserver php admin/cli/purge_caches.php
+```
+
+Check the coding style with moodle-cs, installed globally in the container
+(`vendor/bin/phpcs` in the Moodle root is a broken link):
+
+```bash
+bin/moodle-docker-compose exec webserver /root/.composer/vendor/bin/phpcs \
+    --standard=moodle-extra public/mod/idetestfeedback
 ```
 
 On WSL, make sure your user can talk to the Docker daemon first
